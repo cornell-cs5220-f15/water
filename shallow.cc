@@ -104,18 +104,18 @@ public:
     Central2D(real w, real h, int nx, int ny,
               real cfl = 0.2, real theta = 1.0) :
         nx(nx), ny(ny),
-        nbx(nx + 2*md),
-        nby(ny + 2*md),
+        nx_all(nx + 2*nghost),
+        ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
         cfl(cfl), theta(theta),
-        u_ (nbx * nby),
-        f_ (nbx * nby),
-        g_ (nbx * nby),
-        ux_(nbx * nby),
-        uy_(nbx * nby),
-        fx_(nbx * nby),
-        gy_(nbx * nby),
-        v_ (nbx * nby) {}
+        u_ (nx_all * ny_all),
+        f_ (nx_all * ny_all),
+        g_ (nx_all * ny_all),
+        ux_(nx_all * ny_all),
+        uy_(nx_all * ny_all),
+        fx_(nx_all * ny_all),
+        gy_(nx_all * ny_all),
+        v_ (nx_all * ny_all) {}
 
     void run(real tfinal);
 
@@ -130,10 +130,10 @@ public:
     void solution_check();
 
 private:
-    static const int md = 3;   // Number of ghost cells
+    static constexpr int nghost = 3;   // Number of ghost cells
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
-    const int nbx, nby;        // Total cells in x/y (including ghost)
+    const int nx_all, ny_all;  // Total cells in x/y (including ghost)
     const real dx, dy;         // Cell size in x/y
     const real theta;          // Parameter for minmod limiter
     const real cfl;            // Allowed CFL number
@@ -149,30 +149,31 @@ private:
 
     // Array accessor functions
 
-    int offset(int i, int j)  { return j*nbx+i; }
+    int offset(int ix, int iy)  { return iy*nx_all+ix; }
 
-    vec& u(int i, int j)    { return u_[offset(i,j)]; }
-    vec& v(int i, int j)    { return v_[offset(i,j)]; }
-    vec& f(int i, int j)    { return f_[offset(i,j)]; }
-    vec& g(int i, int j)    { return g_[offset(i,j)]; }
+    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
+    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
+    vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
+    vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
 
-    vec& ux(int i, int j)   { return ux_[offset(i,j)]; }
-    vec& uy(int i, int j)   { return uy_[offset(i,j)]; }
-    vec& fx(int i, int j)   { return fx_[offset(i,j)]; }
-    vec& gy(int i, int j)   { return gy_[offset(i,j)]; }
+    vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
+    vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
+    vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
+    vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
 
     // Wrapped accessor (periodic BC)
-    int ioffset(int i, int j) { return offset( (i+nx-md) % nx + md,
-                                               (j+ny-md) % ny + md ); }
+    int ioffset(int ix, int iy) {
+        return offset( (ix+nx-nghost) % nx + nghost,
+                       (iy+ny-nghost) % ny + nghost );
+    }
 
-    vec& uwrap(int i, int j)  { return u_[ioffset(i,j)]; }
+    vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
 
     // Differencing with minmod limiter
 
     real xmin(real a, real b) {
-        return
-            (copysign((real) 0.5, a) + copysign((real) 0.5, b)) *
-            min(abs(a), abs(b));
+        return (( copysign((real) 0.5, a) + copysign((real) 0.5, b) ) *
+                min( abs(a), abs(b) ));
     }
 
     real xmic(real du1, real du2) {
@@ -185,7 +186,7 @@ private:
 
     void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
         for (int m = 0; m < du.size(); ++m)
-            du[m] = xmic(u0[m]-um[m], up[m]-u0[m]);
+            du[m] = limdiff(um[m], u0[m], up[m]);
     }
 
     // Stages of the main algorithm
@@ -200,7 +201,7 @@ private:
 
 /*
  * Apply periodic boundary conditions by copying ghost cell data
- * We assume the range [md, nx+md]-by-[md, ny+md] has the
+ * We assume the range [nghost, nx+nghost]-by-[nghost, ny+nghost] has the
  * "canonical" versions of the cell values, and other cells should
  * be overwritten.
  */
@@ -208,17 +209,17 @@ template <class Physics>
 void Central2D<Physics>::apply_periodic()
 {
     // Copy data between right and left boundaries
-    for (int j = 0; j < nby; ++j)
-        for (int i = 0; i < md; ++i) {
-            u(i,      j) = uwrap(i,      j);
-            u(nx+md+i,j) = uwrap(nx+md+i,j);
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nghost; ++ix) {
+            u(ix,          iy) = uwrap(ix,          iy);
+            u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
         }
 
     // Copy data between top and bottom boundaries
-    for (int i = 0; i < nbx; ++i)
-        for (int j = 0; j < md; ++j) {
-            u(i,      j) = uwrap(i,      j);
-            u(i,ny+md+j) = uwrap(i,ny+md+j);
+    for (int ix = 0; ix < nx_all; ++ix)
+        for (int iy = 0; iy < nghost; ++iy) {
+            u(ix,          iy) = uwrap(ix,          iy);
+            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
         }
 }
 
@@ -231,14 +232,14 @@ void Central2D<Physics>::apply_periodic()
 template <class Physics>
 void Central2D<Physics>::compute_fg_speeds(real& cx_, real& cy_)
 {
-    real cx = 1.0e-8f;
-    real cy = 1.0e-8f;
-    for (int j = 0; j < nby; ++j)
-        for (int i = 0; i < nbx; ++i) {
+    real cx = 1.0e-15;
+    real cy = 1.0e-15;
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::F(f(i,j), u(i,j));
-            Physics::G(g(i,j), u(i,j));
-            Physics::wave_speed(cell_cx, cell_cy, u(i,j));
+            Physics::F(f(ix,iy), u(ix,iy));
+            Physics::G(g(ix,iy), u(ix,iy));
+            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
@@ -255,16 +256,16 @@ void Central2D<Physics>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics>
 void Central2D<Physics>::limited_derivs()
 {
-    for (int j = 1; j < nby-1; ++j)
-        for (int i = 1; i < nbx-1; ++i) {
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix) {
 
             // x derivs
-            limdiff( ux(i,j), u(i-1,j), u(i,j), u(i+1,j) );
-            limdiff( fx(i,j), f(i-1,j), f(i,j), f(i+1,j) );
+            limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
+            limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
 
             // y derivs
-            limdiff( uy(i,j), u(i,j-1), u(i,j), u(i,j+1) );
-            limdiff( gy(i,j), g(i,j-1), g(i,j), g(i,j+1) );
+            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
+            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
         }
 }
 
@@ -282,36 +283,38 @@ void Central2D<Physics>::compute_step(int io, real dt)
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    for (int j = 1; j < nby-1; ++j)
-        for (int i = 1; i < nbx-1; ++i) {
-            vec uh;
-            for (int m = 0; m < uh.size(); ++m)
-                uh[m] = u(i,j)[m] - dtcdx2 * f(i,j)[m] - dtcdy2 * g(i,j)[m];
-            Physics::F(f(i,j), uh);
-            Physics::G(g(i,j), uh);
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix) {
+            vec uh = u(ix,iy);
+            for (int m = 0; m < uh.size(); ++m) {
+                uh[m] -= dtcdx2 * fx(ix,iy)[m];
+                uh[m] -= dtcdy2 * gy(ix,iy)[m];
+            }
+            Physics::F(f(ix,iy), uh);
+            Physics::G(g(ix,iy), uh);
         }
 
     // Corrector (finish the step)
-    for (int j = md-io; j < ny+md-io; ++j)
-        for (int i = md-io; i < nx+md-io; ++i) {
-            for (int m = 0; m < v(i,j).size(); ++m) {
-                v(i,j)[m] =
-                    0.2500 * ( u(i,  j)[m] + u(i+1,j  )[m] +
-                               u(i,j+1)[m] + u(i+1,j+1)[m] ) -
-                    0.0625 * ( ux(i+1,j  )[m] - ux(i,j  )[m] +
-                               ux(i+1,j+1)[m] - ux(i,j+1)[m] +
-                               uy(i,  j+1)[m] - uy(i,  j)[m] +
-                               uy(i+1,j+1)[m] - uy(i+1,j)[m] ) -
-                    dtcdx2 * ( f(i+1,j  )[m] - f(i,j  )[m] +
-                               f(i+1,j+1)[m] - f(i,j+1)[m] ) -
-                    dtcdy2 * ( g(i,  j+1)[m] - g(i,  j)[m] +
-                               g(i+1,j+1)[m] - g(i+1,j)[m] );
+    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
+        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+            for (int m = 0; m < v(ix,iy).size(); ++m) {
+                v(ix,iy)[m] =
+                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
+                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
+                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
+                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
+                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
+                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
+                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
+                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
+                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
+                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
             }
         }
 
     // Copy from v storage back to main grid
-    for (int j = md; j < ny+md; ++j)
-        for (int i = md; i < nx+md; ++i)
+    for (int j = nghost; j < ny+nghost; ++j)
+        for (int i = nghost; i < nx+nghost; ++i)
             u(i,j) = v(i-io,j-io);
 }
 
@@ -360,10 +363,10 @@ template <class Physics>
 void Central2D<Physics>::solution_check()
 {
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u(md,md)[0];
+    real hmin = u(nghost,nghost)[0];
     real hmax = hmin;
-    for (int j = md; j < ny+md; ++j)
-        for (int i = md; i < nx+md; ++i) {
+    for (int j = nghost; j < ny+nghost; ++j)
+        for (int i = nghost; i < nx+nghost; ++i) {
             vec& uij = u(i,j);
             real h = uij[0];
             h_sum += h;
@@ -373,7 +376,7 @@ void Central2D<Physics>::solution_check()
             hmin = min(h, hmin);
             assert( h > 0) ;
         }
-    float cell_area = dx*dy;
+    real cell_area = dx*dy;
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
@@ -399,7 +402,7 @@ void Central2D<Physics>::write_pgm(const char* fname, F f)
     fprintf(fp, "%d %d 255\n", nx, ny);
     for (int iy = ny-1; iy >= 0; --iy)
         for (int ix = 0; ix < nx; ++ix)
-            fputc(min(255, max(0, f(u(ix+md,iy+md)))), fp);
+            fputc(min(255, max(0, f(u(ix+nghost,iy+nghost)))), fp);
     fclose(fp);
 }
 
@@ -414,10 +417,11 @@ template <class Physics>
 template <typename F>
 void Central2D<Physics>::init(F f)
 {
-    for (int j = 0; j < ny; ++j)
-        for (int i = 0; i < nx; ++i)
-            f(u(md+i,md+j), (i+0.5f)*dx, (j+0.5f)*dy);
+    for (int iy = 0; iy < ny; ++iy)
+        for (int ix = 0; ix < nx; ++ix)
+            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
 }
+
 
 /********************************************************************
  * # Initial states and graphics
@@ -434,7 +438,7 @@ void dam_break(Central2D<Shallow2D>::vec& u, double x, double y)
 {
     x -= 1;
     y -= 1;
-    u[0] = 1.0 + 1.5*(x*x + y*y < 0.25);
+    u[0] = 1.0 + 0.5*(x*x + y*y < 0.25+1e-5);
     u[1] = 0;
     u[2] = 0;
 }
@@ -479,10 +483,10 @@ int show_momentum(const Central2D<Shallow2D>::vec& u)
 
 int main()
 {
-    Central2D<Shallow2D> sim(2,2, 300,300, 0.2, 2.0);
+    Central2D<Shallow2D> sim(2,2, 200,200, 0.2, 2.0);
     sim.init(dam_break);
     sim.solution_check();
     sim.write_pgm("test.pgm", show_height);
-    sim.run(0.25);
+    sim.run(0.5);
     sim.write_pgm("test2.pgm", show_height);
 }
