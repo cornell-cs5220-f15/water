@@ -7,4 +7,4 @@ run: shallow
 	convert test2.pgm test2.png
 
 clean:
-	rm -f test.pgm test2.pgm test.png test2.png
+	rm -f shallow test.pgm test2.pgm test.png test2.png

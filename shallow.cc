@@ -45,18 +45,16 @@ struct Shallow2D {
 
     static constexpr real g = 9.8;  // Gravitational force
 
-    static void F(vec& FU, const vec& U) {
+    static void flux(vec& FU, vec& GU, const vec& U) {
         real h = U[0], hu = U[1], hv = U[2];
+
         FU[0] = hu;
         FU[1] = hu*hu/h + (0.5*g)*h*h;
         FU[2] = hu*hv/h;
-    }
 
-    static void G(vec& FU, const vec& U) {
-        real h = U[0], hu = U[1], hv = U[2];
-        FU[0] = hv;
-        FU[1] = hu*hv/h;
-        FU[2] = hv*hv/h + (0.5*g)*h*h;
+        GU[0] = hv;
+        GU[1] = hu*hv/h;
+        GU[2] = hv*hv/h + (0.5*g)*h*h;
     }
 
     static void wave_speed(real& cx, real& cy, const vec& U) {
@@ -102,7 +100,7 @@ public:
     typedef typename Physics::vec  vec;
 
     Central2D(real w, real h, int nx, int ny,
-              real cfl = 0.2, real theta = 1.0) :
+              real cfl = 0.8, real theta = 1.0) :
         nx(nx), ny(ny),
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
@@ -237,8 +235,7 @@ void Central2D<Physics>::compute_fg_speeds(real& cx_, real& cy_)
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::F(f(ix,iy), u(ix,iy));
-            Physics::G(g(ix,iy), u(ix,iy));
+            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
             Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
@@ -290,8 +287,7 @@ void Central2D<Physics>::compute_step(int io, real dt)
                 uh[m] -= dtcdx2 * fx(ix,iy)[m];
                 uh[m] -= dtcdy2 * gy(ix,iy)[m];
             }
-            Physics::F(f(ix,iy), uh);
-            Physics::G(g(ix,iy), uh);
+            Physics::flux(f(ix,iy), g(ix,iy), uh);
         }
 
     // Corrector (finish the step)
