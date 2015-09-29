@@ -5,10 +5,20 @@
  * See Moler's "Experiments in MATLAB"
  * [moler]: https://www.mathworks.com/moler/exm/chapters/water.pdf
  */
+ 
+ /*
+ 
+ serial nsteps * N * t_g
+ parallel nsteps / k ((k * N_g / p + k(k - 1)) * t_g + t_barrier)
+ 
+ */
 
 #include <cstdio>
 #include <cmath>
 #include <cassert>
+#include <ctime>
+
+#include <direct.h>
 
 #include <vector>
 #include <algorithm>
@@ -477,12 +487,35 @@ int show_momentum(const Central2D<Shallow2D>::vec& u)
  * or perhaps Lua).
  */
 
-int main()
+int main(int argc, char ** argv)
 {
+    double dt = 0.25;
+    int end = 1;
+    if (argc > 1) {
+        sscanf(argv[1], "%lf", &dt);
+    }
+    if (argc > 2) {
+        sscanf(argv[2], "%d", &end);
+    }
+    
+    time_t now;
+    time(&now);
+    
+    char buffer[256];
+    sprintf(buffer, "%lli", now);
+    _mkdir(buffer);
+    
     Central2D<Shallow2D> sim(2,2, 300,300, 0.2, 2.0);
     sim.init(dam_break);
     sim.solution_check();
-    sim.write_pgm("test.pgm", show_height);
-    sim.run(0.25);
-    sim.write_pgm("test2.pgm", show_height);
+    sprintf(buffer, "%lli\\t%05d.pgm", now, 0);
+    sim.write_pgm(buffer, show_height);
+    int index;
+    double t;
+    //for (t = 0.0; t <= end; t += dt, index++) {
+    for (index = 1; index <= end; index++) {
+        sim.run(dt);
+        sprintf(buffer, "%lli\\t%05d.pgm", now, index);
+        sim.write_pgm(buffer, show_height);
+    }
 }
