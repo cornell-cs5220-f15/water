@@ -1,5 +1,11 @@
+CXX=icc
+CXXFLAGS=-std=c++14
+
 shallow: shallow.cc
-	icc -std=c++14 -o $@ $<
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+mac:
+	make CXX=g++ CXXFLAGS=-std=c++14
 
 run: shallow
 	./shallow
