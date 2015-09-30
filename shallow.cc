@@ -22,7 +22,7 @@
 #include <cstdio>
 #include <cmath>
 #include <cassert>
-
+#include <stdio.h>
 #include <vector>
 #include <algorithm>
 #include <array>
@@ -216,7 +216,7 @@ private:
     const real theta;          // Parameter for minmod limiter
     const real cfl;            // Allowed CFL number
 
-    vector<vec> u_;            // Solution values
+    vector<vec> u_;                // Solution values
     vector<vec> f_;            // Fluxes in x
     vector<vec> g_;            // Fluxes in y
     vector<vec> ux_;           // x differences of u
@@ -390,22 +390,27 @@ void Central2D<Physics>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-    for (int j = nghost; j < ny+nghost; ++j)
-        for (int i = nghost; i < nx+nghost; ++i)
+    for (int j = nghost; j < ny+nghost; ++j){
+        for (int i = nghost; i < nx+nghost; ++i){
             u(i,j) = v(i-io,j-io);
+        }
+    }
 }
 
 
 /*
  * Run the method forward from time 0 (initial conditions) to time tfinal.
  * We ensure that we take an even number of steps so that the solution
- * at the end lives on the main grid instead of the staggered grid.
+ * at the end lives on the main grid instead of the staggered grid. 
+ * We also print the data at every 5th iteration for simulation purposes. 
  */
 template <class Physics>
 void Central2D<Physics>::run(real tfinal)
 {
+    FILE *f = fopen("waves.txt", "w");
     bool done = false;
     real t = 0;
+    int counter = 0;
     while (!done) {
         real dt;
         for (int io = 0; io < 2; ++io) {
@@ -424,6 +429,17 @@ void Central2D<Physics>::run(real tfinal)
             compute_step(io, dt);
             t += dt;
         }
+        //printing data at every 5th step//////
+        if(counter % 5 == 0){
+            for (int j = nghost; j < ny+nghost; ++j){
+                for (int i = nghost; i < nx+nghost; ++i){
+                fprintf(f, "%f,", u(i,j)[0]);
+                }
+            }
+            fprintf(f, "\n");
+        }   
+        counter++;
+        ///////end printing /////////
     }
 }
 
@@ -457,8 +473,6 @@ void Central2D<Physics>::solution_check()
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
-    printf("%g volume; (%g, %g) momentum; range [%g, %g]\n",
-           h_sum, hu_sum, hv_sum, hmin, hmax);
 }
 
 
