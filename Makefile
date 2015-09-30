@@ -1,5 +1,5 @@
 shallow: shallow.cc
-	g++ -std=c++14 -o $@ $<
+	icc -std=c++14 -o $@ $<
 
 run: shallow
 	./shallow
