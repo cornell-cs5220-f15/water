@@ -18,14 +18,6 @@
  * problems), nor even that we compute Jacobians of the flux
  * functions.
  * 
- * The Jiang-Tadmor scheme works by alternating between a main grid
- * and a staggered grid offset by half a step in each direction.
- * We currently manage this implicitly: the arrays at even time steps
- * represent cell values on the main grid, and arrays at odd steps
- * represent cell values on the staggered grid.  Our main `run` 
- * function always takes an even number of time steps to ensure we end
- * up on the primary grid.
- * 
  * While this code is based loosely on the Fortran code at the end of
  * Jiang and Tadmor's paper, we've written the current code to be
  * physics-agnostic (rather than hardwiring it to the shallow water
@@ -34,6 +26,31 @@
  * own physics class to support them!
  * 
  * [jt]: http://www.cscamm.umd.edu/tadmor/pub/central-schemes/Jiang-Tadmor.SISSC-98.pdf
+ * 
+ * ## Staggered grids
+ * 
+ * The Jiang-Tadmor scheme works by alternating between a main grid
+ * and a staggered grid offset by half a step in each direction.
+ * Understanding this is important, particularly if you want to apply
+ * a domain decomposition method and batch time steps between
+ * synchronization barriers in your parallel code!
+ * 
+ * In even-numbered steps, the entry `u(i,j)` in the array of solution
+ * values represents the average value of a cell centered at a point
+ * $(x_i,y_j)$.  At the following odd-numbered step, the same entry
+ * represents values for a cell centered at $(x_i + \Delta x/2, y_j +
+ * \Delta y/2)$.  However, whenever we run a simulation, we always take
+ * an even number of steps, so that outside the solver we can just think
+ * about values on the main grid.  If `uold` and `unew` represent the
+ * information at two successive *even* time steps (i.e. they represent
+ * data on the same grid), then `unew(i,j)` depends indirectly on
+ * `u(p,q)` for $i-3 \leq p \leq i+3$ and $j-3 \leq q \leq j+3$.
+ * 
+ * We currently manage this implicitly: the arrays at even time steps
+ * represent cell values on the main grid, and arrays at odd steps
+ * represent cell values on the staggered grid.  Our main `run` 
+ * function always takes an even number of time steps to ensure we end
+ * up on the primary grid.
  * 
  * ## Interface
  * 
@@ -75,7 +92,7 @@
  * of the domain has index (0,0).
  */
 
-template <class Physics, typename Limiter>
+template <class Physics, class Limiter>
 class Central2D {
 public:
     typedef typename Physics::real real;

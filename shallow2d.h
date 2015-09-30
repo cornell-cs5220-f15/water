@@ -10,13 +10,6 @@
  * 
  * ## Physics picture
  * 
- * The shallow water equations are a two-dimensional PDE system
- * that describes water waves that are very long compared to the
- * water depth.  It applies even in situations that you might not
- * think of as "shallow"; for example, tsunami waves are long enough
- * that they can be modeled using the shallow water equations even
- * when traveling over mile-deep parts of oceans.
- * 
  * The shallow water equations treat water as incompressible and
  * inviscid, and assume that the horizontal velocity remains constant
  * in any vertical column of water.  The unknowns at each point are
@@ -27,10 +20,6 @@
  * exactly conserves mass and momentum (up to rounding error), though
  * it only approximately conserves energy.
  * 
- * I was inspired to use this system for our assignment by reading the
- * chapter on [shallow water simulation in MATLAB][exm] from Cleve
- * Moler's books on "Experiments in MATLAB"; there is also a very readable
- * [Wikipedia article][wiki] on the shallow water equations.
  * The basic variables are water height ($h$), and the velocity components
  * ($u, v$).  We write the governing equations in the form
  * $$
@@ -54,9 +43,6 @@
  * where $g$ is the gravitational constant and $h$ is the height of the
  * water; in addition, we have to take into account the velocity of
  * the underlying flow.
- * 
- * [exm]: https://www.mathworks.com/moler/exm/chapters/water.pdf
- * [wiki]: https://en.wikipedia.org/wiki/Shallow_water_equations
  * 
  * ## Implementation
  * 

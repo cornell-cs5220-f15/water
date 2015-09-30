@@ -15,8 +15,8 @@ run: shallow
 	convert test.pgm test.png
 	convert test2.pgm test2.png
 
-shallow.pdf: shallow.md
-	pandoc $< -o $@
+shallow.pdf: intro.md shallow.md
+	pandoc --toc $^ -o $@
 
 shallow.md: shallow2d.h minmod.h central2d.h driver.cc
 	ldoc $^ -o $@

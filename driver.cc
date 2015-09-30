@@ -70,7 +70,7 @@ int show_momentum(const Sim::vec& u)
 
 
 /**
- * # Main driver
+ * ## Main driver
  * 
  * Again, this should really invoke an option parser, or be glued
  * to an interface in some appropriate scripting language (Python,
