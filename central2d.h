@@ -1,208 +1,12 @@
-//ldoc on
-/**
- * % Shallow water simulation
- * % David Bindel
- * % 2015-09-30
- * 
- * This code implements the [Jiang-Tadmor centered finite volume
- * scheme][jt] for conservation law PDEs in 2D, and uses the shallow
- * water wave equations as an example.  As implemented, the code is
- * serial, and not particularly carefully tuned.  Your goal: make the
- * code run fast on the cluster, using OpenMP and (ideally) taking
- * advantage of the Xeon Phi accelerators.
- * 
- * While I have tried not to do anything too obscure, this code does
- * use some C++ 11 features.  If you want to build on your own
- * machine, you may need to figure out the flag needed to tell your
- * compiler that you are using this C++ dialect.
- * 
- */
-//ldoc off
+#ifndef CENTRAL2D_H
+#define CENTRAL2D_H
 
 #include <cstdio>
 #include <cmath>
 #include <cassert>
-#include <stdio.h>
 #include <vector>
-#include <algorithm>
-#include <array>
-
-using namespace std;
 
 //ldoc on
-/**
- * # Shallow water equations
- * 
- * ## Physics picture
- * 
- * The shallow water equations are a two-dimensional PDE system
- * that describes water waves that are very long compared to the
- * water depth.  It applies even in situations that you might not
- * think of as "shallow"; for example, tsunami waves are long enough
- * that they can be modeled using the shallow water equations even
- * when traveling over mile-deep parts of oceans.
- * 
- * The shallow water equations treat water as incompressible and
- * inviscid, and assume that the horizontal velocity remains constant
- * in any vertical column of water.  The unknowns at each point are
- * the water height and the total horizontal momentum in a water
- * column; the equations describe conservation of mass (fluid is
- * neither created nor destroyed) and conservation of linear momentum.
- * We will solve these equations with a numerical method that also
- * exactly conserves mass and momentum (up to rounding error), though
- * it only approximately conserves energy.
- * 
- * I was inspired to use this system for our assignment by reading the
- * chapter on [shallow water simulation in MATLAB][exm] from Cleve
- * Moler's books on "Experiments in MATLAB"; there is also a very readable
- * [Wikipedia article][wiki] on the shallow water equations.
- * The basic variables are water height ($h$), and the velocity components
- * ($u, v$).  We write the governing equations in the form
- * $$
- *   U_t = F(U)_x + G(U)_y
- * $$
- * where
- * $$
- *   U = \begin{bmatrix} h \\ hu \\ hv \end{bmatrix},
- *   F = \begin{bmatrix} hu \\ h^2 u + gh^2/2 \\ huv \end{bmatrix}
- *   G = \begin{bmatrix} hv \\ huv \\ h^2 v + gh^2/2 \end{bmatrix}
- * $$
- * The functions $F$ and $G$ are called *fluxes*, and describe how the
- * conserved quantities (volume and momentum) enter and exit a region
- * of space.
- * 
- * Note that we also need a bound on the characteristic wave speeds
- * for the problem in order to ensure that our method doesn't explode;
- * we use this to control the Courant-Friedrichs-Levy (CFL) number
- * relating wave speeds, time steps, and space steps.  For the shallow
- * water equations, the characteristic wave speed is $\sqrt{g h}$
- * where $g$ is the gravitational constant and $h$ is the height of the
- * water; in addition, we have to take into account the velocity of
- * the underlying flow.
- * 
- * [exm]: https://www.mathworks.com/moler/exm/chapters/water.pdf
- * [wiki]: https://en.wikipedia.org/wiki/Shallow_water_equations
- * 
- * ## Implementation
- * 
- * Our solver takes advantage of C++ templates to get (potentially)
- * good performance while keeping a clean abstraction between the
- * solver code and the details of the physics.  The `Shallow2D`
- * class specifies the precision of the comptutation (single precision),
- * the data type used to represent vectors of unknowns and fluxes
- * (the C++ `std::array`).  We are really only using the class as 
- * name space; we never create an instance of type `Shallow2D`,
- * and the `flux` and `wave_speed` functions needed by the solver are
- * declared as static (and inline, in the hopes of getting the compiler
- * to optimize for us).
- */
-
-struct Shallow2D {
-
-    // Type parameters for solver
-    typedef float real;
-    typedef std::array<real,3> vec;
-
-    // Gravitational force (compile time constant)
-    static constexpr real g = 9.8;
-
-    // Compute shallow water fluxes F(U), G(U)
-    static void flux(vec& FU, vec& GU, const vec& U) {
-        real h = U[0], hu = U[1], hv = U[2];
-
-        FU[0] = hu;
-        FU[1] = hu*hu/h + (0.5*g)*h*h;
-        FU[2] = hu*hv/h;
-
-        GU[0] = hv;
-        GU[1] = hu*hv/h;
-        GU[2] = hv*hv/h + (0.5*g)*h*h;
-    }
-
-    // Compute shallow water wave speed
-    static void wave_speed(real& cx, real& cy, const vec& U) {
-        real h = U[0], hu = U[1], hv = U[2];
-        real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
-        cx = abs(hu/h) + root_gh;
-        cy = abs(hv/h) + root_gh;
-    }
-};
-
-
-/**
- * # MinMod limiter
- * 
- * Numerical methods for solving nonlinear wave equations are
- * complicated by the fact that even with smooth initial data, a
- * nonlinear wave can develop discontinuities (shocks) in finite time.
- * 
- * This makes for interesting analysis, since a "strong" solution
- * that satisfies the differential equation no longer makes sense at
- * a shock -- instead, we have to come up with some mathematically
- * and physically reasonable definition of a "weak" solution that
- * satisfies the PDE away from the shock and satisfies some other
- * condition (an entropy condition) at the shock.
- * 
- * The presence of shocks also makes for interesting *numerical*
- * analysis, because we need to be careful about employing numerical
- * differentiation formulas that sample a discontinuous function at
- * points on different sides of a shock.  Using such formulas naively
- * usually causes the numerical method to become unstable.  A better
- * method -- better even in the absence of shocks! -- is to consider
- * multiple numerical differentiation formulas and use the highest
- * order one that "looks reasonable" in the sense that it doesn't
- * predict wildly larger slopes than the others.  Because these
- * combined formulas *limit* the wild behavior of derivative estimates
- * across a shock, we call them *limiters*.  With an appropriate limiter,
- * we can construct methods that have high-order accuracy away from shocks
- * and are at least first-order accurate close to a shock.  These are
- * sometimes called *high-resolution* methods.
- * 
- * The MinMod (minimum modulus) limiter is one example of a limiter.
- * The MinMod limiter estimates the slope through points $f_-, f_0, f_+$
- * (with the step $h$ scaled to 1) by
- * $$
- *   f' = \operatorname{minmod}((f_+-f_-)/2, \theta(f_+-f_0), \theta(f_0-f_-))
- * $$
- * where the minmod function returns the argument with smallest absolute
- * value if all arguments have the same sign, and zero otherwise.
- * Common choices of $\theta$ are $\theta = 1.0$ and $\theta = 2.0$.
- * 
- * The minmod limiter *looks* like it should be expensive to computer,
- * since superficially it seems to require a number of branches.
- * We do something a little tricky, getting rid of the condition
- * on the sign of the arguments using the `copysign` instruction.
- * If the compiler does the "right" thing with `max` and `min`
- * for floating point arguments (translating them to branch-free
- * intrinsic operations), this implementation should be relatively fast.
- * 
- * There are many other potential choices of limiters as well.  We'll
- * stick with this one for the code, but you should feel free to
- * experiment with others if you know what you're doing and think it
- * will improve performance or accuracy.
- */
-
-template <class real>
-struct MinMod {
-    static constexpr real theta = 2.0;
-
-    // Branch-free computation of minmod of two numbers
-    static real xmin(real a, real b) {
-        return ((copysign((real) 0.5, a) +
-                 copysign((real) 0.5, b)) *
-                min( abs(a), abs(b) ));
-    }
-
-    // Limited combined slope estimate
-    static real limdiff(real um, real u0, real up) {
-        real du1 = u0-um;         // Difference to left
-        real du2 = up-u0;         // Difference to right
-        real duc = 0.5*(du1+du2); // Centered difference
-        return xmin( theta*xmin(du1, du2), duc );
-    }
-};
-
-
 /**
  * # Jiang-Tadmor central difference scheme
  * 
@@ -325,14 +129,14 @@ private:
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
 
-    vector<vec> u_;            // Solution values
-    vector<vec> f_;            // Fluxes in x
-    vector<vec> g_;            // Fluxes in y
-    vector<vec> ux_;           // x differences of u
-    vector<vec> uy_;           // y differences of u
-    vector<vec> fx_;           // x differences of f
-    vector<vec> gy_;           // y differences of g
-    vector<vec> v_;            // Solution values at next step
+    std::vector<vec> u_;            // Solution values
+    std::vector<vec> f_;            // Fluxes in x
+    std::vector<vec> g_;            // Fluxes in y
+    std::vector<vec> ux_;           // x differences of u
+    std::vector<vec> uy_;           // y differences of u
+    std::vector<vec> fx_;           // x differences of f
+    std::vector<vec> gy_;           // y differences of g
+    std::vector<vec> v_;            // Solution values at next step
 
     // Array accessor functions
 
@@ -410,6 +214,7 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::write_pgm(const char* fname, F f)
 {
+    using namespace std;
     FILE* fp = fopen(fname, "wb");
     fprintf(fp, "P5\n");
     fprintf(fp, "%d %d 255\n", nx, ny);
@@ -431,6 +236,7 @@ void Central2D<Physics, Limiter>::write_pgm(const char* fname, F f)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::write_viz(FILE* fp)
 {
+    using namespace std;
     for (int j = nghost; j < ny+nghost; ++j)
         for (int i = nghost; i < nx+nghost; ++i)
             fprintf(fp, "%f,", u(i,j)[0]);
@@ -486,6 +292,7 @@ void Central2D<Physics, Limiter>::apply_periodic()
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 {
+    using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
     for (int iy = 0; iy < ny_all; ++iy)
@@ -618,7 +425,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             compute_fg_speeds(cx, cy);
             limited_derivs();
             if (io == 0) {
-                dt = cfl / max(cx/dx, cy/dy);
+                dt = cfl / std::max(cx/dx, cy/dy);
                 if (t + 2*dt >= tfinal) {
                     dt = (tfinal-t)/2;
                     done = true;
@@ -667,6 +474,7 @@ void Central2D<Physics, Limiter>::run_viz(real tframe, int nsteps)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::solution_check()
 {
+    using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
     real hmin = u(nghost,nghost)[0];
     real hmax = hmin;
@@ -689,87 +497,5 @@ void Central2D<Physics, Limiter>::solution_check()
            h_sum, hu_sum, hv_sum, hmin, hmax);
 }
 
-
-/**
- * # Driver routines
- * 
- * For the driver, we need to put everything together: we're running
- * a `Central2D` solver for the `Shallow2D` physics with a `MinMod`
- * limiter.
- */
-
-typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
-
-/**
- * ## Initial states and graphics
- * 
- * The following functions define some interesting initial conditions.
- * Ideally, I would be doing this via a Python interface.  But I
- * couldn't be bothered to deal with the linker.
- */
-
-// Circular dam break problem
-void dam_break(Sim::vec& u, double x, double y)
-{
-    x -= 1;
-    y -= 1;
-    u[0] = 1.0 + 0.5*(x*x + y*y < 0.25+1e-5);
-    u[1] = 0;
-    u[2] = 0;
-}
-
-// Still pond (ideally, nothing should move here!)
-void pond(Sim::vec& u, double x, double y)
-{
-    u[0] = 1.0;
-    u[1] = 0;
-    u[2] = 0;
-}
-
-// River (ideally, the solver shouldn't do much with this, either)
-void pond(Sim::vec& u, double x, double y)
-{
-    u[0] = 1.0;
-    u[1] = 1.0;
-    u[2] = 0;
-}
-
-
-/**
- * ## Summary plots
- * 
- * We can plot either height or (total) momentum as interesting
- * scalar quantities.  The ranges (0 to 3.0 and 0 to 2.5) are
- * completely made up -- it would probably be smarter to change
- * those!
- */
-
-int show_height(const Sim::vec& u)
-{
-    return 255 * (u[0] / 3.0);
-}
-
-int show_momentum(const Sim::vec& u)
-{
-    return 255 * sqrt(u[1]*u[1] + u[2]*u[2]) / 2.5;
-}
-
-
-/**
- * # Main driver
- * 
- * Again, this should really invoke an option parser, or be glued
- * to an interface in some appropriate scripting language (Python,
- * or perhaps Lua).
- */
-
-int main()
-{
-    Sim sim(2,2, 200,200, 0.2);
-    sim.init(dam_break);
-    sim.solution_check();
-    sim.write_pgm("test.pgm", show_height);
-    sim.run(0.5);
-    sim.solution_check();
-    sim.write_pgm("test2.pgm", show_height);
-}
+//ldoc off
+#endif /* CENTRAL2D_H*/

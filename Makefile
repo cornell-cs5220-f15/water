@@ -1,7 +1,10 @@
 CXX=icc
 CXXFLAGS=-std=c++14
 
-shallow: shallow.cc
+shallow: driver.cc central2d.h shallow2d.h minmod.h
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+shallow0: shallow.cc
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
 mac:
@@ -15,8 +18,8 @@ run: shallow
 shallow.pdf: shallow.md
 	pandoc $< -o $@
 
-shallow.md: shallow.cc
-	ldoc $< -o $@
+shallow.md: shallow2d.h minmod.h central2d.h driver.cc
+	ldoc $^ -o $@
 
 clean:
 	rm -f shallow test.pgm test2.pgm test.png test2.png
