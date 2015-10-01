@@ -118,26 +118,26 @@ public:
     // Advance from time 0 to time tfinal
     void run(real tfinal);
 
-    // Advance in nsteps steps of time tframe, writing a data frame
-    // for the visualizer after each.
-    void run_viz(real tframe, int nsteps);
-
     // Call f(Uxy, x, y) at each cell center to set initial conditions
     template <typename F>
     void init(F f);
 
-    // Write a gray-scale image file with f(U(x,y)) in [0,255]
-    //  as the gray level for the cell centered at (x,y)
-    template <typename F>
-    void write_pgm(const char* name, F f);
-
-    // Write current state to a file FP for use with the
-    //   Python visualizer.
-    void write_viz(FILE* fp);
-
     // Diagnostics
     void solution_check();
 
+    // Array size accessors
+    int xsize() const { return nx; }
+    int ysize() const { return ny; }
+    
+    // Read / write elements of simulation state
+    vec&       operator()(int i, int j) {
+        return u_[offset(i+nghost,j+nghost)];
+    }
+    
+    const vec& operator()(int i, int j) const {
+        return u_[offset(i+nghost,j+nghost)];
+    }
+    
 private:
     static constexpr int nghost = 3;   // Number of ghost cells
 
@@ -157,7 +157,7 @@ private:
 
     // Array accessor functions
 
-    int offset(int ix, int iy)  { return iy*nx_all+ix; }
+    int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
     vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
     vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
@@ -210,54 +210,6 @@ void Central2D<Physics, Limiter>::init(F f)
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
-}
-
-/**
- * ## I/O
- * 
- * After finishing a run (or every several steps), we might want to
- * write out a data file for post processing.  One simple approach is
- * to draw a gray scale or color picture showing some scalar quantity
- * at each point.  The Portable Gray Map (PGM) format is one of the
- * few graphics formats that can be dumped out in a handful of lines
- * of code without any library calls.  The files can be converted to
- * something more modern and snazzy (like a PNG or GIF) later on.
- * Note that we don't actually dump out the state vector for each cell
- * -- we need to produce something that is an integer in the range
- * [0,255].  That's what the function `f` is for!
- */
-
-template <class Physics, class Limiter>
-template <typename F>
-void Central2D<Physics, Limiter>::write_pgm(const char* fname, F f)
-{
-    using namespace std;
-    FILE* fp = fopen(fname, "wb");
-    fprintf(fp, "P5\n");
-    fprintf(fp, "%d %d 255\n", nx, ny);
-    for (int iy = ny-1; iy >= 0; --iy)
-        for (int ix = 0; ix < nx; ++ix)
-            fputc(min(255, max(0, f(u(ix+nghost,iy+nghost)))), fp);
-    fclose(fp);
-}
-
-/**
- * 
- * An alternative to writing an image file is to write a data file for
- * further processing by some other program -- in this case, a Python
- * visualizer.
- * 
- */
-
-// TODO: This should really be a binary file format!
-template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::write_viz(FILE* fp)
-{
-    using namespace std;
-    for (int j = nghost; j < ny+nghost; ++j)
-        for (int i = nghost; i < nx+nghost; ++i)
-            fprintf(fp, "%f,", u(i,j)[0]);
-    fprintf(fp, "\n");
 }
 
 /**
@@ -453,28 +405,6 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         }
     }
 }
-
-/**
- * The `run_viz` routine writes data frames to an output file at
- * regular time intervals.  Frames are generated every `tframe` time
- * units, and `nsteps+1` frames are generated in total (including one
- * for the initial conditions).
- */
-
-template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::run_viz(real tframe, int nsteps)
-{
-    FILE *fp = fopen("waves.txt", "w");
-    solution_check();
-    write_viz(fp);
-    for (int i = 0; i < nsteps; ++i) {
-        run(tframe);
-        solution_check();
-        write_viz(fp);
-    }
-    fclose(fp);
-}
-
 
 /**
  * ### Diagnostics
