@@ -1,6 +1,7 @@
-# Wave Simulator
+# Shallow Water Simulation
 
 ![Dam break simulation](https://github.com/cornell-cs5220-f15/water/blob/master/ref/dam_break.gif)
+![Wave break simulation](https://github.com/cornell-cs5220-f15/water/blob/master/ref/wave.gif)
 
 Please refer to the [online assignment intro][intro] or the
 [intro and annotated source][annotated].
