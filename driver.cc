@@ -26,8 +26,8 @@
 typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
 
 /**
- * ## Initial states and graphics
- *
+ * ## Initial states
+ * 
  * Our default problem is a circular dam break problem; the other
  * interesting problem is the wave problem (a wave on a constant
  * flow, starting off smooth and developing a shock in finite time).
