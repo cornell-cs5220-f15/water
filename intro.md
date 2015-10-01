@@ -42,12 +42,18 @@ he chose a method with a stability problem.
 
 ## Your mission
 
-You are provided with the following C++ files:
+You are provided with the following performance-critical C++ files:
 
 - `shallow2d.h` -- an implementation of shallow water physics
 - `minmod.h` -- a (possibly efficient)  MinMod limiter
 - `central2d.h` -- a finite volume solver for 2D hyperbolic PDE
+
+In addition, you are given the following codes for running the
+simulation and getting pretty pictures out:
+
+- `meshio.h` -- I/O routines
 - `driver.cc` -- a driver file that runs the simuation
+- `visualizer.py` -- Python visualization script
 
 For this assignment, you should attempt three tasks:
 

@@ -3,24 +3,36 @@
 #include "minmod.h"
 #include "meshio.h"
 
+#include <cmath>
+#include <unistd.h>
+
 
 //ldoc on
 /**
  * # Driver routines
+ *  
+ * We use a fairly simple command-line driver to launch this simulation.
+ * A better way to do this is to use a scripting language to set up the
+ * simulation; Python is a popular choice, though I prefer Lua for many
+ * things (not least because it is an easy build).  I may add that
+ * capability later; for the moment, it's useful to have a simple
+ * command-line interface that ought to run most anywhere.
  * 
  * For the driver, we need to put everything together: we're running
  * a `Central2D` solver for the `Shallow2D` physics with a `MinMod`
- * limiter.
+ * limiter:
  */
 
 typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
 
 /**
  * ## Initial states and graphics
- * 
- * The following functions define some interesting initial conditions.
- * Ideally, I would be doing this via a Python interface.  But I
- * couldn't be bothered to deal with the linker.
+ *
+ * Our default problem is a circular dam break problem; the other
+ * interesting problem is the wave problem (a wave on a constant
+ * flow, starting off smooth and developing a shock in finite time).
+ * The pond and river examples should do nothing interesting at all
+ * if the numerical method is coded right.
  */
 
 // Circular dam break problem
@@ -50,63 +62,82 @@ void river(Sim::vec& u, double x, double y)
 }
 
 
-/**
- * ## Summary plots
- * 
- * We can plot either height or (total) momentum as interesting
- * scalar quantities.  The ranges (0 to 3.0 and 0 to 2.5) are
- * completely made up -- it would probably be smarter to change
- * those!
- */
-
-int show_height(const Sim::vec& u)
+// Wave on a river -- develops a shock in finite time!
+void wave(Sim::vec& u, double x, double y)
 {
-    return 255 * (u[0] / 3.0);
-}
-
-int show_momentum(const Sim::vec& u)
-{
-    return 255 * sqrt(u[1]*u[1] + u[2]*u[2]) / 2.5;
-}
-
-
-/**
- * ## Visualization run
- */
-
-void run_viz(Sim& sim, double tframe, int nsteps)
-{
-    //FILE *fp = fopen("waves.txt", "w");
-    SimViz<Sim> viz("waves.out", sim);
-    sim.solution_check();
-    //write_viz(fp, sim);
-    viz.write_frame();
-    for (int i = 0; i < nsteps; ++i) {
-        sim.run(tframe);
-        sim.solution_check();
-        // write_viz(fp, sim);
-        viz.write_frame();
-    }
-    // fclose(fp);
+    using namespace std;
+    u[0] = 1.0 + 0.2 * sin(M_PI*x);
+    u[1] = 1.0;
+    u[2] = 0;
 }
 
 
 /**
  * ## Main driver
  * 
- * Again, this should really invoke an option parser, or be glued
- * to an interface in some appropriate scripting language (Python,
- * or perhaps Lua).
+ * Our main driver uses the `getopt` library to parse options,
+ * then runs a simulation, writing results to an output file
+ * for postprocessing.
  */
 
-int main()
+int main(int argc, char** argv)
 {
-    Sim sim(2,2, 200,200, 0.2);
-    sim.init(dam_break);
+    const char* fname = "waves.out";
+    const char* ic = "dam_break";
+    int    nx = 200;
+    double width = 2.0;
+    double ftime = 0.01;
+    int    frames = 50;
+    
+    int c;
+    extern char* optarg;
+    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
+        switch (c) {
+        case 'h':
+            fprintf(stderr,
+                    "%s\n"
+                    "\t-h: print this message\n"
+                    "\t-i: initial conditions (%s)\n"
+                    "\t-o: output file name (%s)\n"
+                    "\t-n: number of cells per side (%d)\n"
+                    "\t-w: domain width in cells (%g)\n"
+                    "\t-f: time between frames (%g)\n"
+                    "\t-F: number of frames (%d)\n",
+                    argv[0], ic, fname, nx, width, ftime, frames);
+            return -1;
+        case 'i':  ic     = strdup(optarg);  break;
+        case 'o':  fname  = strdup(optarg);  break;
+        case 'n':  nx     = atoi(optarg);    break;
+        case 'w':  width  = atof(optarg);    break;
+        case 'f':  ftime  = atof(optarg);    break;
+        case 'F':  frames = atoi(optarg);    break;
+        default:
+            fprintf(stderr, "Unknown option (-%c)\n", c);
+            return -1;
+        }
+    }
+
+    void (*icfun)(Sim::vec& u, double x, double y);
+    if (strcmp(ic, "dam_break") == 0) {
+        icfun = dam_break;
+    } else if (strcmp(ic, "pond") == 0) {
+        icfun = pond;
+    } else if (strcmp(ic, "river") == 0) {
+        icfun = river;
+    } else if (strcmp(ic, "wave") == 0) {
+        icfun = wave;
+    } else {
+        fprintf(stderr, "Unknown initial conditions\n");
+    }
+    
+    Sim sim(width,width, nx,nx);
+    SimViz<Sim> viz(fname, sim);
+    sim.init(icfun);
     sim.solution_check();
-    write_pgm("test.pgm", sim, show_height);
-    //sim.run(0.5);
-    run_viz(sim, 0.01, 50);
-    sim.solution_check();
-    write_pgm("test2.pgm", sim, show_height);
+    viz.write_frame();
+    for (int i = 0; i < frames; ++i) {
+        sim.run(ftime);
+        sim.solution_check();
+        viz.write_frame();
+    }
 }

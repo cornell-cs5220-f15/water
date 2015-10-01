@@ -100,7 +100,7 @@ public:
 
     Central2D(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
-              real cfl = 0.8) :   // Max allowed CFL number
+              real cfl = 0.45) :  // Max allowed CFL number
         nx(nx), ny(ny),
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
