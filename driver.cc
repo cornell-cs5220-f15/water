@@ -4,6 +4,7 @@
 #include "meshio.h"
 
 #include <cmath>
+#include <cstring>
 #include <unistd.h>
 
 
