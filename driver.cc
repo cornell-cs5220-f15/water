@@ -1,6 +1,7 @@
 #include "central2d.h"
 #include "shallow2d.h"
 #include "minmod.h"
+#include "meshio.h"
 
 
 //ldoc on
@@ -70,6 +71,27 @@ int show_momentum(const Sim::vec& u)
 
 
 /**
+ * ## Visualization run
+ */
+
+void run_viz(Sim& sim, double tframe, int nsteps)
+{
+    //FILE *fp = fopen("waves.txt", "w");
+    SimViz<Sim> viz("waves.out", sim);
+    sim.solution_check();
+    //write_viz(fp, sim);
+    viz.write_frame();
+    for (int i = 0; i < nsteps; ++i) {
+        sim.run(tframe);
+        sim.solution_check();
+        // write_viz(fp, sim);
+        viz.write_frame();
+    }
+    // fclose(fp);
+}
+
+
+/**
  * ## Main driver
  * 
  * Again, this should really invoke an option parser, or be glued
@@ -82,8 +104,9 @@ int main()
     Sim sim(2,2, 200,200, 0.2);
     sim.init(dam_break);
     sim.solution_check();
-    sim.write_pgm("test.pgm", show_height);
-    sim.run(0.5);
+    write_pgm("test.pgm", sim, show_height);
+    //sim.run(0.5);
+    run_viz(sim, 0.01, 50);
     sim.solution_check();
-    sim.write_pgm("test2.pgm", show_height);
+    write_pgm("test2.pgm", sim, show_height);
 }
