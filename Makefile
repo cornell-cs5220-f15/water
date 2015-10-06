@@ -1,5 +1,10 @@
 CXX=icc
-CXXFLAGS=-std=c++14
+CXXFLAGS=-std=c++14 -g 
+
+# If you're using icc, these are good flags to try
+OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo \
+	-qopt-report=5 -qopt-report-phase=vec
+
 PYTHON=python
 
 shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
@@ -7,6 +12,14 @@ shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
 
 mac:
 	make CXX=g++ CXXFLAGS=-std=c++14
+
+maqao: shallow
+	( module load maqao ; \
+	  maqao cqa ./shallow fct=compute_step uarch=HASWELL )
+
+scan-build:
+	( module load llvm-analyzer ; \
+	  scan-build -v --use-analyzer=/share/apps/llvm-3.7.0/bin/clang make )
 
 run: dam_break.gif
 
