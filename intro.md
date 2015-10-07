@@ -116,8 +116,8 @@ the Phis.
 
 As with the previous assignment, this assignment involves two stages.
 You have just over three weeks, and should work in teams of three.
-After two weeks (Oct 15), you should submit your initial report (and
-code) for peer review; reviews are due by Oct 20.  Final reports are
+After two weeks (Oct 19), you should submit your initial report (and
+code) for peer review; reviews are due by Oct 22.  Final reports are
 due one week later (Oct 27).  I hope many of you will wrap up before
 that; the third project should be out by Oct 22.
 
