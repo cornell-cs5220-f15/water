@@ -19,6 +19,9 @@ include Makefile.in.$(PLATFORM)
 shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
+lshallow: ldriver.cc central2d.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS) -llua
+
 .PHONY: run big
 run: dam_break.gif
 
