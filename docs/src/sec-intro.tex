@@ -6,11 +6,11 @@
 \label{sec-intro}
 
 In this report, we explore parallelization strategies for solving the
-shallow water equation. We start by \emph{profiling} the naive
-implementation of the code in order to identify bottlenecks as well as
-build our intuition for developing a relatively accurate performance
-model. This information is used to guide the parallelization of the code
-for both the compute nodes (i.e., Intel Xeon E5-2620) and the accelerator
-boards (i.e., Intel Xeon Phi 5110P) on the Totient cluster. We further
-implement and evaluate several optimizations for tuning the parallel code
-to achieve speedups of up to X\%.
+shallow water equation. We start by profiling the naive implementation of
+the code in order to identify bottlenecks as well as build our intuition
+for developing a relatively accurate performance model. This information
+is used to guide the parallelization of the code for both the compute
+nodes (i.e., Intel Xeon E5-2620) and the accelerator boards (i.e., Intel
+Xeon Phi 5110P) on the Totient cluster. We further implement and evaluate
+several optimizations for tuning the parallel code to achieve speedups of
+up to X\%.
