@@ -1,0 +1,350 @@
+#=========================================================================
+# Toplevel Makefile for the Automatic LaTeX Build System
+#=========================================================================
+# Please read the documentation in 'albs-uguide.txt' for more details on
+# how the Automatic LaTeX Buils System works. For most projects, a
+# writer does not need to make any changes to this makefile. The key
+# targets are as follows:
+#
+#  - default        : build the default documents
+#  - install        : install documents into prefix
+#  - prebuild       : prebuild files for all of the build system modules
+#  - prebuild-mod   : prebuild files for the build system module 'mod'
+#  - clean          : remove generated content (except autoconf files)
+#  - clean-prebuild : remove the prebuild directory
+#  - dist           : make a source tarball
+#  - distcheck      : make a source tarball, untar it, make doc, clean
+#  - distclean      : remove everything
+#
+
+#-------------------------------------------------------------------------
+# Toplevel document tex files
+#-------------------------------------------------------------------------
+# By default, there is one document and its toplevel tex file has the
+# same as the project name. To add more documents either append their
+# toplevel tex files to the default_doc_texs or the
+# extra_doc_texs make variables.
+
+default_doc_texs = @PACKAGE_TARNAME@.tex
+extra_doc_texs   =
+doc_texs         = $(default_doc_texs) $(extra_doc_texs)
+
+default_doc_pdfs = $(patsubst %.tex, %.pdf, $(default_doc_texs))
+extra_doc_pdfs   = $(patsubst %.tex, %.pdf, $(extra_doc_texs))
+doc_pdfs         = $(default_doc_pdfs) $(extra_doc_pdfs)
+
+#-------------------------------------------------------------------------
+# Setup
+#-------------------------------------------------------------------------
+
+# Remove all default implicit rules since they can cause subtle bugs
+# and they just make things run slower
+.SUFFIXES:
+% : %,v
+% : RCS/%,v
+% : RCS/%
+% : s.%
+% : SCCS/s.%
+
+# Default is to build the default documents
+default : all
+.PHONY : default
+
+project_name := @PACKAGE_TARNAME@
+top_dir      := @srcdir@
+sty_dir      := $(top_dir)/sty
+src_dir      := $(top_dir)/src
+scripts_dir  := $(top_dir)/scripts
+images_dir   := $(top_dir)/images
+prebuild_dir := $(top_dir)/prebuild
+modules      := @modules@
+VPATH        := $(src_dir) $(images_dir) \
+                   $(addprefix $(top_dir)/, $(modules))
+
+# If the version information is not in the configure script, then we
+# assume that we are in a working directory. We use the vcs-version.sh
+# script in the scripts directory to generate an appropriate version
+# string. Currently the way things are setup we have to run this script
+# everytime we run make so the script needs to be as fast as possible.
+
+ifeq (@PACKAGE_VERSION@,?)
+  project_ver:=$(shell $(scripts_dir)/vcs-version.sh $(src_dir))
+else
+  project_ver:=@PACKAGE_VERSION@
+endif
+
+# Installation directories and programs
+
+prefix  := @prefix@
+enable_stow  := @enable_stow@
+
+ifeq ($(enable_stow),yes)
+  stow_pkg_dir := $(prefix)/pkgs
+  DESTDIR ?= $(stow_pkg_dir)/$(project_name)-$(project_ver)
+else
+  DESTDIR ?= $(prefix)
+endif
+
+install_docs_dir := $(DESTDIR)/doc
+install_docs = $(default_doc_pdfs)
+
+MKINSTALLDIRS := $(scripts_dir)/mk-install-dirs.sh
+INSTALL       := @INSTALL@
+INSTALL_DOC   := $(INSTALL) -m 444
+STOW          := @stow@
+
+# LaTeX programs
+
+PDFLATEX = @pdflatex@
+BIBTEX   = @bibtex@
+RUNLATEX = $(scripts_dir)/run-latex.rb
+
+#-------------------------------------------------------------------------
+# Make dependency files
+#-------------------------------------------------------------------------
+
+doc_deps = $(patsubst %.tex, %.d, $(doc_texs))
+
+$(doc_deps) : %.d : %.tex
+	$(scripts_dir)/mk-latex-deps.rb $<
+
+-include $(doc_deps)
+
+deps : $(doc_deps)
+.PHONY : deps
+
+junk += $(doc_deps)
+
+#-------------------------------------------------------------------------
+# Include module makefile fragments
+#-------------------------------------------------------------------------
+
+modules_mk = $(addsuffix .mk, $(modules))
+
+-include $(modules_mk)
+
+dist_junk += $(modules_mk)
+
+#-------------------------------------------------------------------------
+# Template for per module rules
+#-------------------------------------------------------------------------
+# The template is instantiated for each of the modules. It relies on
+# modules defining a certain set of make variables which are all
+# prefixed with the module name. Since module names can have dashes in
+# them (and the make variables are assumed to only use underscores), the
+# template takes two arguments:
+#
+#  $(1) = real subproject name (ie with dashes)
+#  $(2) = normalized subproject name (ie dashes replaced with underscores)
+#
+
+define module_template
+
+# Prebuild
+
+prebuild-$(1) : $$(addprefix $$(prebuild_dir)/, $$($(2)_prebuild))
+.PHONY : prebuild-$(1)
+
+ifeq ($$($(1)_enabled),yes)
+  prebuild_to += $$($(2)_prebuild)
+else
+  prebuild_from += $$($(2)_prebuild)
+endif
+
+endef
+
+# Iterate over the modules calling the template for each one
+
+$(foreach module,$(modules), \
+  $(eval $(call module_template,$(module),$(subst -,_,$(module)))))
+
+#-------------------------------------------------------------------------
+# Run LaTeX and BibTeX
+#-------------------------------------------------------------------------
+# Instead of running LaTeX and BibTeX directly we call a ruby script
+# which handles runnning LaTeX and BibTeX the minimum number of times.
+
+modules_include := -I . $(addprefix -I $(top_dir)/, $(modules))
+
+$(doc_pdfs) : %.pdf : %.tex
+	$(RUNLATEX) --latex-prog $(PDFLATEX) --bibtex-prog $(BIBTEX) \
+    -I $(sty_dir) -I $(src_dir) -I $(images_dir) \
+    $(modules_include) -- -halt-on-error $<
+
+junk += $(doc_pdfs)
+junk += $(patsubst %.pdf, %.out, $(doc_pdfs))
+junk += $(patsubst %.pdf, %.log, $(doc_pdfs))
+junk += $(patsubst %.pdf, %.aux, $(doc_pdfs))
+junk += $(patsubst %.pdf, %.bbl, $(doc_pdfs))
+junk += $(patsubst %.pdf, %.blg, $(doc_pdfs))
+junk += $(patsubst %.pdf, %.nav, $(doc_pdfs))
+junk += $(patsubst %.pdf, %.snm, $(doc_pdfs))
+junk += $(patsubst %.pdf, %.toc, $(doc_pdfs))
+
+#-------------------------------------------------------------------------
+# Prebuild
+#-------------------------------------------------------------------------
+# Modules can specify files which can be prebuilt and then automatically
+# used on platforms which do not have the proper tools to use the module.
+
+prebuild_dir       = $(top_dir)/prebuild
+prebuild_from_wdir = $(addprefix $(prebuild_dir)/, $(prebuild_from))
+prebuild_to_wdir   = $(addprefix $(prebuild_dir)/, $(prebuild_to))
+
+$(prebuild_dir) :
+	mkdir $(prebuild_dir)
+
+$(prebuild_to_wdir) : $(prebuild_dir)/% : % $(prebuild_dir)
+	cp $< $@
+
+$(prebuild_from) : % : $(prebuild_dir)/%
+	cp $< $@
+
+prebuild : $(prebuild_dir) $(prebuild_to_wdir)
+clean-prebuild :
+	rm -rf $(prebuild_dir)
+
+.PHONY : prebuild clean-prebuild
+
+#-------------------------------------------------------------------------
+# Local install
+#-------------------------------------------------------------------------
+
+install-local : $(install-docs)
+	for file in $(install_docs); \
+  do \
+    $(INSTALL_DOC) $$file $(top_dir); \
+  done
+
+.PHONY: install-local
+
+#-------------------------------------------------------------------------
+# Install documents
+#-------------------------------------------------------------------------
+
+install-docs : $(install_docs)
+	$(MKINSTALLDIRS) $(install_docs_dir)
+	for file in $(install_docs); \
+  do \
+    $(INSTALL_DOC) $$file $(install_docs_dir); \
+  done
+
+install : install-docs
+ifeq ($(enable_stow),yes)
+	$(MKINSTALLDIRS) $(stow_pkg_dir)
+	cd $(stow_pkg_dir) && \
+    $(STOW) --delete $(project_name)-* && \
+    $(STOW) $(project_name)-$(project_ver)
+endif
+
+.PHONY : install-docs install
+
+#-------------------------------------------------------------------------
+# Regenerate configure information
+#-------------------------------------------------------------------------
+
+configure_prereq = \
+  $(top_dir)/configure.ac \
+  $(top_dir)/aclocal.m4 \
+  $(join $(addprefix $(top_dir)/, $(modules)), \
+         $(patsubst  %, /%.ac, $(modules)))
+
+$(top_dir)/configure : $(configure_prereq)
+	cd $(top_dir) && autoconf
+
+config.status : $(top_dir)/configure
+	./config.status --recheck
+
+modules_mk_in = \
+  $(join $(addprefix $(top_dir)/, $(modules)), \
+         $(patsubst  %, /%.mk.in, $(modules)))
+
+Makefile : $(top_dir)/Makefile.in $(modules_mk_in) config.status
+	./config.status
+
+dist_junk += config.status Makefile config.log
+
+#-------------------------------------------------------------------------
+# Distribution
+#-------------------------------------------------------------------------
+# The distribution tarball is named project-name.tar.gz and it includes
+# the src and scripts directories as well as all the build modules.
+
+dist_files = \
+  $(modules) \
+  README \
+  COPYING \
+  albs-uguide.txt \
+  src \
+  prebuild \
+  scripts \
+  images \
+  configure.ac \
+  aclocal.m4 \
+  configure \
+  Makefile.in \
+
+dist_dir := $(project_name)-$(project_ver)
+dist_tgz := $(project_name)-$(project_ver).tar.gz
+
+# Notice that when we make the distribution we rewrite the configure.ac
+# script with the current version and we rerun autoconf in the new
+# source directory so that the distribution will have the proper version
+# information. We also rewrite the "Version : " line in the README.
+
+dist :
+	rm -rf $(dist_dir)
+	mkdir $(dist_dir)
+	tar -C $(top_dir) -cf - $(dist_files) | tar -C $(dist_dir) -xpf -
+	sed -i.bak 's/^\(# Version :\).*/\1 $(project_ver)/' $(dist_dir)/README
+	sed -i.bak 's/\( proj_version,\).*/\1 [$(project_ver)])/' $(dist_dir)/configure.ac
+	cd $(dist_dir) && \
+    autoconf && \
+    rm -rf autom4te.cache configure.ac.bak README.bak
+	tar -czvf $(dist_tgz) $(dist_dir)
+	rm -rf $(dist_dir)
+
+# You can use the distcheck target to try untarring the distribution and
+# then running configure, make, make check, and make distclean. A
+# "directory is not empty" error means distclean is not removing
+# everything.
+
+distcheck : dist
+	rm -rf $(dist_dir)
+	tar -xzvf $(dist_tgz)
+	mkdir -p $(dist_dir)/build
+	cd $(dist_dir)/build; ../configure; make; make distclean
+	rm -rf $(dist_dir)
+
+junk += $(project_name)-*.tar.gz
+
+.PHONY : dist distcheck
+
+#-------------------------------------------------------------------------
+# Default
+#-------------------------------------------------------------------------
+
+all : $(default_doc_pdfs)
+.PHONY : all
+
+#-------------------------------------------------------------------------
+# Makefile debugging
+#-------------------------------------------------------------------------
+# This handy rule will display the contents of any make variable by
+# using the target debug-<varname>. So for example, make debug-junk will
+# display the contents of the junk variable.
+
+debug-% :
+	@echo $* = $($*)
+
+#-------------------------------------------------------------------------
+# Clean up junk
+#-------------------------------------------------------------------------
+
+clean :
+	rm -rf *~ \#* $(junk)
+
+distclean :
+	rm -rf *~ \#* $(junk) $(dist_junk)
+
+.PHONY : clean distclean

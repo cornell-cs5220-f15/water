@@ -1,0 +1,28 @@
+#=========================================================================
+# SVG Module Makefile Fragment
+#=========================================================================
+# Currently we directly use inkscape in the makefile to convert svg to
+# pdf. Eventually we might want to modify the configuration scripts and
+# makefile so that we can support other platforms which might use a
+# different process for svg to pdf conversion (ie rsvg-convert), but for
+# now this is the simplest approach. Note that if inkscape is not
+# available then we do not define a svg to pdf conversion rule - so if
+# you try to build a document which needs this conversion LaTeX will
+# complain that it cannot find a .svg.pdf file. Please read the
+# documenation in 'albs-uguide.txt' for more details on how the Automatic
+# LaTeX Build System works.
+
+INKSCAPE = @inkscape@
+
+svg_enabled  = @svg_enabled@
+svg_figs     = $(filter %.svg.pdf, $(figs))
+svg_prebuild = $(svg_figs)
+
+ifeq ($(svg_enabled),yes)
+$(svg_figs) : %.svg.pdf : %.svg
+	$(INKSCAPE) --without-gui --export-area-page --export-pdf \
+    $*.svg.pdf $<
+endif
+
+junk += $(svg_figs)
+
