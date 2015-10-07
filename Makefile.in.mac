@@ -7,5 +7,5 @@ OPTFLAGS=-Ofast -march=native
 CXXFLAGS+=$(OPTFLAGS)
 PYTHON=python
 
-CXXFLAGS+=-I/usr/local/include
-LDFLAGS+=-L/usr/local/lib
+LUA_CFLAGS=-I/usr/local/include
+LUA_LIBS=-L/usr/local/lib -llua

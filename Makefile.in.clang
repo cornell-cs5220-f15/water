@@ -6,3 +6,6 @@ OPTFLAGS=-Ofast -march=native
 
 CXXFLAGS+=$(OPTFLAGS)
 PYTHON=python
+
+LUA_CFLAGS=-I/share/apps/utils/include
+LUA_LIBS=-L/share/apps/utils/lib -llua

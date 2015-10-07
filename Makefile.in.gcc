@@ -6,3 +6,6 @@ OPTFLAGS=-O3 -march=native -fopenmp
 
 CXXFLAGS+=$(OPTFLAGS)
 PYTHON=python
+
+LUA_CFLAGS=-I/share/apps/utils/include
+LUA_LIBS=-L/share/apps/utils/lib -llua

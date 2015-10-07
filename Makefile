@@ -20,7 +20,7 @@ shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
 lshallow: ldriver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS) -llua
+	$(CXX) $(CXXFLAGS) $(LUA_CFLAGS) -o $@ $< $(LUA_LIBS)
 
 .PHONY: run big
 run: dam_break.gif
