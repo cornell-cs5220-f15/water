@@ -3,6 +3,10 @@
 #include "minmod.h"
 #include "meshio.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include <string>
 #include <cmath>
 #include <cstring>
@@ -140,7 +144,14 @@ int main(int argc, char** argv)
     sim.solution_check();
     viz.write_frame();
     for (int i = 0; i < frames; ++i) {
+#ifdef _OPENMP
+        double t0 = omp_get_wtime();
         sim.run(ftime);
+        double t1 = omp_get_wtime();
+        printf("Time: %e\n", t1-t0);
+#else
+        sim.run(ftime);
+#endif
         sim.solution_check();
         viz.write_frame();
     }
