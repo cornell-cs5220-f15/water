@@ -80,7 +80,8 @@ shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
 
 .PHONY: clean
 clean:
-	rm -f shallow
+	rm -f shallow lshallow
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
+	rm -rf *.dSYM
 
