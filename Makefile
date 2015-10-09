@@ -5,6 +5,12 @@ PYTHON=python
 shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
+shallow_%: driver.cc central2d.h central2d_v2.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -o $@ $< -DVERSION_$*
+
+run_%: shallow_%
+	qsub run.pbs -N $* -vARG1=$<
+
 mac:
 	make CXX=g++ CXXFLAGS=-std=c++14
 

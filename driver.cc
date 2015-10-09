@@ -1,4 +1,5 @@
 #include "central2d.h"
+#include "central2d_v2.h"
 #include "shallow2d.h"
 #include "minmod.h"
 #include "meshio.h"
@@ -11,24 +12,28 @@
 //ldoc on
 /**
  * # Driver routines
- *  
+ *
  * We use a fairly simple command-line driver to launch this simulation.
  * A better way to do this is to use a scripting language to set up the
  * simulation; Python is a popular choice, though I prefer Lua for many
  * things (not least because it is an easy build).  I may add that
  * capability later; for the moment, it's useful to have a simple
  * command-line interface that ought to run most anywhere.
- * 
+ *
  * For the driver, we need to put everything together: we're running
  * a `Central2D` solver for the `Shallow2D` physics with a `MinMod`
  * limiter:
  */
 
-typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
+#ifdef VERSION_v2
+    typedef Central2DV2< Shallow2D, MinMod<Shallow2D::real> > Sim;
+#else
+    typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
+#endif
 
 /**
  * ## Initial states
- * 
+ *
  * Our default problem is a circular dam break problem; the other
  * interesting problem is the wave problem (a wave on a constant
  * flow, starting off smooth and developing a shock in finite time).
@@ -75,7 +80,7 @@ void wave(Sim::vec& u, double x, double y)
 
 /**
  * ## Main driver
- * 
+ *
  * Our main driver uses the `getopt` library to parse options,
  * then runs a simulation, writing results to an output file
  * for postprocessing.
@@ -89,7 +94,7 @@ int main(int argc, char** argv)
     double width = 2.0;
     double ftime = 0.01;
     int    frames = 50;
-    
+
     int c;
     extern char* optarg;
     while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
@@ -130,7 +135,7 @@ int main(int argc, char** argv)
     } else {
         fprintf(stderr, "Unknown initial conditions\n");
     }
-    
+
     Sim sim(width,width, nx,nx);
     SimViz<Sim> viz(fname, sim);
     sim.init(icfun);
