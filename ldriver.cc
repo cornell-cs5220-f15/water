@@ -47,7 +47,7 @@ double lget_number(lua_State* L, const char* name, double x)
     if (lua_type(L, -1) != LUA_TNIL) {
         if (lua_type(L, -1) != LUA_TNUMBER)
             luaL_error(L, "Expected %s to be a number", name);
-        double x = lua_tonumber(L, -1);
+        x = lua_tonumber(L, -1);
     }
     lua_pop(L, 1);
     return x;
@@ -60,7 +60,7 @@ int lget_int(lua_State* L, const char* name, int x)
     if (lua_type(L, -1) != LUA_TNIL) {
         if (lua_type(L, -1) != LUA_TNUMBER)
             luaL_error(L, "Expected %s to be a number", name);
-        double x = lua_tointeger(L, -1);
+        x = lua_tointeger(L, -1);
     }
     lua_pop(L, 1);
     return x;
@@ -73,7 +73,7 @@ const char* lget_string(lua_State* L, const char* name, const char* x)
     if (lua_type(L, -1) != LUA_TNIL) {
         if (lua_type(L, -1) != LUA_TSTRING)
             luaL_error(L, "Expected %s to be a string", name);
-        double x = lua_tointeger(L, -1);
+        x = lua_tostring(L, -1);
     }
     lua_pop(L, 1);
     return x;
