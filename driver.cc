@@ -12,7 +12,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <unistd.h>
-
+#include <fstream>
 
 //ldoc on
 /**
@@ -90,11 +90,11 @@ void wave(Sim::vec& u, double x, double y)
 int main(int argc, char** argv)
 {
     std::string fname = "waves.out";
-    std::string ic = "dam_break";
-    int    nx = 200;
-    double width = 2.0;
-    double ftime = 0.01;
-    int    frames = 50;
+    std::string ic    = "dam_break";
+    int    nx         = 200;
+    double width      = 2.0;
+    double ftime      = 0.01;
+    int    frames     = 50;
     
     int c;
     extern char* optarg;
@@ -143,16 +143,21 @@ int main(int argc, char** argv)
     sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
+
+    std::ofstream time_file;
+    time_file.open("timings.csv");
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
         sim.run(ftime);
         double t1 = omp_get_wtime();
         printf("Time: %e\n", t1-t0);
+        time_file << t1-t0 << std::endl;
 #else
         sim.run(ftime);
 #endif
         sim.solution_check();
         viz.write_frame();
     }
+    time_file.close();
 }
