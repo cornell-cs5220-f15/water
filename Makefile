@@ -13,24 +13,39 @@
 PLATFORM=icc
 include Makefile.in.$(PLATFORM)
 
+SIMULATORS = \
+	shallow \
+	shallow_buggy \
+	shallow_copy \
+
+HEADERS = \
+	central2d.h \
+	shallow2d.h \
+	central2d_buggy.h \
+	central2d_copy.h \
+	minmod.h \
+	meshio.h \
+
 # ===
 # Main driver and sample run
+.PHONY: all run run_% big
+
+all: $(SIMULATORS)
 
 shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $<
+	$(CXX) $(CXXFLAGS) -o $@ $< -DVERSION_ref
 
-shallow_%: driver.cc central2d.h central2d_v2.h shallow2d.h minmod.h meshio.h
+shallow_%: driver.cc $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o $@ $< -DVERSION_$*
+
+run: shallow
+	qsub run.pbs -N shallow -vARG1=shallow
 
 run_%: shallow_%
 	qsub run.pbs -N $* -vARG1=$<
 
-.PHONY: run big
-run: dam_break.gif
-
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
-
 
 # ===
 # Example analyses
@@ -83,8 +98,7 @@ shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
 
 .PHONY: clean
 clean:
-	rm -f shallow
-	rm -f shallow_v2
+	rm -f $(SIMULATORS)
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
 

@@ -1,5 +1,5 @@
-#ifndef CENTRAL2D_V2_H
-#define CENTRAL2D_V2_H
+#ifndef CENTRAL2D_COPY_H
+#define CENTRAL2D_COPY_H
 
 #include <cstdio>
 #include <cmath>
@@ -63,7 +63,7 @@
  * at compile time, that describe separate classes to implement the
  * physics and the limiter.
  *
- * The `Central2DV2` solver class takes two template arguments:
+ * The `Central2DCopy` solver class takes two template arguments:
  * `Physics` and `Limiter`.  For `Physics`, we expect the name of a class
  * that defines:
  *
@@ -93,12 +93,12 @@
  */
 
 template <class Physics, class Limiter>
-class Central2DV2 {
+class Central2DCopy {
 public:
     typedef typename Physics::real real;
     typedef typename Physics::vec  vec;
 
-    Central2DV2(real w, real h,     // Domain width / height
+    Central2DCopy(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
               real cfl = 0.45) :  // Max allowed CFL number
         nx(nx), ny(ny),
@@ -205,7 +205,7 @@ private:
 
 template <class Physics, class Limiter>
 template <typename F>
-void Central2DV2<Physics, Limiter>::init(F f)
+void Central2DCopy<Physics, Limiter>::init(F f)
 {
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
@@ -230,7 +230,7 @@ void Central2DV2<Physics, Limiter>::init(F f)
  */
 
 template <class Physics, class Limiter>
-void Central2DV2<Physics, Limiter>::apply_periodic()
+void Central2DCopy<Physics, Limiter>::apply_periodic()
 {
     // Copy data between right and left boundaries
     for (int iy = 0; iy < ny_all; ++iy)
@@ -259,7 +259,7 @@ void Central2DV2<Physics, Limiter>::apply_periodic()
  */
 
 template <class Physics, class Limiter>
-void Central2DV2<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
+void Central2DCopy<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 {
     using namespace std;
     real cx = 1.0e-15;
@@ -285,7 +285,7 @@ void Central2DV2<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
  */
 
 template <class Physics, class Limiter>
-void Central2DV2<Physics, Limiter>::limited_derivs()
+void Central2DCopy<Physics, Limiter>::limited_derivs()
 {
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
@@ -324,7 +324,7 @@ void Central2DV2<Physics, Limiter>::limited_derivs()
  */
 
 template <class Physics, class Limiter>
-void Central2DV2<Physics, Limiter>::compute_step(int io, real dt)
+void Central2DCopy<Physics, Limiter>::compute_step(int io, real dt)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
@@ -382,7 +382,7 @@ void Central2DV2<Physics, Limiter>::compute_step(int io, real dt)
  */
 
 template <class Physics, class Limiter>
-void Central2DV2<Physics, Limiter>::run(real tfinal)
+void Central2DCopy<Physics, Limiter>::run(real tfinal)
 {
     bool done = false;
     real t = 0;
@@ -419,7 +419,7 @@ void Central2DV2<Physics, Limiter>::run(real tfinal)
  */
 
 template <class Physics, class Limiter>
-void Central2DV2<Physics, Limiter>::solution_check()
+void Central2DCopy<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
@@ -445,4 +445,4 @@ void Central2DV2<Physics, Limiter>::solution_check()
 }
 
 //ldoc off
-#endif /* CENTRAL2D_H*/
+#endif /* CENTRAL2D_COPY_H*/
