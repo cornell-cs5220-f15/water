@@ -16,17 +16,14 @@ include Makefile.in.$(PLATFORM)
 # ===
 # Main driver and sample run
 
-shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $<
-
 lshallow: ldriver.cc central2d.h shallow2d.h minmod.h meshio.h
 	$(CXX) $(CXXFLAGS) $(LUA_CFLAGS) -o $@ $< $(LUA_LIBS)
 
 .PHONY: run big
 run: dam_break.gif
 
-big: shallow
-	./shallow -i wave -o wave.out -n 1000 -F 100
+big: lshallow
+	# ./shallow -i wave -o wave.out -n 1000 -F 100
 
 
 # ===
@@ -34,9 +31,9 @@ big: shallow
 
 .PHONY: maqao scan-build
 
-maqao: shallow
+maqao: lshallow
 	( module load maqao ; \
-	  maqao cqa ./shallow fct=compute_step uarch=HASWELL )
+	  maqao cqa ./lshallow fct=compute_step uarch=HASWELL )
 
 scan-build:
 	( module load llvm-analyzer ; \
@@ -60,11 +57,11 @@ wave.mp4: wave.out
 # ===
 # Generate output files
 
-dam_break.out: shallow
-	./shallow -i dam_break -o dam_break.out
+dam_break.out: lshallow
+	./lshallow tests.lua dam
 
-wave.out: shallow
-	./shallow -i wave -o wave.out -F 100
+wave.out: lshallow
+	./lshallow tests.lua wave
 
 # ===
 # Generate documentation
@@ -72,7 +69,7 @@ wave.out: shallow
 shallow.pdf: intro.md shallow.md
 	pandoc --toc $^ -o $@
 
-shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
+shallow.md: shallow2d.h minmod.h central2d.h meshio.h ldriver.cc
 	ldoc $^ -o $@
 
 # ===
@@ -80,7 +77,7 @@ shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
 
 .PHONY: clean
 clean:
-	rm -f shallow lshallow
+	rm -f lshallow
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
 	rm -rf *.dSYM

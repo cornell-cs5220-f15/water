@@ -110,12 +110,10 @@ public:
         assert(lua_isfunction(L, -1));
         lua_pushnumber(L, x);
         lua_pushnumber(L, y);
-        lua_call(L, 2, 1);
-        for (int i = 1; i <= f.size(); ++i) {
-            lua_rawgeti(L, -1, i);
-            f[i-1] = lua_tonumber(L, -1);
-            lua_pop(L, 1);
-        }
+        lua_call(L, 2, f.size());
+        for (int i = 0; i < f.size(); ++i)
+            f[i] = lua_tonumber(L, i-f.size());
+        lua_pop(L, f.size());
     }
 
 private:
