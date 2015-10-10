@@ -83,43 +83,32 @@ const char* lget_string(lua_State* L, const char* name, const char* x)
 /**
  * ## Lua callback functions
  * 
- * We can specify the initial conditions by providing the simulator
+ * We specify the initial conditions by providing the simulator
  * with a callback function to be called at each cell center.
- * There's nothing wrong with writing that callback in C++, but we
- * do need to make sure to keep the Lua state as context.  It's not
- * so easy to store a Lua function directly in C++, but we can store
- * it in a special registry table in Lua (where the key is the "this"
- * pointer for the object).
  */
 
-class SimInitF {
-public:
+void lua_init_sim(lua_State* L, Sim& sim)
+{
+    lua_getfield(L, 1, "init");
+    if (lua_type(L, -1) != LUA_TFUNCTION)
+        luaL_error(L, "Expected init to be a string");
 
-    // Take a function pointer off the top of the stack and save with this
-    SimInitF(lua_State* L) : L(L) {
-        key = this;
-        lua_pushlightuserdata(L, (void*) key);
-        lua_pushvalue(L, -2);
-        lua_settable(L, LUA_REGISTRYINDEX);
-        lua_pop(L, 1);
+    for (int ix = 0; ix < sim.xsize(); ++ix) {
+        float x = (ix + 0.5) * sim.get_dx();
+        for (int iy = 0; iy < sim.ysize(); ++iy) {
+            float y = (iy + 0.5) * sim.get_dy();
+            lua_pushvalue(L, -1);
+            lua_pushnumber(L, x);
+            lua_pushnumber(L, y);
+            lua_call(L, 2, sim(ix,iy).size());
+            for (int k = 0; k < sim(ix,iy).size(); ++k)
+                sim(ix,iy)[k] = lua_tonumber(L, k-sim(ix,iy).size());
+            lua_pop(L, sim(ix,iy).size());
+        }
     }
 
-    void operator()(Sim::vec& f, Sim::real x, Sim::real y) {
-        lua_pushlightuserdata(L, (void*) key);
-        lua_gettable(L, LUA_REGISTRYINDEX);
-        assert(lua_isfunction(L, -1));
-        lua_pushnumber(L, x);
-        lua_pushnumber(L, y);
-        lua_call(L, 2, f.size());
-        for (int i = 0; i < f.size(); ++i)
-            f[i] = lua_tonumber(L, i-f.size());
-        lua_pop(L, f.size());
-    }
-
-private:
-    SimInitF* key;
-    lua_State* L;
-};
+    lua_pop(L,1);
+}
 
 
 /**
@@ -151,16 +140,11 @@ int run_sim(lua_State* L)
     int frames = lget_int(L, "frames", 50);
     const char* fname = lget_string(L, "out", "sim.out");
 
-    lua_getfield(L, 1, "init");
-    if (lua_type(L, -1) != LUA_TFUNCTION)
-        luaL_error(L, "Expected init to be a string");        
-    SimInitF icfun(L);
-    
     Sim sim(w,h, nx,ny, cfl);
+    lua_init_sim(L,sim);
 
     printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
     SimViz<Sim> viz(fname, sim);
-    sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
     for (int i = 0; i < frames; ++i) {

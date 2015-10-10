@@ -128,6 +128,10 @@ public:
     // Array size accessors
     int xsize() const { return nx; }
     int ysize() const { return ny; }
+
+    // Dimension accessors
+    real get_dx() const { return dx; }
+    real get_dy() const { return dy; }
     
     // Read / write elements of simulation state
     vec&       operator()(int i, int j) {
