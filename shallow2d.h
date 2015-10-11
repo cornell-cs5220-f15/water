@@ -5,6 +5,10 @@
 #include <array>
 #include <algorithm>
 
+#ifndef RESTRICT
+#define RESTRICT
+#endif
+
 //ldoc on
 /**
  * # Shallow water equations
@@ -73,17 +77,17 @@ struct Shallow2D {
     static void flux(real* FU, real* GU, const real* U,
                      int ncell, int field_stride) {
 
-        real* fh  = FU;
-        real* fhu = FU +   field_stride;
-        real* fhv = FU + 2*field_stride;
+        real* RESTRICT fh  = FU;
+        real* RESTRICT fhu = FU +   field_stride;
+        real* RESTRICT fhv = FU + 2*field_stride;
 
-        real* gh  = GU;
-        real* ghu = GU +   field_stride;
-        real* ghv = GU + 2*field_stride;
+        real* RESTRICT gh  = GU;
+        real* RESTRICT ghu = GU +   field_stride;
+        real* RESTRICT ghv = GU + 2*field_stride;
 
-        const real* h  = U;
-        const real* hu = U +   field_stride;
-        const real* hv = U + 2*field_stride;
+        const real* RESTRICT h  = U;
+        const real* RESTRICT hu = U +   field_stride;
+        const real* RESTRICT hv = U + 2*field_stride;
 
         std::copy(hu, hu+ncell, fh);
         std::copy(hv, hv+ncell, gh);
@@ -121,4 +125,5 @@ struct Shallow2D {
 };
 
 //ldoc off
+#undef RESTRICT
 #endif /* SHALLOW2D_H */
