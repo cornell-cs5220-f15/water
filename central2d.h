@@ -98,6 +98,8 @@ public:
     typedef typename Physics::real real;
     typedef typename Physics::vec  vec;
 
+    #define VEC_SIZE vec.size()
+
     Central2D(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
               real cfl = 0.45) :  // Max allowed CFL number
@@ -344,6 +346,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
             for (int m = 0; m < v(ix,iy).size(); ++m) {
+            // for(int m = 0; m < Physics::vec_size; ++m) {
                 v(ix,iy)[m] =
                     0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
                                u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
