@@ -179,13 +179,15 @@ private:
 
     // Apply limiter to all components in a vector
     static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
-        for (int m = 0; m < du.size(); ++m)
+        #pragma ivdep
+	for (int m = 0; m < du.size(); ++m)
             du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
     }
 
     // Stages of the main algorithm
     void apply_periodic();
     void compute_fg_speeds(real& cx, real& cy);
+   // #pragma omp declare simd
     void limited_derivs();
     void compute_step(int io, real dt);
 
@@ -240,14 +242,18 @@ template <class Physics, class Limiter>
 void Central2DV3<Physics, Limiter>::apply_periodic()
 {
     // Copy data between right and left boundaries
+    #pragma ivdep
     for (int iy = 0; iy < ny_all; ++iy)
+	#pragma ivdep
         for (int ix = 0; ix < nghost; ++ix) {
             u(ix,          iy) = uwrap(ix,          iy);
             u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
         }
 
     // Copy data between top and bottom boundaries
+    #pragma ivdep
     for (int ix = 0; ix < nx_all; ++ix)
+	#pragma ivdep
         for (int iy = 0; iy < nghost; ++iy) {
             u(ix,          iy) = uwrap(ix,          iy);
             u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
@@ -296,7 +302,7 @@ void Central2DV3<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2DV3<Physics, Limiter>::limited_derivs()
 {
-	#pragma simd
+	//#pragma omp declare simd
     for (int iy = 1; iy < ny_all-1; ++iy)
         #pragma ivdep
 	for (int ix = 1; ix < nx_all-1; ++ix) {
@@ -341,25 +347,29 @@ void Central2DV3<Physics, Limiter>::compute_step(int io, real dt)
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    #pragma ivdep
+   // #pragma ivdep
     for (int iy = 1; iy < ny_all-1; ++iy)
 	#pragma ivdep
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec uh = u(ix,iy);
+           //	#pragma ivdep
+		 vec uh = u(ix,iy);
+		#pragma ivdep
             for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * fx(ix,iy)[m];
+                #pragma ivdep
+		uh[m] -= dtcdx2 * fx(ix,iy)[m];
                 uh[m] -= dtcdy2 * gy(ix,iy)[m];
             }
             Physics::flux(f(ix,iy), g(ix,iy), uh);
         }
 
     // Corrector (finish the step)
-    #pragma ivdep
+   // #pragma ivdep
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-	#pragma ivdep
+	//#pragma ivdep
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
 		#pragma ivdep
             for (int m = 0; m < v(ix,iy).size(); ++m) {
+		//#pragma ivdep
                 v(ix,iy)[m] =
                     0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
                                u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
@@ -445,9 +455,9 @@ void Central2DV3<Physics, Limiter>::solution_check()
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
     real hmin = u(nghost,nghost)[0];
     real hmax = hmin;
-    #pragma omp for
+    #pragma omp parallel for
     for (int j = nghost; j < ny+nghost; ++j)
-        #pragma omp for
+        #pragma omp parallel for
 	for (int i = nghost; i < nx+nghost; ++i) {
             vec& uij = u(i,j);
             real h = uij[0];
