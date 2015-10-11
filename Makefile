@@ -17,10 +17,10 @@ include Makefile.in.$(PLATFORM)
 # Main driver and sample run
 
 shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $<
+	$(CXX) $(CXXFLAGS) -D_SERIAL -o $@ $<
 
-shallow-omp: driver.cc central2d_omp.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $<
+shallow-pnode: driver.cc central2d_pnode.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -D_PARALLEL_NODE -o $@ $<
 
 .PHONY: run big
 run: dam_break.gif
@@ -81,6 +81,7 @@ shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
 .PHONY: clean
 clean:
 	rm -f shallow
+	rm -f shallow-omp
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
 

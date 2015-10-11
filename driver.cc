@@ -1,4 +1,8 @@
-#include "central2d.h"
+#ifdef _SERIAL
+  #include "central2d.h"
+#elif _PARALLEL_NODE
+  #include "central2d_omp.h"
+#endif
 #include "shallow2d.h"
 #include "minmod.h"
 #include "meshio.h"

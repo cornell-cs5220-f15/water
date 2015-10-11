@@ -270,6 +270,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
+//            printf("ix,iy = %d,%d\n", ix, iy);
             Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
@@ -360,6 +361,8 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         int biy_off = biy * nx_per_block + nghost - io;
         int bix_off = bix * nx_per_block + nghost - io;
 
+//        printf("DEBUG%d: (%d,%d) %d\n", tid, bix_off, biy_off, nx_per_block);
+
         // Corrector (finish the step)
         for (int iy = biy_off; iy < biy_off + nx_per_block; ++iy)
             for (int ix = bix_off; ix < bix_off + nx_per_block; ++ix) {
@@ -384,6 +387,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     for (int j = nghost; j < ny+nghost; ++j){
         for (int i = nghost; i < nx+nghost; ++i){
             u(i,j) = v(i-io,j-io);
+//            printf("u(%d,%d) = %f\n", i, j, u(i,j));
         }
     }
 
@@ -412,12 +416,15 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     while (!done) {
         real dt;
         for (int io = 0; io < 2; ++io) {
+//            printf("t = %f (%d)\n", t, io);
             real cx, cy;
             apply_periodic();
             compute_fg_speeds(cx, cy);
             limited_derivs();
             if (io == 0) {
+//                printf("cfl = %f, cx = %f, dx = %f, cy = %f, dy = %f\n", cfl, cx, dx, cy, dy);
                 dt = cfl / std::max(cx/dx, cy/dy);
+//                printf("dt = %f (%f)\n", dt, tfinal);
                 if (t + 2*dt >= tfinal) {
                     dt = (tfinal-t)/2;
                     done = true;
