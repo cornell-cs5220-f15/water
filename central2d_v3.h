@@ -211,9 +211,9 @@ void Central2DV3<Physics, Limiter>::init(F f)
   // for (int iy = 0; iy < ny; ++iy)
       // for (int ix = 0; ix < nx; ++ix)
            // f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
-  	#pragma omp for
+  	#pragma omp parallel for
   	for (int iy = 0; iy < ny; ++iy)
-	#pragma omp for
+	#pragma omp parallel for
 	for (int ix = 0; ix < nx; ++ix)
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
 
