@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <array>
+#include <algorithm>
 
 //ldoc on
 /**
@@ -69,16 +70,34 @@ struct Shallow2D {
     static constexpr real g = 9.8;
 
     // Compute shallow water fluxes F(U), G(U)
-    static void flux(vec& FU, vec& GU, const vec& U) {
-        real h = U[0], hu = U[1], hv = U[2];
+    static void flux(real* FU, real* GU, const real* U,
+                     int ncell, int field_stride) {
 
-        FU[0] = hu;
-        FU[1] = hu*hu/h + (0.5*g)*h*h;
-        FU[2] = hu*hv/h;
+        real* fh  = FU;
+        real* fhu = FU +   field_stride;
+        real* fhv = FU + 2*field_stride;
 
-        GU[0] = hv;
-        GU[1] = hu*hv/h;
-        GU[2] = hv*hv/h + (0.5*g)*h*h;
+        real* gh  = GU;
+        real* ghu = GU +   field_stride;
+        real* ghv = GU + 2*field_stride;
+
+        const real* h  = U;
+        const real* hu = U +   field_stride;
+        const real* hv = U + 2*field_stride;
+
+        std::copy(hu, hu+ncell, fh);
+        std::copy(hv, hv+ncell, gh);
+
+        for (int i = 0; i < ncell; ++i) {
+            float hi = h[i], hui = hu[i], hvi = hv[i];
+            float inv_h = 1/hi;
+            fh[i]  = hu[i];
+            fhu[i] = hui*hui*inv_h + (0.5*g)*hi*hi;
+            fhv[i] = hui*hvi*inv_h;
+            gh[i]  = hv[i];
+            ghu[i] = hui*hvi*inv_h;
+            ghv[i] = hvi*hvi*inv_h + (0.5*g)*hi*hi;
+        }
     }
 
     // Compute shallow water wave speed

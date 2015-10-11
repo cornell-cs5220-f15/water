@@ -238,20 +238,8 @@ void Central2D<Physics, Limiter>::apply_periodic()
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx, real& cy)
 {
-    using namespace std;
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            real cell_cx, cell_cy;
-            vec ucell, fcell, gcell;
-            for (int k = 0; k < nfield; ++k)
-                ucell[k] = u(k,ix,iy);
-            Physics::flux(fcell, gcell, ucell);
-            for (int k = 0; k < nfield; ++k) {
-                f(k,ix,iy) = fcell[k];
-                g(k,ix,iy) = gcell[k];
-            }
-        }
-
+    Physics::flux(&f_[0], &g_[0], &u_[0],
+                  nx_all * ny_all, nx_all * ny_all);
     cx = 1.0e-15;
     cy = 1.0e-15;
     Physics::wave_speed(cx, cy, &u_[0],
@@ -322,17 +310,11 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
                     dtcdy2 * gy(k,ix,iy);
 
     // Flux values of f and g at half step
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec ucell, fcell, gcell;
-            for (int k = 0; k < nfield; ++k)
-                ucell[k] = v(k,ix,iy);
-            Physics::flux(fcell, gcell, ucell);
-            for (int k = 0; k < nfield; ++k) {
-                f(k,ix,iy) = fcell[k];
-                g(k,ix,iy) = gcell[k];
-            }
-        }
+    for (int iy = 1; iy < ny_all-1; ++iy) {
+        int jj = offset(0,1,iy);
+        Physics::flux(&f_[jj], &g_[jj], &v_[jj],
+                      nx_all-2, nx_all * ny_all);
+    }
 
     // Corrector (finish the step)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
