@@ -61,10 +61,8 @@
 struct Shallow2D {
 
     // Type parameters for solver
-    #define DIM 3
     typedef float real;
     typedef std::array<real,DIM> vec;
-    static constexpr int vec_size = DIM;
 
     // Gravitational force (compile time constant)
     static constexpr real g = 9.8;
