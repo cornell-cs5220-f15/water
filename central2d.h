@@ -113,8 +113,7 @@ public:
         uy_(nx_all * ny_all),
         fx_(nx_all * ny_all),
         gy_(nx_all * ny_all),
-        v_ (nx_all * ny_all),
-        nfield(u_[0].size())    {}
+        v_ (nx_all * ny_all) {}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -130,7 +129,7 @@ public:
     int xsize() const { return nx; }
     int ysize() const { return ny; }
 
-    int get_nfield() const { return nfield; }
+    int nfield() const { return Physics::nfield; }
 
     // Dimension accessors
     real get_dx() const { return dx; }
@@ -149,7 +148,6 @@ private:
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
-    const int nfield;          // Number of fields
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
 
@@ -234,7 +232,7 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
 {
     // Copy data between right and left boundaries
-    for (int k = 0; k < nfield; ++k) {
+    for (int k = 0; k < nfield(); ++k) {
         for (int iy = 0; iy < ny_all; ++iy)
             for (int ix = 0; ix < nghost; ++ix) {
                 u(k,ix,          iy) = uwrap(k,ix,          iy);
@@ -291,7 +289,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
-    for (int k = 0; k < nfield; ++k) {
+    for (int k = 0; k < nfield(); ++k) {
         for (int iy = 1; iy < ny_all-1; ++iy)
             for (int ix = 1; ix < nx_all-1; ++ix) {
 
@@ -335,22 +333,25 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
-    // Predictor (flux values of f and g at half step)
+    // Half step predictor
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            for (int k = 0; k < nfield(); ++k)
+                v(k,ix,iy) = u(k,ix,iy) -
+                    dtcdx2 * fx(k,ix,iy) -
+                    dtcdy2 * gy(k,ix,iy);
+
+    // Flux values of f and g at half step
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             int jj = offset(ix,iy);
-            vec uh = u_[jj];
-            for (int m = 0; m < nfield; ++m) {
-                uh[m] -= dtcdx2 * fx(m,ix,iy);
-                uh[m] -= dtcdy2 * gy(m,ix,iy);
-            }
-            Physics::flux(f_[jj], g_[jj], uh);
+            Physics::flux(f_[jj], g_[jj], v_[jj]);
         }
 
     // Corrector (finish the step)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int m = 0; m < nfield; ++m) {
+            for (int m = 0; m < nfield(); ++m) {
                 v(m,ix,iy) =
                     0.2500 * ( u(m,ix,  iy) + u(m,ix+1,iy  ) +
                                u(m,ix,iy+1) + u(m,ix+1,iy+1) ) -
@@ -368,7 +369,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     // Copy from v storage back to main grid
     for (int j = nghost; j < ny+nghost; ++j)
         for (int i = nghost; i < nx+nghost; ++i)
-            for (int m = 0; m < nfield; ++m)
+            for (int m = 0; m < nfield(); ++m)
                 u(m,i,j) = v(m,i-io,j-io);
 }
 
