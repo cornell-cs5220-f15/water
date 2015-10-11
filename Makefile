@@ -15,16 +15,18 @@ include Makefile.in.$(PLATFORM)
 
 SIMULATORS = \
 	shallow \
-	shallow_v3 \
+	shallow_buggy \
 	shallow_copy \
+	shallow_v3 \
 
 HEADERS = \
 	central2d.h \
-	shallow2d.h \
-	central2d_v3.h \
+	central2d_buggy.h \
 	central2d_copy.h \
-	minmod.h \
+	central2d_v3.h \
 	meshio.h \
+	minmod.h \
+	shallow2d.h \
 
 # ===
 # Main driver and sample run
