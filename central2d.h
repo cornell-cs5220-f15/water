@@ -130,17 +130,18 @@ public:
     int xsize() const { return nx; }
     int ysize() const { return ny; }
 
+    int get_nfield() const { return nfield; }
+
     // Dimension accessors
     real get_dx() const { return dx; }
     real get_dy() const { return dy; }
-    
+
     // Read / write elements of simulation state
-    vec&       operator()(int i, int j) {
-        return u_[offset(i+nghost,j+nghost)];
+    real& operator()(int k, int i, int j) {
+        return u_[offset(i+nghost,j+nghost)][k];
     }
-    
-    const vec& operator()(int i, int j) const {
-        return u_[offset(i+nghost,j+nghost)];
+    real operator()(int k, int i, int j) const {
+        return u_[offset(i+nghost,j+nghost)][k];
     }
     
 private:

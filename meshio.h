@@ -58,7 +58,7 @@ public:
         if (fp)
             for (int j = 0; j < sim.ysize(); ++j)
                 for (int i = 0; i < sim.xsize(); ++i) {
-                    float uij = sim(i,j)[0];
+                    float uij = sim(0,i,j);
                     fwrite(&uij, sizeof(float), 1, fp);
                 }
     }

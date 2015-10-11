@@ -100,10 +100,10 @@ void lua_init_sim(lua_State* L, Sim& sim)
             lua_pushvalue(L, -1);
             lua_pushnumber(L, x);
             lua_pushnumber(L, y);
-            lua_call(L, 2, sim(ix,iy).size());
-            for (int k = 0; k < sim(ix,iy).size(); ++k)
-                sim(ix,iy)[k] = lua_tonumber(L, k-sim(ix,iy).size());
-            lua_pop(L, sim(ix,iy).size());
+            lua_call(L, 2, sim.get_nfield());
+            for (int k = 0; k < sim.get_nfield(); ++k)
+                sim(k,ix,iy) = lua_tonumber(L, k-sim.get_nfield());
+            lua_pop(L, sim.get_nfield());
         }
     }
 
