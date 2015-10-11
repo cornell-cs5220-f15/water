@@ -1,7 +1,7 @@
 #ifdef _SERIAL
   #include "central2d.h"
 #elif _PARALLEL_NODE
-  #include "central2d_omp.h"
+  #include "central2d_pnode.h"
 #endif
 #include "shallow2d.h"
 #include "minmod.h"
