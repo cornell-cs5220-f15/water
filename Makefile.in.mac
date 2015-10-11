@@ -10,8 +10,8 @@ OPTFLAGS=-Ofast -march=native -DRESTRICT=__restrict__
 # Add this flag to determine whether the compiler was able to vectorize
 ANALYSIS=-Rpass-analysis=loop-vectorize
 
-CXXFLAGS+=$(OPTFLAGS) 
-CFLAGS+=$(OPTFLAGS)
+CXXFLAGS+=$(OPTFLAGS) $(ANALYSIS)
+CFLAGS+=$(OPTFLAGS) $(ANALYSIS)
 PYTHON=python
 
 LUA_CFLAGS=-I/usr/local/include
