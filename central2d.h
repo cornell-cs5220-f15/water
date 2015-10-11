@@ -236,11 +236,9 @@ void Central2D<Physics, Limiter>::apply_periodic()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
+void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx, real& cy)
 {
     using namespace std;
-    real cx = 1.0e-15;
-    real cy = 1.0e-15;
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
@@ -248,16 +246,16 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
             for (int k = 0; k < nfield; ++k)
                 ucell[k] = u(k,ix,iy);
             Physics::flux(fcell, gcell, ucell);
-            Physics::wave_speed(cell_cx, cell_cy, ucell);
             for (int k = 0; k < nfield; ++k) {
                 f(k,ix,iy) = fcell[k];
                 g(k,ix,iy) = gcell[k];
             }
-            cx = max(cx, cell_cx);
-            cy = max(cy, cell_cy);
         }
-    cx_ = cx;
-    cy_ = cy;
+
+    cx = 1.0e-15;
+    cy = 1.0e-15;
+    Physics::wave_speed(cx, cy, &u_[0],
+                        nx_all * ny_all, nx_all * ny_all);
 }
 
 /**

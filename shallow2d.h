@@ -82,12 +82,22 @@ struct Shallow2D {
     }
 
     // Compute shallow water wave speed
-    static void wave_speed(real& cx, real& cy, const vec& U) {
+    static void wave_speed(real& cx, real& cy, const real* U,
+                           int ncell, int field_stride) {
         using namespace std;
-        real h = U[0], hu = U[1], hv = U[2];
-        real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
-        cx = abs(hu/h) + root_gh;
-        cy = abs(hv/h) + root_gh;
+
+        const real* h  = U;
+        const real* hu = U +   field_stride;
+        const real* hv = U + 2*field_stride;
+
+        for (int i = 0; i < ncell; ++i) {
+            real hi = h[i], hui = hu[i], hvi = hv[i];
+            real root_gh = sqrt(g * hi);
+            real cxi = abs(hui/hi) + root_gh;
+            real cyi = abs(hvi/hi) + root_gh;
+            cx = max(cx, cxi);
+            cy = max(cy, cyi);
+        }
     }
 };
 
