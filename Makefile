@@ -15,13 +15,13 @@ include Makefile.in.$(PLATFORM)
 
 SIMULATORS = \
 	shallow \
-	shallow_buggy \
+	shallow_v3 \
 	shallow_copy \
 
 HEADERS = \
 	central2d.h \
 	shallow2d.h \
-	central2d_buggy.h \
+	central2d_v3.h \
 	central2d_copy.h \
 	minmod.h \
 	meshio.h \
