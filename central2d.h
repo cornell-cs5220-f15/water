@@ -106,14 +106,14 @@ public:
         ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
         cfl(cfl), 
-        u_ (nx_all * ny_all),
-        f_ (nx_all * ny_all),
-        g_ (nx_all * ny_all),
-        ux_(nx_all * ny_all),
-        uy_(nx_all * ny_all),
-        fx_(nx_all * ny_all),
-        gy_(nx_all * ny_all),
-        v_ (nx_all * ny_all) {}
+        u_ (Physics::nfield * nx_all * ny_all),
+        f_ (Physics::nfield * nx_all * ny_all),
+        g_ (Physics::nfield * nx_all * ny_all),
+        ux_(Physics::nfield * nx_all * ny_all),
+        uy_(Physics::nfield * nx_all * ny_all),
+        fx_(Physics::nfield * nx_all * ny_all),
+        gy_(Physics::nfield * nx_all * ny_all),
+        v_ (Physics::nfield * nx_all * ny_all) {}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -137,10 +137,10 @@ public:
 
     // Read / write elements of simulation state
     real& operator()(int k, int i, int j) {
-        return u_[offset(i+nghost,j+nghost)][k];
+        return u_[offset(k,i+nghost,j+nghost)];
     }
     real operator()(int k, int i, int j) const {
-        return u_[offset(i+nghost,j+nghost)][k];
+        return u_[offset(k,i+nghost,j+nghost)];
     }
     
 private:
@@ -151,36 +151,37 @@ private:
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
 
-    std::vector<vec> u_;            // Solution values
-    std::vector<vec> f_;            // Fluxes in x
-    std::vector<vec> g_;            // Fluxes in y
-    std::vector<vec> ux_;           // x differences of u
-    std::vector<vec> uy_;           // y differences of u
-    std::vector<vec> fx_;           // x differences of f
-    std::vector<vec> gy_;           // y differences of g
-    std::vector<vec> v_;            // Solution values at next step
+    std::vector<real> u_;            // Solution values
+    std::vector<real> f_;            // Fluxes in x
+    std::vector<real> g_;            // Fluxes in y
+    std::vector<real> ux_;           // x differences of u
+    std::vector<real> uy_;           // y differences of u
+    std::vector<real> fx_;           // x differences of f
+    std::vector<real> gy_;           // y differences of g
+    std::vector<real> v_;            // Solution values at next step
 
     // Array accessor functions
 
-    int offset(int ix, int iy) const { return iy*nx_all+ix; }
+    int offset(int k, int ix, int iy) const { return (k*ny_all+iy)*nx_all+ix; }
 
-    real& u(int k, int ix, int iy)    { return u_[offset(ix,iy)][k]; }
-    real& v(int k, int ix, int iy)    { return v_[offset(ix,iy)][k]; }
-    real& f(int k, int ix, int iy)    { return f_[offset(ix,iy)][k]; }
-    real& g(int k, int ix, int iy)    { return g_[offset(ix,iy)][k]; }
+    real& u(int k, int ix, int iy)    { return u_[offset(k,ix,iy)]; }
+    real& v(int k, int ix, int iy)    { return v_[offset(k,ix,iy)]; }
+    real& f(int k, int ix, int iy)    { return f_[offset(k,ix,iy)]; }
+    real& g(int k, int ix, int iy)    { return g_[offset(k,ix,iy)]; }
 
-    real& ux(int k, int ix, int iy)   { return ux_[offset(ix,iy)][k]; }
-    real& uy(int k, int ix, int iy)   { return uy_[offset(ix,iy)][k]; }
-    real& fx(int k, int ix, int iy)   { return fx_[offset(ix,iy)][k]; }
-    real& gy(int k, int ix, int iy)   { return gy_[offset(ix,iy)][k]; }
+    real& ux(int k, int ix, int iy)   { return ux_[offset(k,ix,iy)]; }
+    real& uy(int k, int ix, int iy)   { return uy_[offset(k,ix,iy)]; }
+    real& fx(int k, int ix, int iy)   { return fx_[offset(k,ix,iy)]; }
+    real& gy(int k, int ix, int iy)   { return gy_[offset(k,ix,iy)]; }
 
     // Wrapped accessor (periodic BC)
-    int ioffset(int ix, int iy) {
-        return offset( (ix+nx-nghost) % nx + nghost,
-                       (iy+ny-nghost) % ny + nghost );
+    int ioffset(int k, int ix, int iy) {
+        return offset(k,
+                      (ix+nx-nghost) % nx + nghost,
+                      (iy+ny-nghost) % ny + nghost );
     }
 
-    real& uwrap(int k, int ix, int iy)  { return u_[ioffset(ix,iy)][k]; }
+    real& uwrap(int k, int ix, int iy)  { return u_[ioffset(k,ix,iy)]; }
 
     // Stages of the main algorithm
     void apply_periodic();
@@ -268,9 +269,15 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            int j = offset(ix,iy);
-            Physics::flux(f_[j], g_[j], u_[j]);
-            Physics::wave_speed(cell_cx, cell_cy, u_[j]);
+            vec ucell, fcell, gcell;
+            for (int k = 0; k < nfield(); ++k)
+                ucell[k] = u(k,ix,iy);
+            Physics::flux(fcell, gcell, ucell);
+            Physics::wave_speed(cell_cx, cell_cy, ucell);
+            for (int k = 0; k < nfield(); ++k) {
+                f(k,ix,iy) = fcell[k];
+                g(k,ix,iy) = gcell[k];
+            }
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
@@ -344,8 +351,14 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     // Flux values of f and g at half step
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            int jj = offset(ix,iy);
-            Physics::flux(f_[jj], g_[jj], v_[jj]);
+            vec ucell, fcell, gcell;
+            for (int k = 0; k < nfield(); ++k)
+                ucell[k] = v(k,ix,iy);
+            Physics::flux(fcell, gcell, ucell);
+            for (int k = 0; k < nfield(); ++k) {
+                f(k,ix,iy) = fcell[k];
+                g(k,ix,iy) = gcell[k];
+            }
         }
 
     // Corrector (finish the step)
