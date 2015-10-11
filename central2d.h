@@ -180,7 +180,7 @@ private:
 
     // Stages of the main algorithm
     void apply_periodic();
-    void compute_fg_speeds(real& cx, real& cy);
+    void compute_fg_speeds(real* cxy);
     void limited_derivs();
     void compute_step(int io, real dt);
 
@@ -236,14 +236,13 @@ void Central2D<Physics, Limiter>::apply_periodic()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx, real& cy)
+void Central2D<Physics, Limiter>::compute_fg_speeds(real* cxy)
 {
     Physics::flux(&f_[0], &g_[0], &u_[0],
                   nx_all * ny_all, nx_all * ny_all);
-    cx = 1.0e-15;
-    cy = 1.0e-15;
-    Physics::wave_speed(cx, cy, &u_[0],
-                        nx_all * ny_all, nx_all * ny_all);
+    cxy[0] = 1.0e-15;
+    cxy[1] = 1.0e-15;
+    Physics::wave_speed(cxy, &u_[0], nx_all * ny_all, nx_all * ny_all);
 }
 
 /**
@@ -364,12 +363,12 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     while (!done) {
         real dt;
         for (int io = 0; io < 2; ++io) {
-            real cx, cy;
+            real cxy[2];
             apply_periodic();
-            compute_fg_speeds(cx, cy);
+            compute_fg_speeds(cxy);
             limited_derivs();
             if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
+                dt = cfl / std::max(cxy[0]/dx, cxy[1]/dy);
                 if (t + 2*dt >= tfinal) {
                     dt = (tfinal-t)/2;
                     done = true;
