@@ -1,12 +1,63 @@
 %=========================================================================
 % sec-profile
 %=========================================================================
-
 \section{Profiling the Shallow Water Simulation}
 \label{sec-profile}
 
+At this time we will be focusing on two general types of optimization techniques available to us for identifying where the bottlenecks in the code are:
+
+\begin{enumerate}[1.]
+    \item Compile-time optimization reports, and
+    \item Run-time analysis optimization reports
+\end{enumerate}
+
+As we whittle away the various locations in the code that can be optimized using these tools, we will expand to more intricate performance analysis tools such as \emph{TAU}, \emph{IACA}, and \emph{MAQAO}.\\
+
+After identifying these bottlenecks and improving them through general compilation improvement techniques such as \texttt{constexpr} and \texttt{inline}, we will require a more comprehensive performance modeling strategy to further improve the simulation.  This includes analysis of memory transfer, broad parallel execution analysis, and providing both strong and weak scaling arguments to support our parallel implementations.
+
 \subsection{Identifying Bottlenecks}
 \label{sec-profile-bottlenecks}
+
+\subsubsection{Compile-time Bottlenecks}
+\label{sec-profile-bottlenecks-compile-time}
+The first useful stage in identifying potential areas for optimization is to examine the \texttt{icc} compiler optimization reports.  For example, after compiling with \texttt{icc} we obtain two reports
+
+\begin{enumerate}[i)]
+    \item \texttt{driver.optrpt}
+    \item \texttt{ipo\_out.optrpt}
+\end{enumerate}
+
+Though \texttt{driver.optrpt} is empty, the \texttt{ipo\_out.optrpt} provides some very interesting insight as to what the compiler does behind the scenes.  Since we already know that the \texttt{compute\_step} function is a likely candidate for bottlenecks, let's focus on this noting that this method roughly spans lines 327 -- 367 of \texttt{central2d.h}.  So line numbers in this range referenced in \texttt{ipo\_out.optrpt} are of concern at this stage.  To examine this range of line numbers incrementally, we note that the optimization report output is of the form \texttt{filename.h(line,column)}.  We are interested in \texttt{central2d.h}, lines 327 -- 367, so we can loop over all of these lines and see if they show up in the \texttt{optrpt}:
+
+\begin{lstlisting}
+    for x in {327..367}
+    do
+        TARGET_LINE="central2d.h("$x     # just want line number
+        grep $TARGET_LINE ipo_out.optrpt # search for this line
+    done
+\end{lstlisting}
+
+We belabour this point in hopes that anybody reading this may benefit from the above when trying to optimize a specific function with respect to compilation.  For convenience, you should be able to copy paste this\\\\ \centerline{{\small \texttt{for x in \{327..367\}; do TARGET\_LINE="central2d.h("\$x; grep \$TARGET\_LINE ipo\_out.optrpt; done}}}\\
+
+The output of \texttt{grep} may not be very easy to understand or follow, we suggest editing your \texttt{\textasciitilde/.bashrc} to include the following line for more useful grep output\\\\ \centerline{\texttt{alias grep="grep -Hn --color=auto"}}\\
+
+\noindent We now have some targets to examine:
+
+\begin{lstlisting}
+    ipo_out.optrpt:154:LOOP BEGIN at central2d.h(333,5)
+    ipo_out.optrpt:159:   LOOP BEGIN at central2d.h(334,9)
+    ipo_out.optrpt:164:      LOOP BEGIN at central2d.h(336,13)
+    ipo_out.optrpt:169:LOOP BEGIN at central2d.h(344,5)
+    ipo_out.optrpt:174:   LOOP BEGIN at central2d.h(345,9)
+    ipo_out.optrpt:179:      LOOP BEGIN at central2d.h(346,42)
+    ipo_out.optrpt:187:LOOP BEGIN at central2d.h(362,5)
+    ipo_out.optrpt:192:   LOOP BEGIN at central2d.h(363,9)
+\end{lstlisting}
+
+\noindent And can examine lines 154, 159, 164, etc on the optimization report.
+
+\subsubsection{Run-time Bottlenecks}
+\label{sec-profile-bottlenecks-run-time}
 
 \subsection{Performance Modeling}
 \label{sec-profile-modeling}
