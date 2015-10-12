@@ -3,8 +3,14 @@
 #include "minmod.h"
 #include "meshio.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+#include <string>
 #include <cmath>
 #include <cstring>
+#include <cstdlib>
 #include <unistd.h>
 
 
@@ -83,8 +89,8 @@ void wave(Sim::vec& u, double x, double y)
 
 int main(int argc, char** argv)
 {
-    const char* fname = "waves.out";
-    const char* ic = "dam_break";
+    std::string fname = "waves.out";
+    std::string ic = "dam_break";
     int    nx = 200;
     double width = 2.0;
     double ftime = 0.01;
@@ -104,10 +110,11 @@ int main(int argc, char** argv)
                     "\t-w: domain width in cells (%g)\n"
                     "\t-f: time between frames (%g)\n"
                     "\t-F: number of frames (%d)\n",
-                    argv[0], ic, fname, nx, width, ftime, frames);
+                    argv[0], ic.c_str(), fname.c_str(), 
+                    nx, width, ftime, frames);
             return -1;
-        case 'i':  ic     = strdup(optarg);  break;
-        case 'o':  fname  = strdup(optarg);  break;
+        case 'i':  ic     = optarg;          break;
+        case 'o':  fname  = optarg;          break;
         case 'n':  nx     = atoi(optarg);    break;
         case 'w':  width  = atof(optarg);    break;
         case 'f':  ftime  = atof(optarg);    break;
@@ -118,26 +125,33 @@ int main(int argc, char** argv)
         }
     }
 
-    void (*icfun)(Sim::vec& u, double x, double y);
-    if (strcmp(ic, "dam_break") == 0) {
+    void (*icfun)(Sim::vec& u, double x, double y) = dam_break;
+    if (ic == "dam_break") {
         icfun = dam_break;
-    } else if (strcmp(ic, "pond") == 0) {
+    } else if (ic == "pond") {
         icfun = pond;
-    } else if (strcmp(ic, "river") == 0) {
+    } else if (ic == "river") {
         icfun = river;
-    } else if (strcmp(ic, "wave") == 0) {
+    } else if (ic == "wave") {
         icfun = wave;
     } else {
         fprintf(stderr, "Unknown initial conditions\n");
     }
     
     Sim sim(width,width, nx,nx);
-    SimViz<Sim> viz(fname, sim);
+    SimViz<Sim> viz(fname.c_str(), sim);
     sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
     for (int i = 0; i < frames; ++i) {
+#ifdef _OPENMP
+        double t0 = omp_get_wtime();
         sim.run(ftime);
+        double t1 = omp_get_wtime();
+        printf("Time: %e\n", t1-t0);
+#else
+        sim.run(ftime);
+#endif
         sim.solution_check();
         viz.write_frame();
     }
