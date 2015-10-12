@@ -5,10 +5,6 @@
 #include <array>
 #include <algorithm>
 
-#ifndef RESTRICT
-#define RESTRICT
-#endif
-
 //ldoc on
 /**
  * # Shallow water equations
@@ -61,7 +57,21 @@
  * and the `flux` and `wave_speed` functions needed by the solver are
  * declared as static (and inline, in the hopes of getting the compiler
  * to optimize for us).
+ * 
+ * At the same time, it turns out that the C99 restrict keyword isn't
+ * really supported in C++, so it probably makes sense to try for the
+ * best of both worlds.
  */
+
+extern "C" {
+    void shallow2d_flux(float* fh, float* fhu, float* fhv,
+                        float* gh, float* ghu, float* ghv,
+                        const float* h, const float* hu, const float* hv,
+                        float g, int ncell);
+    void shallow2d_speed(float* cxy,
+                         const float* h, const float* hu, const float* hv,
+                         float g, int ncell);
+}
 
 struct Shallow2D {
 
@@ -76,54 +86,18 @@ struct Shallow2D {
     // Compute shallow water fluxes F(U), G(U)
     static void flux(real* FU, real* GU, const real* U,
                      int ncell, int field_stride) {
-
-        real* RESTRICT fh  = FU;
-        real* RESTRICT fhu = FU +   field_stride;
-        real* RESTRICT fhv = FU + 2*field_stride;
-
-        real* RESTRICT gh  = GU;
-        real* RESTRICT ghu = GU +   field_stride;
-        real* RESTRICT ghv = GU + 2*field_stride;
-
-        const real* RESTRICT h  = U;
-        const real* RESTRICT hu = U +   field_stride;
-        const real* RESTRICT hv = U + 2*field_stride;
-
-        std::copy(hu, hu+ncell, fh);
-        std::copy(hv, hv+ncell, gh);
-
-        for (int i = 0; i < ncell; ++i) {
-            float hi = h[i], hui = hu[i], hvi = hv[i];
-            float inv_h = 1/hi;
-            fhu[i] = hui*hui*inv_h + (0.5*g)*hi*hi;
-            fhv[i] = hui*hvi*inv_h;
-            ghu[i] = hui*hvi*inv_h;
-            ghv[i] = hvi*hvi*inv_h + (0.5*g)*hi*hi;
-        }
+        shallow2d_flux(FU, FU+field_stride, FU+2*field_stride,
+                       GU, GU+field_stride, GU+2*field_stride,
+                       U,  U +field_stride, U +2*field_stride,
+                       g, ncell);
     }
 
     // Compute shallow water wave speed
     static void wave_speed(real* cxy, const real* U,
                            int ncell, int field_stride) {
-        using namespace std;
-
-        const real* RESTRICT h  = U;
-        const real* RESTRICT hu = U +   field_stride;
-        const real* RESTRICT hv = U + 2*field_stride;
-
-        real cx = cxy[0];
-        real cy = cxy[1];
-        for (int i = 0; i < ncell; ++i) {
-            real hi = h[i], hui = hu[i], hvi = hv[i];
-            real root_gh = sqrt(g * hi);
-            cx = max(cx, abs(hui/hi) + root_gh);
-            cy = max(cy, abs(hvi/hi) + root_gh);
-        }
-        cxy[0] = cx;
-        cxy[1] = cy;
+        shallow2d_speed(cxy, U, U+field_stride, U+2*field_stride, g, ncell);
     }
 };
 
 //ldoc off
-#undef RESTRICT
 #endif /* SHALLOW2D_H */

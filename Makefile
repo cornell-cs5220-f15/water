@@ -16,8 +16,14 @@ include Makefile.in.$(PLATFORM)
 # ===
 # Main driver and sample run
 
-lshallow: ldriver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) $(LUA_CFLAGS) -o $@ $< $(LUA_LIBS)
+lshallow: ldriver.o shallow2d.o
+	$(CXX) $(CXXFLAGS) $(LUA_CFLAGS) -o $@ $^ $(LUA_LIBS)
+
+ldriver.o: ldriver.cc central2d.h shallow2d.h minmod.h meshio.h 
+	$(CXX) $(CXXFLAGS) $(LUA_CFLAGS) -c $< 
+
+shallow2d.o: shallow2d.c
+	$(CC) $(CFLAGS) -c $< 
 
 .PHONY: run big
 run: dam_break.gif
@@ -77,7 +83,7 @@ shallow.md: shallow2d.h minmod.h central2d.h meshio.h ldriver.cc
 
 .PHONY: clean
 clean:
-	rm -f lshallow
+	rm -f lshallow *.o
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
 	rm -rf *.dSYM
