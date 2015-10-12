@@ -215,8 +215,8 @@ void Central2D<Physics, Limiter>::apply_periodic()
             }
 
         // Copy data between top and bottom boundaries
-        for (int ix = 0; ix < nx_all; ++ix)
-            for (int iy = 0; iy < nghost; ++iy) {
+        for (int iy = 0; iy < nghost; ++iy)
+            for (int ix = 0; ix < nx_all; ++ix) {
                 u(k,ix,          iy) = uwrap(k,ix,          iy);
                 u(k,ix,ny+nghost+iy) = uwrap(k,ix,ny+nghost+iy);
             }
