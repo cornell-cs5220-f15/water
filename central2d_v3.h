@@ -242,19 +242,21 @@ template <class Physics, class Limiter>
 void Central2DV3<Physics, Limiter>::apply_periodic()
 {
     // Copy data between right and left boundaries
-    #pragma ivdep
+    #pragma omp parallel for
     for (int iy = 0; iy < ny_all; ++iy)
-	#pragma ivdep
-        for (int ix = 0; ix < nghost; ++ix) {
+	#pragma omp parallel for
+ 	#pragma ivdep
+	       for (int ix = 0; ix < nghost; ++ix) {
             u(ix,          iy) = uwrap(ix,          iy);
             u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
         }
 
     // Copy data between top and bottom boundaries
-    #pragma ivdep
+   #pragma omp parallel for
     for (int ix = 0; ix < nx_all; ++ix)
-	#pragma ivdep
-        for (int iy = 0; iy < nghost; ++iy) {
+	#pragma omp parallel for
+        #pragma ivdep
+	for (int iy = 0; iy < nghost; ++iy) {
             u(ix,          iy) = uwrap(ix,          iy);
             u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
         }
@@ -277,10 +279,11 @@ void Central2DV3<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    #pragma ivdep
+    #pragma omp parallel for
     for (int iy = 0; iy < ny_all; ++iy)
-	#pragma ivdep
-        for (int ix = 0; ix < nx_all; ++ix) {
+	#pragma omp parallel for
+       	#pragma ivdep
+	for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
             Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
@@ -302,9 +305,10 @@ void Central2DV3<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2DV3<Physics, Limiter>::limited_derivs()
 {
-	//#pragma omp declare simd
+//	#pragma omp declare simd
     for (int iy = 1; iy < ny_all-1; ++iy)
-        #pragma ivdep
+       	#pragma omp parallel for 
+	 #pragma ivdep
 	for (int ix = 1; ix < nx_all-1; ++ix) {
 
             // x derivs
@@ -351,11 +355,11 @@ void Central2DV3<Physics, Limiter>::compute_step(int io, real dt)
     for (int iy = 1; iy < ny_all-1; ++iy)
 	#pragma ivdep
         for (int ix = 1; ix < nx_all-1; ++ix) {
-           //	#pragma ivdep
+          
 		 vec uh = u(ix,iy);
 		#pragma ivdep
             for (int m = 0; m < uh.size(); ++m) {
-                #pragma ivdep
+              
 		uh[m] -= dtcdx2 * fx(ix,iy)[m];
                 uh[m] -= dtcdy2 * gy(ix,iy)[m];
             }
@@ -385,10 +389,11 @@ void Central2DV3<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-    #pragma ivdep
+    	#pragma omp parallel for 
     for (int j = nghost; j < ny+nghost; ++j){
-	#pragma ivdep
-        for (int i = nghost; i < nx+nghost; ++i){
+	#pragma omp parallel for 
+ 	#pragma ivdep      
+	 for (int i = nghost; i < nx+nghost; ++i){
             u(i,j) = v(i-io,j-io);
         }
     }
