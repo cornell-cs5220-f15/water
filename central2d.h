@@ -9,7 +9,7 @@
 //ldoc on
 /**
  * # Jiang-Tadmor central difference scheme
- * 
+ *
  * [Jiang and Tadmor][jt] proposed a high-resolution finite difference
  * scheme for solving hyperbolic PDE systems in two space dimensions.
  * The method is particularly attractive because, unlike many other
@@ -17,24 +17,24 @@
  * solvers for problems with special initial data (so-called Riemann
  * problems), nor even that we compute Jacobians of the flux
  * functions.
- * 
+ *
  * While this code is based loosely on the Fortran code at the end of
  * Jiang and Tadmor's paper, we've written the current code to be
  * physics-agnostic (rather than hardwiring it to the shallow water
  * equations -- or the Euler equations in the Jiang-Tadmor paper).
  * If you're interested in the Euler equations, feel free to add your
  * own physics class to support them!
- * 
+ *
  * [jt]: http://www.cscamm.umd.edu/tadmor/pub/central-schemes/Jiang-Tadmor.SISSC-98.pdf
- * 
+ *
  * ## Staggered grids
- * 
+ *
  * The Jiang-Tadmor scheme works by alternating between a main grid
  * and a staggered grid offset by half a step in each direction.
  * Understanding this is important, particularly if you want to apply
  * a domain decomposition method and batch time steps between
  * synchronization barriers in your parallel code!
- * 
+ *
  * In even-numbered steps, the entry `u(i,j)` in the array of solution
  * values represents the average value of a cell centered at a point
  * $(x_i,y_j)$.  At the following odd-numbered step, the same entry
@@ -45,15 +45,15 @@
  * information at two successive *even* time steps (i.e. they represent
  * data on the same grid), then `unew(i,j)` depends indirectly on
  * `u(p,q)` for $i-3 \leq p \leq i+3$ and $j-3 \leq q \leq j+3$.
- * 
+ *
  * We currently manage this implicitly: the arrays at even time steps
  * represent cell values on the main grid, and arrays at odd steps
- * represent cell values on the staggered grid.  Our main `run` 
+ * represent cell values on the staggered grid.  Our main `run`
  * function always takes an even number of time steps to ensure we end
  * up on the primary grid.
- * 
+ *
  * ## Interface
- * 
+ *
  * We want a clean separation between the physics, the solver,
  * and the auxiliary limiter methods used by the solver.  At the same
  * time, we don't want to pay the overhead (mostly in terms of lost
@@ -66,22 +66,22 @@
  * The `Central2D` solver class takes two template arguments:
  * `Physics` and `Limiter`.  For `Physics`, we expect the name of a class
  * that defines:
- * 
+ *
  *  - A type for numerical data (`real`)
  *  - A type for solution and flux vectors in each cell (`vec`)
  *  - A flux computation function (`flux(vec& F, vec& G, const vec& U)`)
- *  - A wave speed computation function 
+ *  - A wave speed computation function
  *    (`wave_speed(real& cx, real& cy, const vec& U)`).
- * 
+ *
  * The `Limiter` argument is a type with a static function `limdiff`
  * with the signature
- * 
+ *
  *         limdiff(fm, f0, fp)
- * 
+ *
  * The semantics are that `fm`, `f0`, and `fp` are three successive
  * grid points in some direction, and the function returns an approximate
  * (scaled) derivative value from these points.
- * 
+ *
  * The solver keeps arrays for the solution, flux values, derivatives
  * of the solution and the fluxes, and the solution at the next time
  * point.  We use the C++ `vector` class to manage storage for these
@@ -105,7 +105,7 @@ public:
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
-        cfl(cfl), 
+        cfl(cfl),
         u_ (nx_all * ny_all),
         f_ (nx_all * ny_all),
         g_ (nx_all * ny_all),
@@ -128,16 +128,16 @@ public:
     // Array size accessors
     int xsize() const { return nx; }
     int ysize() const { return ny; }
-    
+
     // Read / write elements of simulation state
     vec&       operator()(int i, int j) {
         return u_[offset(i+nghost,j+nghost)];
     }
-    
+
     const vec& operator()(int i, int j) const {
         return u_[offset(i+nghost,j+nghost)];
     }
-    
+
 private:
     static constexpr int nghost = 3;   // Number of ghost cells
 
@@ -194,12 +194,12 @@ private:
 
 /**
  * ## Initialization
- * 
+ *
  * Before starting the simulation, we need to be able to set the
  * initial conditions.  The `init` function does exactly this by
  * running a callback function at the center of each cell in order
  * to initialize the cell $U$ value.  For the purposes of this function,
- * cell $(i,j)$ is the subdomain 
+ * cell $(i,j)$ is the subdomain
  * $[i \Delta x, (i+1) \Delta x] \times [j \Delta y, (j+1) \Delta y]$.
  */
 
@@ -214,14 +214,14 @@ void Central2D<Physics, Limiter>::init(F f)
 
 /**
  * ## Time stepper implementation
- * 
+ *
  * ### Boundary conditions
- * 
+ *
  * In finite volume methods, boundary conditions are typically applied by
  * setting appropriate values in ghost cells.  For our framework, we will
  * apply periodic boundary conditions; that is, waves that exit one side
  * of the domain will enter from the other side.
- * 
+ *
  * We apply the conditions by assuming that the cells with coordinates
  * `nghost <= ix <= nx+nghost` and `nghost <= iy <= ny+nghost` are
  * "canonical", and setting the values for all other cells `(ix,iy)`
@@ -250,7 +250,7 @@ void Central2D<Physics, Limiter>::apply_periodic()
 
 /**
  * ### Initial flux and speed computations
- * 
+ *
  * At the start of each time step, we need the flux values at
  * cell centers (to advance the numerical method) and a bound
  * on the wave speeds in the $x$ and $y$ directions (so that
@@ -278,7 +278,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 
 /**
  * ### Derivatives with limiters
- * 
+ *
  * In order to advance the time step, we also need to estimate
  * derivatives of the fluxes and the solution values at each cell.
  * In order to maintain stability, we apply a limiter here.
@@ -303,13 +303,13 @@ void Central2D<Physics, Limiter>::limited_derivs()
 
 /**
  * ### Advancing a time step
- * 
+ *
  * Take one step of the numerical scheme.  This consists of two pieces:
  * a first-order corrector computed at a half time step, which is used
  * to obtain new $F$ and $G$ values; and a corrector step that computes
  * the solution at the full step.  For full details, we refer to the
  * [Jiang and Tadmor paper][jt].
- * 
+ *
  * The `compute_step` function takes two arguments: the `io` flag
  * which is the time step modulo 2 (0 if even, 1 if odd); and the `dt`
  * flag, which actually determines the time step length.  We need
@@ -333,6 +333,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             vec uh = u(ix,iy);
+            #pragma omp parallel for
             for (int m = 0; m < uh.size(); ++m) {
                 uh[m] -= dtcdx2 * fx(ix,iy)[m];
                 uh[m] -= dtcdy2 * gy(ix,iy)[m];
@@ -343,6 +344,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     // Corrector (finish the step)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+            #pragma omp parallel for
             for (int m = 0; m < v(ix,iy).size(); ++m) {
                 v(ix,iy)[m] =
                     0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
@@ -360,6 +362,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 
     // Copy from v storage back to main grid
     for (int j = nghost; j < ny+nghost; ++j){
+        #pragma omp parallel for
         for (int i = nghost; i < nx+nghost; ++i){
             u(i,j) = v(i-io,j-io);
         }
@@ -369,16 +372,16 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 
 /**
  * ### Advance time
- * 
+ *
  * The `run` method advances from time 0 (initial conditions) to time
  * `tfinal`.  Note that `run` can be called repeatedly; for example,
  * we might want to advance for a period of time, write out a picture,
  * advance more, and write another picture.  In this sense, `tfinal`
  * should be interpreted as an offset from the time represented by
  * the simulator at the start of the call, rather than as an absolute time.
- * 
+ *
  * We always take an even number of steps so that the solution
- * at the end lives on the main grid instead of the staggered grid. 
+ * at the end lives on the main grid instead of the staggered grid.
  */
 
 template <class Physics, class Limiter>
@@ -408,7 +411,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
 /**
  * ### Diagnostics
- * 
+ *
  * The numerical method is supposed to preserve (up to rounding
  * errors) the total volume of water in the domain and the total
  * momentum.  Ideally, we should also not see negative water heights,
