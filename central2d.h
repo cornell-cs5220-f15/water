@@ -334,10 +334,10 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-    for (int j = nghost; j < ny+nghost; ++j)
-        for (int i = nghost; i < nx+nghost; ++i)
-            for (int m = 0; m < nfield; ++m)
-                u(m,i,j) = v(m,i-io,j-io);
+    for (int k = 0; k < nfield; ++k)
+        memcpy(&u(k,nghost,nghost),
+               &v(k,nghost-io,nghost-io),
+               ny * nx_all * sizeof(float));
 }
 
 
