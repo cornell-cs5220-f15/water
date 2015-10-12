@@ -67,76 +67,6 @@ struct Shallow2D {
     // Gravitational force (compile time constant)
     static constexpr real g = 9.8;
 
-    /*
-     * The three components of the flux are represented in separate 
-     * vectors to improve performance. Also, h, hu, and hv are stored
-     * in separate vectors. Therefore, updates to flux can be done
-     * in 9 distinct decoupled stages. 
-     *
-     * --------------------------------------------------------------------------
-     * Vector component | hu operation | hv operation | h operation
-     * --------------------------------------------------------------------------
-     * FU[0]            | hu           | hu           | hu
-     * FU[1]            | hu * hu      | hu * hu      | (hu * hu)/h + (0.5*g)*h*h
-     * FU[2]            | hu           | hu * hv      | (hu * hv)/h
-     * --------------------------------------------------------------------------
-     *
-     * --------------------------------------------------------------------------
-     * Vector component | hv operation | hu operation | h operation
-     * --------------------------------------------------------------------------
-     * GU[0]            | hv           | hv           | hv
-     * GU[1]            | hv           | hv * hu      | (hv * hu)/h 
-     * GU[2]            | hv * hv      | hv * hv      | (hv * hv)/h + (0.5*g)*h*h
-     * --------------------------------------------------------------------------
-     */
-    static void flux_f11(real& f, const real& hu) {
-        f = hu;
-    }
-
-    static void flux_f21(real& f, const real& hu) {
-        f = hu * hu;
-    }
-
-    static void flux_f23(real& f, const real& h) {
-        f = f/h + (0.5*g)*h*h;
-    }
-
-    static void flux_f31(real& f, const real& hu) {
-        f = hu;
-    }
-
-    static void flux_f32(real& f, const real& hv) {
-        f *= hv;
-    }
-
-    static void flux_f33(real& f, const real& h) {
-        f = f/h;
-    }
-
-    static void flux_g11(real& gu, const real& hv) {
-        gu = hv;
-    }
-
-    static void flux_g21(real& gu, const real& hv) {
-        gu = hv;
-    }
-
-    static void flux_g22(real& gu, const real& hu) {
-        gu *= hu;
-    }
-
-    static void flux_g23(real& gu, const real& h) {
-        gu = gu/h;
-    }
-
-    static void flux_g31(real& gu, const real& hv) {
-        gu = hv * hv;
-    }
-
-    static void flux_g33(real& gu, const real& h) {
-        gu = gu/h+ (0.5*g)*h*h;
-    }
-
     // Compute shallow water fluxes F(U), G(U)
     static void flux(vec& FU, vec& GU, const vec& U) {
         real h = U[0], hu = U[1], hv = U[2];
@@ -148,22 +78,6 @@ struct Shallow2D {
         GU[0] = hv;
         GU[1] = hu*hv/h;
         GU[2] = hv*hv/h + (0.5*g)*h*h;
-    }
-
-    static void wave_speed_cx_hu(real& cx, const real hu) {
-        cx = hu;
-    }
-
-    static void wave_speed_cx_h(real& cx, const real h) {
-        cx = abs(cx/h) + sqrt(g * h);
-    }
-
-    static void wave_speed_cy_hv(real& cy, const real hv) {
-        cy = hv;
-    }
-
-    static void wave_speed_cy_h(real& cy, const real h) {
-        cy = abs(cy/h) + sqrt(g * h);
     }
 
     // Compute shallow water wave speed

@@ -107,18 +107,9 @@ public:
         ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
         cfl(cfl), 
-        u_ (nx_all * ny_all), //TODO: remove this
-        u_h_ (nx_all * ny_all),
-        u_hu_ (nx_all * ny_all),
-        u_hv_ (nx_all * ny_all),
-        f_ (nx_all * ny_all), //TODO: remove this
-        f1_ (nx_all * ny_all),
-        f2_ (nx_all * ny_all),
-        f3_ (nx_all * ny_all),
-        g_ (nx_all * ny_all), //TODO: remove this
-        g1_ (nx_all * ny_all), 
-        g2_ (nx_all * ny_all),
-        g3_ (nx_all * ny_all),
+        u_ (nx_all * ny_all),
+        f_ (nx_all * ny_all),
+        g_ (nx_all * ny_all),
         ux_(nx_all * ny_all),
         uy_(nx_all * ny_all),
         fx_(nx_all * ny_all),
@@ -129,9 +120,8 @@ public:
     void run(real tfinal);
 
     // Call f(Uxy, x, y) at each cell center to set initial conditions
-    // f1 sets the initial conditions for h, f2 does hu, and f3 does hv
     template <typename F>
-    void init(F f1, F f2, F f3);
+    void init(F f);
 
     // Diagnostics
     void solution_check();
@@ -158,51 +148,27 @@ private:
     const real cfl;            // Allowed CFL number
 
     std::vector<vec> u_;            // Solution values
-    std::vector<real> u_h_;         // h component of solution
-    std::vector<real> u_hu_;        // hu component of solution
-    std::vector<real> u_hv_;        // hv component of solution
-
     std::vector<vec> f_;            // Fluxes in x
-    std::vector<real> f1_;          // First component of flux in x
-    std::vector<real> f2_;          // Second component of flux in x
-    std::vector<real> f3_;          // Third component of flux in x
-
     std::vector<vec> g_;            // Fluxes in y
-    std::vector<real> g1_;          // First component of flux in y
-    std::vector<real> g2_;          // Second component of flux in y
-    std::vector<real> g3_;          // Third component of flux in y
-
     std::vector<vec> ux_;           // x differences of u
     std::vector<vec> uy_;           // y differences of u
     std::vector<vec> fx_;           // x differences of f
     std::vector<vec> gy_;           // y differences of g
-
     std::vector<vec> v_;            // Solution values at next step
-    std::vector<real> v_h_;         // h component of solution values at next step
-    std::vector<real> v_hu_;        // hu component of solution values at next step
-    std::vector<real> v_hv_;        // hv component of solution values at next step
 
     // Array accessor functions
 
     int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
-    vec& u(int ix, int iy)     { return u_[offset(ix,iy)];    }
-    real& u_h(int ix, int iy)  { return u_h_[offset(ix,iy)];  }
-    real& u_hu(int ix, int iy) { return u_hu_[offset(ix,iy)]; }
-    real& u_hv(int ix, int iy) { return u_hv_[offset(ix,iy)]; }
+    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
+    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
+    vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
+    vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
 
-    vec& v(int ix, int iy)     { return v_[offset(ix,iy)];    }
-    real& v_h(int ix, int iy)  { return v_h_[offset(ix,iy)];  }
-    real& v_hu(int ix, int iy) { return v_hu_[offset(ix,iy)]; }
-    real& v_hv(int ix, int iy) { return v_hv_[offset(ix,iy)]; }
-
-    vec& f(int ix, int iy)     { return f_[offset(ix,iy)];    }
-    vec& g(int ix, int iy)     { return g_[offset(ix,iy)];    }
-
-    vec& ux(int ix, int iy)    { return ux_[offset(ix,iy)];   }
-    vec& uy(int ix, int iy)    { return uy_[offset(ix,iy)];   }
-    vec& fx(int ix, int iy)    { return fx_[offset(ix,iy)];   }
-    vec& gy(int ix, int iy)    { return gy_[offset(ix,iy)];   }
+    vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
+    vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
+    vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
+    vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
 
     // Wrapped accessor (periodic BC)
     int ioffset(int ix, int iy) {
@@ -241,23 +207,11 @@ private:
 
 template <class Physics, class Limiter>
 template <typename F>
-void Central2D<Physics, Limiter>::init(F f1, F f2, F f3)
+void Central2D<Physics, Limiter>::init(F f)
 {
-    //TODO: Add 3 initializations
-    for (int iy = 0; iy < ny; ++iy) {
+    for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
-            f1(u_h(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
-    }
-
-    for (int iy = 0; iy < ny; ++iy) {
-        for (int ix = 0; ix < nx; ++ix)
-            f2(u_hu(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
-    }
-
-    for (int iy = 0; iy < ny; ++iy) {
-        for (int ix = 0; ix < nx; ++ix)
-            f3(u_hv(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
-    }
+            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
 }
 
 /**
