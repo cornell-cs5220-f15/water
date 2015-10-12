@@ -96,7 +96,6 @@ template <class Physics, class Limiter>
 class Central2D {
 public:
     typedef typename Physics::real real;
-    typedef typename Physics::vec  vec;
     static constexpr int nfield = Physics::nfield;
 
     Central2D(real w, real h,     // Domain width / height
