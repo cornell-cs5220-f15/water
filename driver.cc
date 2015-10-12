@@ -222,6 +222,15 @@ int main(int argc, char** argv)
     } else {
         fprintf(stderr, "Unknown initial conditions\n");
     }
+	
+    // Print parameters for plotting
+    printf("\nparse_line\n");
+    printf("ic: %s\n", ic.c_str());
+    printf("fname: %s\n", fname.c_str());
+    printf("nx: %d\n", nx);
+    printf("width: %f\n", width);
+    printf("ftime: %f\n", ftime);
+    printf("frames: %d\n\n", frames);
 
     // Initialize simulator
     Sim sim(width, width, nx, nx);
@@ -235,7 +244,7 @@ int main(int argc, char** argv)
     ref_sim.init(ref_icfun);
     ref_sim.solution_check();
 
-    for (int i = 0; i < frames; ++i) {
+	for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
         sim.run(ftime);
