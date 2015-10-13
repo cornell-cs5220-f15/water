@@ -1,6 +1,8 @@
 #ifndef CENTRAL2D_H
 #define CENTRAL2D_H
 
+#include "minmod.h"
+
 #include <cstdio>
 #include <cmath>
 #include <cassert>
@@ -218,26 +220,6 @@ private:
 
     real& uwrap(int k, int ix, int iy)  { return u_[ioffset(k,ix,iy)]; }
 
-    // Limiter computations
-    static constexpr real theta = 2.0;
-
-    // Branch-free computation of minmod of two numbers times 2s
-    static real xmin2s(real s, real a, real b) {
-        using namespace std;
-        return ((copysign(s, a) +
-                 copysign(s, b)) *
-                min( abs(a), abs(b) ));
-    }
-
-    // Limited combined slope estimate
-    static real limdiff(real um, real u0, real up) {
-        constexpr real quarter = 0.25;
-        real du1 = u0-um;   // Difference to left
-        real du2 = up-u0;   // Difference to right
-        real duc = up-um;   // Twice centered difference
-        return xmin2s( quarter, xmin2s(theta, du1, du2), duc );
-    }
-
     // Stages of the main algorithm
     void apply_periodic();
     void limited_derivs();
@@ -295,19 +277,16 @@ void Central2D<Physics>::apply_periodic()
 template <class Physics>
 void Central2D<Physics>::limited_derivs()
 {
-    for (int k = 0; k < nfield; ++k) {
-        for (int iy = 1; iy < ny_all-1; ++iy)
-            for (int ix = 1; ix < nx_all-1; ++ix) {
-
-                // x derivs
-                ux(k,ix,iy) = limdiff(u(k,ix-1,iy), u(k,ix,iy), u(k,ix+1,iy));
-                fx(k,ix,iy) = limdiff(f(k,ix-1,iy), f(k,ix,iy), f(k,ix+1,iy));
-
-                // y derivs
-                uy(k,ix,iy) = limdiff(u(k,ix,iy-1), u(k,ix,iy), u(k,ix,iy+1));
-                gy(k,ix,iy) = limdiff(g(k,ix,iy-1), g(k,ix,iy), g(k,ix,iy+1));
-            }
-    }
+    int ny_hi = ny_all-1;
+    int nx_len = nx_all-2;
+    int stride = ny_all;
+    for (int k = 0; k < nfield; ++k)
+        for (int iy = 1; iy < ny_all-1; ++iy) {
+            limited_deriv1(&ux(0,1,iy), &u(0,1,iy), nx_len);
+            limited_deriv1(&fx(0,1,iy), &f(0,1,iy), nx_len);
+            limited_derivk(&ux(0,1,iy), &u(0,1,iy), nx_len, stride);
+            limited_derivk(&fx(0,1,iy), &f(0,1,iy), nx_len, stride);
+        }
 }
 
 
@@ -452,7 +431,6 @@ void Central2D<Physics>::solution_check()
             hv_sum += u(2,i,j);
             hmax = max(h, hmax);
             hmin = min(h, hmin);
-            assert( h > 0) ;
         }
     real cell_area = dx*dy;
     h_sum *= cell_area;
@@ -460,6 +438,7 @@ void Central2D<Physics>::solution_check()
     hv_sum *= cell_area;
     printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
            h_sum, hu_sum, hv_sum, hmin, hmax);
+    assert(hmin > 0);
 }
 
 //ldoc off
