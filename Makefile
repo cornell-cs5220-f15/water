@@ -25,8 +25,13 @@ ldriver.o: ldriver.cc central2d.h shallow2d.h minmod.h meshio.h
 shallow2d.o: shallow2d.c
 	$(CC) $(CFLAGS) -c $< 
 
-.PHONY: run big
+.PHONY: run big iprofile
 run: dam_break.gif
+
+.PHONY: iprofile
+iprofile: lshallow
+	iprofiler -timeprofiler -o lshallow_perf ./lshallow tests.lua dam
+	open lshallow_perf.dtps
 
 big: lshallow
 	# ./shallow -i wave -o wave.out -n 1000 -F 100
@@ -87,4 +92,4 @@ clean:
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
 	rm -rf *.dSYM
-
+	rm -rf lshallow_perf.dtps
