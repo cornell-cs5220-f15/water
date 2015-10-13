@@ -10,21 +10,21 @@
 # Or create a Makefile.in.xxx of your own!
 #
 
-PLATFORM=icc
+PLATFORM=gcc
 include Makefile.in.$(PLATFORM)
 
 SIMULATORS = \
 	shallow \
 	shallow_buggy \
 	shallow_copy \
-	shallow_v3 \
+	shallow_par \
 	shallow_vec \
 
 HEADERS = \
 	central2d.h \
 	central2d_buggy.h \
 	central2d_copy.h \
-	central2d_v3.h \
+	central2d_par.h \
 	central2d_vec.h \
 	meshio.h \
 	minmod.h \

@@ -1,7 +1,7 @@
 #include "central2d.h"
 #include "central2d_buggy.h"
 #include "central2d_copy.h"
-#include "central2d_v3.h"
+#include "central2d_par.h"
 #include "central2d_vec.h"
 #include "meshio.h"
 #include "minmod.h"
@@ -60,8 +60,8 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
     typedef Central2DBuggy<Shallow2D, MinMod<Shallow2D::real>> Sim;
 #elif defined(VERSION_copy)
     typedef Central2DCopy<Shallow2D, MinMod<Shallow2D::real>> Sim;
-#elif defined(VERSION_v3)
-    typedef Central2DV3<Shallow2D, MinMod<Shallow2D::real>> Sim;
+#elif defined(VERSION_par)
+    typedef Central2DPar<Shallow2D, MinMod<Shallow2D::real>> Sim;
 #else
     static_assert(false, "Please define a valid VERSION_* macro.");
 #endif
