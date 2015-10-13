@@ -311,23 +311,11 @@ void Central2D<Physics>::compute_step(int io, real dt)
                       nx_all-2, nx_all * ny_all);
     }
 
-    // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int m = 0; m < nfield; ++m) {
-                v(m,ix,iy) =
-                    0.2500 * ( u(m,ix,  iy) + u(m,ix+1,iy  ) +
-                               u(m,ix,iy+1) + u(m,ix+1,iy+1) ) -
-                    0.0625 * ( ux(m,ix+1,iy  ) - ux(m,ix,iy  ) +
-                               ux(m,ix+1,iy+1) - ux(m,ix,iy+1) +
-                               uy(m,ix,  iy+1) - uy(m,ix,  iy) +
-                               uy(m,ix+1,iy+1) - uy(m,ix+1,iy) ) -
-                    dtcdx2 * ( f(m,ix+1,iy  ) - f(m,ix,iy  ) +
-                               f(m,ix+1,iy+1) - f(m,ix,iy+1) ) -
-                    dtcdy2 * ( g(m,ix,  iy+1) - g(m,ix,  iy) +
-                               g(m,ix+1,iy+1) - g(m,ix+1,iy) );
-            }
-        }
+    central2d_correct(&v_[0], &u_[0], &ux_[0], &uy_[0], &f_[0], &g_[0],
+                      dtcdx2, dtcdy2,
+                      nghost-io, nx+nghost-io,
+                      nghost-io, ny+nghost-io,
+                      nx_all, ny_all, nfield);
 
     // Copy from v storage back to main grid
     for (int k = 0; k < nfield; ++k)

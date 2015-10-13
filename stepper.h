@@ -13,6 +13,12 @@ extern "C" {
                            const float* fx, const float* gy,
                            float dtcdx2, float dtcdy2,
                            int nx, int ny, int nfield);
+    void central2d_correct(float* v, const float* u,
+                           const float* ux, const float* uy,
+                           const float* f, const float* g,
+                           float dtcdx2, float dtcdy2,
+                           int xlo, int xhi, int ylo, int yhi,
+                           int nx, int ny, int nfield);
 }
 
 //ldoc off

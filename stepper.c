@@ -89,3 +89,39 @@ void central2d_predict(float* restrict v,
                     dtcdy2 * gy[offset];
             }
 }
+
+
+void central2d_correct(float* restrict v,
+                       const float* restrict u,
+                       const float* restrict ux,
+                       const float* restrict uy,
+                       const float* restrict f,
+                       const float* restrict g,
+                       float dtcdx2, float dtcdy2,
+                       int xlo, int xhi, int ylo, int yhi,
+                       int nx, int ny, int nfield)
+{
+    assert(0 <= xlo && xlo < xhi && xhi <= nx);
+    assert(0 <= ylo && ylo < yhi && yhi <= ny);
+
+    for (int k = 0; k < nfield; ++k)
+        for (int iy = ylo; iy < yhi; ++iy)
+            for (int ix = xlo; ix < xhi; ++ix) {
+
+                int j00 = (k*ny+iy)*nx+ix;
+                int j10 = j00+1;
+                int j01 = j00+nx;
+                int j11 = j00+nx+1;
+
+                v[j00] =
+                    0.2500 * ( u[j00] + u[j01] + u[j10] + u[j11] ) -
+                    0.0625 * ( ux[j10] - ux[j00] +
+                               ux[j11] - ux[j01] +
+                               uy[j01] - uy[j00] +
+                               uy[j11] - uy[j10] ) -
+                    dtcdx2 * ( f[j10] - f[j00] +
+                               f[j11] - f[j01] ) -
+                    dtcdy2 * ( g[j01] - g[j00] +
+                               g[j11] - g[j10] );
+            }
+}
