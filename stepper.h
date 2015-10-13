@@ -1,5 +1,5 @@
-#ifndef MINMOD_H
-#define MINMOD_H
+#ifndef STEPPER_H
+#define STEPPER_H
 
 #include <math.h>
 
@@ -9,4 +9,4 @@ extern "C" {
 }
 
 //ldoc off
-#endif /* MINMOD_H */
+#endif /* STEPPER_H */

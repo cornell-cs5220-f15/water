@@ -1,7 +1,7 @@
 #ifndef CENTRAL2D_H
 #define CENTRAL2D_H
 
-#include "minmod.h"
+#include "stepper.h"
 
 #include <cstdio>
 #include <cmath>
@@ -284,8 +284,8 @@ void Central2D<Physics>::limited_derivs()
         for (int iy = 1; iy < ny_all-1; ++iy) {
             limited_deriv1(&ux(0,1,iy), &u(0,1,iy), nx_len);
             limited_deriv1(&fx(0,1,iy), &f(0,1,iy), nx_len);
-            limited_derivk(&ux(0,1,iy), &u(0,1,iy), nx_len, stride);
-            limited_derivk(&fx(0,1,iy), &f(0,1,iy), nx_len, stride);
+            limited_derivk(&uy(0,1,iy), &u(0,1,iy), nx_len, stride);
+            limited_derivk(&gy(0,1,iy), &g(0,1,iy), nx_len, stride);
         }
 }
 

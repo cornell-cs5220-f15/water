@@ -16,7 +16,7 @@ include Makefile.in.$(PLATFORM)
 # ===
 # Main driver and sample run
 
-lshallow: ldriver.o shallow2d.o minmod.o
+lshallow: ldriver.o shallow2d.o stepper.o
 	$(CXX) $(CXXFLAGS) $(LUA_CFLAGS) -o $@ $^ $(LUA_LIBS)
 
 ldriver.o: ldriver.cc central2d.h shallow2d.h meshio.h
@@ -25,7 +25,7 @@ ldriver.o: ldriver.cc central2d.h shallow2d.h meshio.h
 shallow2d.o: shallow2d.c
 	$(CC) $(CFLAGS) -c $<
 
-minmod.o: minmod.c
+stepper.o: stepper.c
 	$(CC) $(CFLAGS) -c $<
 
 lshallow.dSYM: lshallow
