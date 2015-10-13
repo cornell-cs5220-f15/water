@@ -1,6 +1,6 @@
 #include "stepper.h"
 #include "shallow2d.h"
-#include "meshio.h"
+//#include "meshio.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -204,7 +204,6 @@ private:
     std::vector<real> v_;            // Solution values at next step
 
     // Array accessor functions
-
     int offset(int k, int ix, int iy) const { return (k*ny_all+iy)*nx_all+ix; }
 
     // Wrapped accessor (periodic BC)
@@ -400,6 +399,41 @@ void solution_check(Central2D& u)
 }
 
 /**
+ * ## I/O
+ *
+ * After finishing a run (or every several steps), we might want to
+ * write out a data file for further processing by some other program
+ * -- in this case, a Python visualizer.  The visualizer takes the
+ * number of pixels in x and y in the first two entries, then raw
+ * single-precision raster pictures.
+ */
+
+FILE* viz_open(const char* fname, Central2D& sim)
+{
+    FILE* fp = fopen(fname, "w");
+    if (fp) {
+        float xy[2] = {sim.nx, sim.ny};
+        fwrite(xy, sizeof(float), 2, fp);
+    }
+    return fp;
+}
+
+void viz_close(FILE* fp)
+{
+    fclose(fp);
+}
+
+void viz_frame(FILE* fp, Central2D& sim)
+{
+    if (fp)
+        for (int j = 0; j < sim.ny; ++j)
+            for (int i = 0; i < sim.nx; ++i) {
+                float uij = sim(0,i,j);
+                fwrite(&uij, sizeof(float), 1, fp);
+            }
+}
+
+/**
  * # Lua driver routines
  *
  * A better way to manage simulation parameters is by a scripting
@@ -518,9 +552,9 @@ int run_sim(lua_State* L)
     lua_init_sim(L,sim);
 
     printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
-    SimViz<Central2D> viz(fname, sim);
+    FILE* viz = viz_open(fname, sim);
     solution_check(sim);
-    viz.write_frame();
+    viz_frame(viz, sim);
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
@@ -531,7 +565,7 @@ int run_sim(lua_State* L)
         sim.run(ftime);
 #endif
         solution_check(sim);
-        viz.write_frame();
+        viz_frame(viz, sim);
     }
     return 0;
 }
