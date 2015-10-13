@@ -76,6 +76,7 @@ void central2d_derivs(float* restrict ux, float* restrict uy,
 }
 
 
+// Predictor half-step
 void central2d_predict(float* restrict v,
                        const float* restrict u,
                        const float* restrict fx,
@@ -94,6 +95,7 @@ void central2d_predict(float* restrict v,
 }
 
 
+// Corrector
 void central2d_correct(float* restrict v,
                        const float* restrict u,
                        const float* restrict ux,

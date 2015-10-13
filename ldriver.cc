@@ -29,8 +29,6 @@ extern "C" {
  * limiter:
  */
 
-typedef Central2D<Shallow2D> Sim;
-
 
 /**
  * ## Lua helpers
@@ -86,7 +84,7 @@ const char* lget_string(lua_State* L, const char* name, const char* x)
  * with a callback function to be called at each cell center.
  */
 
-void lua_init_sim(lua_State* L, Sim& sim)
+void lua_init_sim(lua_State* L, Central2D& sim)
 {
     lua_getfield(L, 1, "init");
     if (lua_type(L, -1) != LUA_TFUNCTION)
@@ -139,11 +137,11 @@ int run_sim(lua_State* L)
     int frames = lget_int(L, "frames", 50);
     const char* fname = lget_string(L, "out", "sim.out");
 
-    Sim sim(w,h, nx,ny, cfl);
+    Central2D sim(w,h, nx,ny, 3, Shallow2D::flux, Shallow2D::wave_speed, cfl);
     lua_init_sim(L,sim);
 
     printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
-    SimViz<Sim> viz(fname, sim);
+    SimViz<Central2D> viz(fname, sim);
     sim.solution_check();
     viz.write_frame();
     for (int i = 0; i < frames; ++i) {

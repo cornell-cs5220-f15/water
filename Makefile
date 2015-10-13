@@ -10,7 +10,7 @@
 # Or create a Makefile.in.xxx of your own!
 #
 
-PLATFORM=mac
+PLATFORM=icc-mac
 include Makefile.in.$(PLATFORM)
 
 # ===

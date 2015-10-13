@@ -135,19 +135,28 @@
  * of the domain has index (0,0).
  */
 
-template <class Physics>
 class Central2D {
 public:
-    typedef typename Physics::real real;
-    static constexpr int nfield = Physics::nfield;
+    typedef float real;
+    typedef void (*flux_t)(real* FU, real* GU, const real* U,
+                           int ncell, int field_stride);
+    typedef void (*speed_t)(real* cxy, const real* U,
+                            int ncell, int field_stride);
 
+    const int nx, ny;          // Number of (non-ghost) cells in x/y
+    const int nfield;          // Number of fields
+    
     Central2D(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
+              int nfield,         // Number of field
+              flux_t flux,        // Flux computation
+              speed_t speed,      // Speed computation
               real cfl = 0.45) :  // Max allowed CFL number
-        nx(nx), ny(ny),
+        nx(nx), ny(ny), nfield(nfield), 
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
+        flux(flux), speed(speed),
         cfl(cfl),
         u_ (nfield * nx_all * ny_all),
         f_ (nfield * nx_all * ny_all),
@@ -183,9 +192,10 @@ public:
 private:
     static constexpr int nghost = 3;   // Number of ghost cells
 
-    const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
     const real dx, dy;         // Cell size in x/y
+    const flux_t flux;         // Flux function pointer
+    const speed_t speed;       // Speed function pointer
     const real cfl;            // Allowed CFL number
 
     std::vector<real> u_;            // Solution values
@@ -244,8 +254,7 @@ private:
  * integers `p` and `q`.
  */
 
-template <class Physics>
-void Central2D<Physics>::apply_periodic()
+void Central2D::apply_periodic()
 {
     // Copy data between right and left boundaries
     for (int k = 0; k < nfield; ++k) {
@@ -287,14 +296,13 @@ void Central2D<Physics>::apply_periodic()
  * indexing scheme.
  */
 
-template <class Physics>
-void Central2D<Physics>::compute_step(int io, real dt)
+void Central2D::compute_step(int io, real dt)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
-    Physics::flux(&f_[0], &g_[0], &u_[0],
-                  nx_all * ny_all, nx_all * ny_all);
+    flux(&f_[0], &g_[0], &u_[0],
+         nx_all * ny_all, nx_all * ny_all);
 
     central2d_derivs(&ux_[0], &uy_[0],
                      &fx_[0], &gy_[0],
@@ -307,8 +315,8 @@ void Central2D<Physics>::compute_step(int io, real dt)
     // Flux values of f and g at half step
     for (int iy = 1; iy < ny_all-1; ++iy) {
         int jj = offset(0,1,iy);
-        Physics::flux(&f_[jj], &g_[jj], &v_[jj],
-                      nx_all-2, nx_all * ny_all);
+        flux(&f_[jj], &g_[jj], &v_[jj],
+             nx_all-2, nx_all * ny_all);
     }
 
     central2d_correct(&v_[0], &u_[0], &ux_[0], &uy_[0], &f_[0], &g_[0],
@@ -339,8 +347,7 @@ void Central2D<Physics>::compute_step(int io, real dt)
  * at the end lives on the main grid instead of the staggered grid.
  */
 
-template <class Physics>
-void Central2D<Physics>::run(real tfinal)
+void Central2D::run(real tfinal)
 {
     bool done = false;
     real t = 0;
@@ -349,7 +356,7 @@ void Central2D<Physics>::run(real tfinal)
         for (int io = 0; io < 2; ++io) {
             real cxy[2] = {1.0e-15f, 1.0e-15f};
             apply_periodic();
-            Physics::wave_speed(cxy, &u_[0], nx_all * ny_all, nx_all * ny_all);
+            speed(cxy, &u_[0], nx_all * ny_all, nx_all * ny_all);
             if (io == 0) {
                 dt = cfl / std::max(cxy[0]/dx, cxy[1]/dy);
                 if (t + 2*dt >= tfinal) {
@@ -375,8 +382,7 @@ void Central2D<Physics>::run(real tfinal)
  * of water heights).
  */
 
-template <class Physics>
-void Central2D<Physics>::solution_check()
+void Central2D::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
