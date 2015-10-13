@@ -221,20 +221,21 @@ private:
     // Limiter computations
     static constexpr real theta = 2.0;
 
-    // Branch-free computation of minmod of two numbers
-    static real xmin(real a, real b) {
+    // Branch-free computation of minmod of two numbers times 2s
+    static real xmin2s(real s, real a, real b) {
         using namespace std;
-        return ((copysign((real) 0.5, a) +
-                 copysign((real) 0.5, b)) *
+        return ((copysign(s, a) +
+                 copysign(s, b)) *
                 min( abs(a), abs(b) ));
     }
 
     // Limited combined slope estimate
     static real limdiff(real um, real u0, real up) {
-        real du1 = u0-um;         // Difference to left
-        real du2 = up-u0;         // Difference to right
-        real duc = 0.5*(du1+du2); // Centered difference
-        return xmin( theta*xmin(du1, du2), duc );
+        constexpr real quarter = 0.25;
+        real du1 = u0-um;   // Difference to left
+        real du2 = up-u0;   // Difference to right
+        real duc = up-um;   // Twice centered difference
+        return xmin2s( quarter, xmin2s(theta, du1, du2), duc );
     }
 
     // Stages of the main algorithm
