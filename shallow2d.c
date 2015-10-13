@@ -23,7 +23,7 @@ void shallow2d_flux(float* restrict fh,
         fhv[i] = hui*hvi*inv_h;
         ghu[i] = hui*hvi*inv_h;
         ghv[i] = hvi*hvi*inv_h + (0.5*g)*hi*hi;
-    }    
+    }
 }
 
 

@@ -18,13 +18,13 @@ extern "C" {
 //ldoc on
 /**
  * # Lua driver routines
- *  
+ *
  * A better way to manage simulation parameters is by a scripting
  * language.  Python is a popular choice, but I prefer Lua for many
  * things (not least because it is an easy build).  It's also quite
  * cheap to call a Lua function for every point in a mesh
  * (less so for Python, though it probably won't make much difference).
- * 
+ *
  * For the driver, we need to put everything together: we're running
  * a `Central2D` solver for the `Shallow2D` physics with a `MinMod`
  * limiter:
@@ -35,7 +35,7 @@ typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
 
 /**
  * ## Lua helpers
- * 
+ *
  * We want to be able to get numbers and strings with a default value
  * when nothing is specified.  Lua 5.3 has this as a built-in, I think,
  * but the following codes are taken from earlier versions of Lua.
@@ -82,7 +82,7 @@ const char* lget_string(lua_State* L, const char* name, const char* x)
 
 /**
  * ## Lua callback functions
- * 
+ *
  * We specify the initial conditions by providing the simulator
  * with a callback function to be called at each cell center.
  */
@@ -113,7 +113,7 @@ void lua_init_sim(lua_State* L, Sim& sim)
 
 /**
  * ## Running the simulation
- * 
+ *
  * The `run_sim` function looks a lot like the main routine of the
  * "ordinary" command line driver.
  * We can specify the initial conditions by providing the simulator
@@ -169,7 +169,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "Usage: %s fname args\n", argv[0]);
         return -1;
     }
-    
+
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
     lua_register(L, "simulate", run_sim);

@@ -1,8 +1,8 @@
 CXX=clang++
-CXXFLAGS=-std=c++14 -g 
+CXXFLAGS=-std=c++14 -g3
 
 CC=clang
-CFLAGS=-std=c99 -g 
+CFLAGS=-std=c99 -g3 
 
 # If you're using clang, these are good flags to try
 OPTFLAGS=-Ofast -march=native -DRESTRICT=__restrict__ -ffast-math

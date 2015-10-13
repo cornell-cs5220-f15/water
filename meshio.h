@@ -5,7 +5,7 @@
 
 /**
  * ## I/O
- * 
+ *
  * After finishing a run (or every several steps), we might want to
  * write out a data file for post processing.  One simple approach is
  * to draw a gray scale or color picture showing some scalar quantity
@@ -32,18 +32,18 @@ void write_pgm(const char* fname, const Sim& u, F f)
 }
 
 /**
- * 
+ *
  * An alternative to writing an image file is to write a data file for
  * further processing by some other program -- in this case, a Python
  * visualizer.  The visualizer takes the number of pixels in x and y
  * in the first two entries, then raw single-precision raster pictures.
- * 
+ *
  */
 
 template <class Sim>
 class SimViz {
 public:
-    
+
     SimViz(const char* fname, const Sim& sim) : sim(sim) {
         fp = fopen(fname, "w");
         if (fp) {
@@ -62,12 +62,12 @@ public:
                     fwrite(&uij, sizeof(float), 1, fp);
                 }
     }
-    
+
     ~SimViz() {
         if (fp)
             fclose(fp);
     }
-    
+
 private:
     const Sim& sim;
     FILE* fp;
