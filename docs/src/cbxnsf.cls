@@ -74,7 +74,7 @@
 % this is the first thing to change since it makes the proposal easier to
 % read.
 
-\linespread{1.0}
+\linespread{1.1}
 
 %-------------------------------------------------------------------------
 % \nsfproposal@setfontsize{pts} Macro
