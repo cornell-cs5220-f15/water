@@ -130,7 +130,11 @@ public:
         gy2_   ( nx_all * ny_all),
         v_h_   ( nx_all * ny_all),
         v_hu_  ( nx_all * ny_all),
-        v_hv_  ( nx_all * ny_all) {}
+        v_hv_  ( nx_all * ny_all),
+        uh_h_   ( nx_all * ny_all),
+        uh_hu_  ( nx_all * ny_all),
+        uh_hv_  ( nx_all * ny_all)
+		{}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -195,7 +199,11 @@ private:
     std::vector<real> v_h_;   // h component of solution values at next step
     std::vector<real> v_hu_;  // hu component of solution values at next step
     std::vector<real> v_hv_;  // hv component of solution values at next step
-
+	
+    std::vector<real> uh_h_;   // h component of solution values at half step
+    std::vector<real> uh_hu_;  // hu component of solution values at half step
+    std::vector<real> uh_hv_;  // hv component of solution values at half step
+	
     // Array accessor functions
 
     int offset(int ix, int iy) const { return iy*nx_all+ix; }
@@ -208,6 +216,10 @@ private:
     real& v_hu(int ix, int iy)  { return v_hu_[offset(ix,iy)];  }
     real& v_hv(int ix, int iy)  { return v_hv_[offset(ix,iy)];  }
 
+	real& uh_h(int ix, int iy)   { return uh_h_[offset(ix,iy)];   }
+    real& uh_hu(int ix, int iy)  { return uh_hu_[offset(ix,iy)];  }
+    real& uh_hv(int ix, int iy)  { return uh_hv_[offset(ix,iy)];  }
+		
     real& f0(int ix, int iy)    { return f0_[offset(ix,iy)];    }
     real& f1(int ix, int iy)    { return f1_[offset(ix,iy)];    }
     real& f2(int ix, int iy)    { return f2_[offset(ix,iy)];    }
@@ -544,84 +556,89 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     // Predictor (flux values of f and g at half step)
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            u_h(ix, iy) -= dtcdx2 * fx0(ix, iy);
-            u_h(ix, iy) -= dtcdy2 * gy0(ix, iy);
-            u_hu(ix, iy) -= dtcdx2 * fx1(ix, iy);
-            u_hu(ix, iy) -= dtcdy2 * gy1(ix, iy);
-            u_hv(ix, iy) -= dtcdx2 * fx2(ix, iy);
-            u_hv(ix, iy) -= dtcdy2 * gy2(ix, iy);
+			uh_h(ix,iy)=u_h(ix,iy);
+            uh_h(ix, iy) -= dtcdx2 * fx0(ix, iy);
+            uh_h(ix, iy) -= dtcdy2 * gy0(ix, iy);
+			
+			uh_hu(ix,iy)=u_hu(ix,iy);
+            uh_hu(ix, iy) -= dtcdx2 * fx1(ix, iy);
+            uh_hu(ix, iy) -= dtcdy2 * gy1(ix, iy);
+			
+			uh_hv(ix,iy)=u_hv(ix,iy);			
+            uh_hv(ix, iy) -= dtcdx2 * fx2(ix, iy);
+            uh_hv(ix, iy) -= dtcdy2 * gy2(ix, iy);
         }
 
     // Update the FU[0] component
     for (int iy = 1; iy < ny_all -1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f00(f0(ix,iy), u_hu(ix,iy));
+            Physics::flux_f00(f0(ix,iy), uh_hu(ix,iy));
         }
 
     // Update the FU[1] component with hu
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f10(f1(ix,iy), u_hu(ix,iy));
+            Physics::flux_f10(f1(ix,iy), uh_hu(ix,iy));
         }
 
     // Update the FU[1] component with h
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f12(f1(ix,iy), u_h(ix,iy));
+            Physics::flux_f12(f1(ix,iy), uh_h(ix,iy));
         }
     
     // Update the FU[2] component with hu
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f20(f2(ix,iy), u_hu(ix,iy));
+            Physics::flux_f20(f2(ix,iy), uh_hu(ix,iy));
         }
     
     // Update the FU[2] component with hv
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f21(f2(ix,iy), u_hv(ix,iy));
+            Physics::flux_f21(f2(ix,iy), uh_hv(ix,iy));
         }
 
     // Update the FU[2] component with h
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f22(f2(ix,iy), u_h(ix,iy));
+            Physics::flux_f22(f2(ix,iy), uh_h(ix,iy));
         }
             
     // Update the GU[0] component with hv
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g00(g0(ix,iy), u_hv(ix,iy));
+            Physics::flux_g00(g0(ix,iy), uh_hv(ix,iy));
         }
 
     // Update the GU[1] component with hv
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g10(g1(ix,iy), u_hv(ix,iy));
+            Physics::flux_g10(g1(ix,iy), uh_hv(ix,iy));
         }
 
     // Update the GU[1] component with hu
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g11(g1(ix,iy), u_hu(ix,iy));
+            Physics::flux_g11(g1(ix,iy), uh_hu(ix,iy));
         }
 
     // Update the GU[1] component with h
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g12(g1(ix,iy), u_h(ix,iy));
+            Physics::flux_g12(g1(ix,iy), uh_h(ix,iy));
         }
     
     // Update the GU[2] component with hv
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g20(g2(ix,iy), u_hv(ix,iy));
+            Physics::flux_g20(g2(ix,iy), uh_hv(ix,iy));
         }
 
     // Update the GU[2] component with h
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g22(g2(ix,iy), u_h(ix,iy));
+            Physics::flux_g22(g2(ix,iy), uh_h(ix,iy));
         }
 
     // Corrector for h component (finish the step)
