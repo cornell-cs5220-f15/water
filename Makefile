@@ -18,15 +18,18 @@ SIMULATORS = \
 	shallow_buggy \
 	shallow_copy \
 	shallow_v3 \
+	shallow_vec \
 
 HEADERS = \
 	central2d.h \
 	central2d_buggy.h \
 	central2d_copy.h \
 	central2d_v3.h \
+	central2d_vec.h \
 	meshio.h \
 	minmod.h \
 	shallow2d.h \
+	shallow2d_vec.h \
 
 # ===
 # Main driver and sample run
