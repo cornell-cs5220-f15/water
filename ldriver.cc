@@ -158,14 +158,14 @@ public:
     const flux_t flux;         // Flux function pointer
     const speed_t speed;       // Speed function pointer
     const real cfl;            // Allowed CFL number
-    
+
     Central2D(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
               int nfield,         // Number of field
               flux_t flux,        // Flux computation
               speed_t speed,      // Speed computation
               real cfl = 0.45) :  // Max allowed CFL number
-        nx(nx), ny(ny), nfield(nfield), 
+        nx(nx), ny(ny), nfield(nfield),
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
@@ -182,17 +182,6 @@ public:
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
-
-    // Diagnostics
-//    void solution_check();
-
-    // Array size accessors
-    int xsize() const { return nx; }
-    int ysize() const { return ny; }
-
-    // Dimension accessors
-    real get_dx() const { return dx; }
-    real get_dy() const { return dy; }
 
     // Read / write elements of simulation state
     real& operator()(int k, int i, int j) {
@@ -218,24 +207,12 @@ private:
 
     int offset(int k, int ix, int iy) const { return (k*ny_all+iy)*nx_all+ix; }
 
-    real& u(int k, int ix, int iy)    { return u_[offset(k,ix,iy)]; }
-    real& v(int k, int ix, int iy)    { return v_[offset(k,ix,iy)]; }
-    real& f(int k, int ix, int iy)    { return f_[offset(k,ix,iy)]; }
-    real& g(int k, int ix, int iy)    { return g_[offset(k,ix,iy)]; }
-
-    real& ux(int k, int ix, int iy)   { return ux_[offset(k,ix,iy)]; }
-    real& uy(int k, int ix, int iy)   { return uy_[offset(k,ix,iy)]; }
-    real& fx(int k, int ix, int iy)   { return fx_[offset(k,ix,iy)]; }
-    real& gy(int k, int ix, int iy)   { return gy_[offset(k,ix,iy)]; }
-
     // Wrapped accessor (periodic BC)
     int ioffset(int k, int ix, int iy) {
         return offset(k,
                       (ix+nx-nghost) % nx + nghost,
                       (iy+ny-nghost) % ny + nghost );
     }
-
-    real& uwrap(int k, int ix, int iy)  { return u_[ioffset(k,ix,iy)]; }
 
     // Stages of the main algorithm
     void apply_periodic();
@@ -267,15 +244,23 @@ void Central2D::apply_periodic()
     for (int k = 0; k < nfield; ++k) {
         for (int iy = 0; iy < ny_all; ++iy)
             for (int ix = 0; ix < nghost; ++ix) {
-                u(k,ix,          iy) = uwrap(k,ix,          iy);
-                u(k,nx+nghost+ix,iy) = uwrap(k,nx+nghost+ix,iy);
+                int jlg = offset(k,ix,iy);
+                int jl = ioffset(k,nx,iy);
+                int jrg = offset(k,nx+nghost+ix,iy);
+                int jr = ioffset(k,nx+nghost+ix,iy);
+                u_[jlg] = u_[jl];
+                u_[jrg] = u_[jr];
             }
 
         // Copy data between top and bottom boundaries
         for (int iy = 0; iy < nghost; ++iy)
             for (int ix = 0; ix < nx_all; ++ix) {
-                u(k,ix,          iy) = uwrap(k,ix,          iy);
-                u(k,ix,ny+nghost+iy) = uwrap(k,ix,ny+nghost+iy);
+                int jbg = offset(k,ix,iy);
+                int jb = ioffset(k,ix,iy);
+                int jtg = offset(k,ix,ny+nghost+iy);
+                int jt = ioffset(k,ix,ny+nghost+iy);
+                u_[jbg] = u_[jb];
+                u_[jtg] = u_[jt];
             }
     }
 }
@@ -334,8 +319,8 @@ void Central2D::compute_step(int io, real dt)
 
     // Copy from v storage back to main grid
     for (int k = 0; k < nfield; ++k)
-        memcpy(&u(k,nghost,nghost),
-               &v(k,nghost-io,nghost-io),
+        memcpy(&u_[offset(k,nghost,nghost)],
+               &v_[offset(k,nghost-io,nghost-io)],
                ny * nx_all * sizeof(float));
 }
 
@@ -482,10 +467,10 @@ void lua_init_sim(lua_State* L, Central2D& sim)
     if (lua_type(L, -1) != LUA_TFUNCTION)
         luaL_error(L, "Expected init to be a string");
 
-    for (int ix = 0; ix < sim.xsize(); ++ix) {
-        float x = (ix + 0.5) * sim.get_dx();
-        for (int iy = 0; iy < sim.ysize(); ++iy) {
-            float y = (iy + 0.5) * sim.get_dy();
+    for (int ix = 0; ix < sim.nx; ++ix) {
+        float x = (ix + 0.5) * sim.dx;
+        for (int iy = 0; iy < sim.ny; ++iy) {
+            float y = (iy + 0.5) * sim.dy;
             lua_pushvalue(L, -1);
             lua_pushnumber(L, x);
             lua_pushnumber(L, y);

@@ -48,16 +48,16 @@ public:
         fp = fopen(fname, "w");
         if (fp) {
             float xy[2];
-            xy[0] = sim.xsize();
-            xy[1] = sim.ysize();
+            xy[0] = sim.nx;
+            xy[1] = sim.ny;
             fwrite(xy, sizeof(float), 2, fp);
         }
     }
 
     void write_frame() {
         if (fp)
-            for (int j = 0; j < sim.ysize(); ++j)
-                for (int i = 0; i < sim.xsize(); ++i) {
+            for (int j = 0; j < sim.ny; ++j)
+                for (int i = 0; i < sim.nx; ++i) {
                     float uij = sim(0,i,j);
                     fwrite(&uij, sizeof(float), 1, fp);
                 }
