@@ -545,11 +545,11 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             u_h(ix, iy) -= dtcdx2 * fx0(ix, iy);
-            u_h(ix, iy) -= dtcdx2 * gy0(ix, iy);
+            u_h(ix, iy) -= dtcdy2 * gy0(ix, iy);
             u_hu(ix, iy) -= dtcdx2 * fx1(ix, iy);
-            u_hu(ix, iy) -= dtcdx2 * gy1(ix, iy);
+            u_hu(ix, iy) -= dtcdy2 * gy1(ix, iy);
             u_hv(ix, iy) -= dtcdx2 * fx2(ix, iy);
-            u_hv(ix, iy) -= dtcdx2 * gy2(ix, iy);
+            u_hv(ix, iy) -= dtcdy2 * gy2(ix, iy);
         }
 
     // Update the FU[0] component
