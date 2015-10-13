@@ -15,9 +15,12 @@ typedef float real;
 // Branch-free computation of minmod of two numbers times 2s
 static inline
 real xmin2s(real s, real a, real b) {
-    return ((copysignf(s, a) +
-             copysignf(s, b)) *
-            fminf( fabsf(a), fabsf(b) ));
+    real sa = copysignf(s, a);
+    real sb = copysignf(s, b);
+    real abs_a = fabsf(a);
+    real abs_b = fabsf(b);
+    real min_abs = fminf(abs_a, abs_b);
+    return (sa+sb) * min_abs;
 }
 
 
