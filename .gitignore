@@ -11,7 +11,7 @@
 *.optrpt
 r000ah/
 shallow*
-!shallow2d.h
+!shallow2d*.h
 !shallow-ampl.pbs
 !shallow.pbs
 
