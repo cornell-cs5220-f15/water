@@ -104,8 +104,10 @@ public:
               int nx, int ny,     // Number of cells in x/y (without ghosts)
               int nxblocks = 1,   // Number of blocks in x for batching
               int nyblocks = 1,   // Number of blocks in y for batching
+              int nbatch = 1,     // Number of timesteps to batch per block
               real cfl = 0.45) :  // Max allowed CFL number
         nx(nx), ny(ny), nxblocks(nxblocks), nyblocks(nyblocks),
+        nbatch(nbatch), nghost(1+nbatch*2), // Number of ghost cells depend on batch size
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
         nx_per_block(ceil(nx / nxblocks) + 2*nghost),
@@ -184,10 +186,10 @@ private:
       std::vector<vec> gy_; // y differences of g
     };
 
-    static constexpr int nghost = 3;   // Number of ghost cells
-
+    const int nghost;             // Number of ghost cells
     const int nx, ny;             // Number of (non-ghost) cells in x/y
     const int nxblocks, nyblocks; // Number of blocks for batching in x/y
+    const int nbatch;             // Number of timesteps to batch per block
     const int nx_per_block;       // Number of cells per block in x
     const int ny_per_block;       // Number of cells per block in y
     const int nthreads;           // Number of threads
@@ -399,17 +401,35 @@ void Central2D<Physics, Limiter>::compute_step(int tid, int io, real dt)
     for (int iy = nghost-io; iy < ny_per_block-nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx_per_block-nghost-io; ++ix) {
             for (int m = 0; m < locals_[tid]->v(ix,iy).size(); ++m) {
-                locals_[tid]->v(ix,iy)[m] =
-                    0.2500 * ( locals_[tid]->u(ix,  iy)[m] + locals_[tid]->u(ix+1,iy  )[m] +
-                               locals_[tid]->u(ix,iy+1)[m] + locals_[tid]->u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( locals_[tid]->ux(ix+1,iy  )[m] - locals_[tid]->ux(ix,iy  )[m] +
-                               locals_[tid]->ux(ix+1,iy+1)[m] - locals_[tid]->ux(ix,iy+1)[m] +
-                               locals_[tid]->uy(ix,  iy+1)[m] - locals_[tid]->uy(ix,  iy)[m] +
-                               locals_[tid]->uy(ix+1,iy+1)[m] - locals_[tid]->uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( locals_[tid]->f(ix+1,iy  )[m] - locals_[tid]->f(ix,iy  )[m] +
-                               locals_[tid]->f(ix+1,iy+1)[m] - locals_[tid]->f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( locals_[tid]->g(ix,  iy+1)[m] - locals_[tid]->g(ix,  iy)[m] +
-                               locals_[tid]->g(ix+1,iy+1)[m] - locals_[tid]->g(ix+1,iy)[m] );
+
+                real u_sum = locals_[tid]->u(ix,iy)[m]
+                           + locals_[tid]->u(ix+1,iy)[m]
+                           + locals_[tid]->u(ix,iy+1)[m]
+                           + locals_[tid]->u(ix+1,iy+1)[m];
+
+                real uxy_sum = locals_[tid]->ux(ix+1,iy)[m]
+                             - locals_[tid]->ux(ix,iy)[m]
+                             + locals_[tid]->ux(ix+1,iy+1)[m]
+                             - locals_[tid]->ux(ix,iy+1)[m]
+                             + locals_[tid]->uy(ix,iy+1)[m]
+                             - locals_[tid]->uy(ix,iy)[m]
+                             + locals_[tid]->uy(ix+1,iy+1)[m]
+                             - locals_[tid]->uy(ix+1,iy)[m];
+
+                real f_sum = locals_[tid]->f(ix+1,iy)[m]
+                           - locals_[tid]->f(ix,iy)[m]
+                           + locals_[tid]->f(ix+1,iy+1)[m]
+                           - locals_[tid]->f(ix,iy+1)[m];
+
+                real g_sum = locals_[tid]->g(ix,iy+1)[m]
+                           - locals_[tid]->g(ix,iy)[m]
+                           + locals_[tid]->g(ix+1,iy+1)[m]
+                           - locals_[tid]->g(ix+1,iy)[m];
+
+                locals_[tid]->v(ix,iy)[m] = 0.2500 * u_sum
+                                          - 0.0625 * uxy_sum
+                                          - dtcdx2 * f_sum
+                                          - dtcdy2 * g_sum;
             }
         }
 
@@ -492,12 +512,14 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         // Break out of the loop after this super-step if we have
         // simulated at least tfinal seconds.
         real dt = cfl / std::max(cx/dx, cy/dy);
-        if (t + 2*dt >= tfinal) {
-            dt = (tfinal-t)/2;
+        if (t + 2*nbatch*dt >= tfinal) {
+            dt = (tfinal-t)/(2*nbatch);
             done = true;
         }
 
         // Parallelize computation across partitioned blocks
+        // TODO(ji): Currently only supports square block sizes (i.e.,
+        // nthreads = {1,4,16,64,...}).
         #pragma omp parallel num_threads(nthreads)
         {
           int tid = omp_get_thread_num();
@@ -505,11 +527,15 @@ void Central2D<Physics, Limiter>::run(real tfinal)
           // Copy global data to local buffers
           copy_to_local(tid);
 
-          // Execute the even and odd sub-steps for each super-step
-          for (int io = 0; io < 2; ++io) {
-              compute_flux(tid);
-              limited_derivs(tid);
-              compute_step(tid, io, dt);
+          // Batch multiple timesteps
+          for (int bi = 0; bi < nbatch; ++bi) {
+
+            // Execute the even and odd sub-steps for each super-step
+            for (int io = 0; io < 2; ++io) {
+                compute_flux(tid);
+                limited_derivs(tid);
+                compute_step(tid, io, dt);
+            }
           }
 
           // Copy local data to global buffer
@@ -518,7 +544,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         }
 
         // Update simulated time
-        t += 2*dt;
+        t += 2*nbatch*dt;
     }
 }
 

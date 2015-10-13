@@ -101,10 +101,11 @@ int main(int argc, char** argv)
     int    frames   = 50;
     int    nxblocks = 1;
     int    nyblocks = 1;
+    int    nbatch   = 1;
 
     int c;
     extern char* optarg;
-    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:x:y:")) != -1) {
+    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:x:y:b:")) != -1) {
         switch (c) {
         case 'h':
             fprintf(stderr,
@@ -117,9 +118,10 @@ int main(int argc, char** argv)
                     "\t-f: time between frames (%g)\n"
                     "\t-F: number of frames (%d)\n"
                     "\t-x: number of blocks in x (%d)\n"
-                    "\t-y: number of blocks in y (%d)\n",
+                    "\t-y: number of blocks in y (%d)\n"
+                    "\t-b: timesteps to batch per block (%d)\n",
                     argv[0], ic.c_str(), fname.c_str(),
-                    nx, width, ftime, frames, nxblocks, nyblocks);
+                    nx, width, ftime, frames, nxblocks, nyblocks, nbatch);
             return -1;
         case 'i':  ic       = optarg;       break;
         case 'o':  fname    = optarg;       break;
@@ -129,6 +131,7 @@ int main(int argc, char** argv)
         case 'F':  frames   = atoi(optarg); break;
         case 'x':  nxblocks = atoi(optarg); break;
         case 'y':  nyblocks = atoi(optarg); break;
+        case 'b':  nbatch   = atoi(optarg); break;
         default:
             fprintf(stderr, "Unknown option (-%c)\n", c);
             return -1;
@@ -151,7 +154,7 @@ int main(int argc, char** argv)
 #if defined _SERIAL
     Sim sim(width,width, nx,nx);
 #elif defined _PARALLEL_NODE
-    Sim sim(width,width, nx,nx, nxblocks,nyblocks);
+    Sim sim(width,width, nx,nx, nxblocks,nyblocks, nbatch);
 #endif
     SimViz<Sim> viz(fname.c_str(), sim);
     sim.init(icfun);
