@@ -30,7 +30,7 @@ extern "C" {
  * limiter:
  */
 
-typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
+typedef Central2D<Shallow2D> Sim;
 
 
 /**
