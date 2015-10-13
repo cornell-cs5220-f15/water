@@ -62,7 +62,7 @@ struct Shallow2D {
 
     // Type parameters for solver
     typedef float real;
-    typedef std::array<real,DIM> vec;
+    typedef std::array<real,3> vec;
 
     // Gravitational force (compile time constant)
     static constexpr real g = 9.8;
