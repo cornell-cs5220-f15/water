@@ -9,6 +9,10 @@ extern "C" {
     void central2d_derivs(float* ux, float* uy, float* fx, float* gy,
                           const float* u, const float* f, const float* g,
                           int nx, int ny, int nfield);
+    void central2d_predict(float* v, const float* u,
+                           const float* fx, const float* gy,
+                           float dtcdx2, float dtcdy2,
+                           int nx, int ny, int nfield);
 }
 
 //ldoc off

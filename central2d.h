@@ -301,15 +301,8 @@ void Central2D<Physics>::compute_step(int io, real dt)
                      &u_[0], &f_[0], &g_[0],
                      nx_all, ny_all, nfield);
 
-    // Limited derivs and half-step predictor
-    for (int k = 0; k < nfield; ++k) {
-        for (int iy = 1; iy < ny_all-1; ++iy)
-            for (int ix = 1; ix < nx_all-1; ++ix) {
-                v(k,ix,iy) = u(k,ix,iy) -
-                    dtcdx2 * fx(k,ix,iy) -
-                    dtcdy2 * gy(k,ix,iy);
-            }
-    }
+    central2d_predict(&v_[0], &u_[0], &fx_[0], &gy_[0],
+                      dtcdx2, dtcdy2, nx_all, ny_all, nfield);
 
     // Flux values of f and g at half step
     for (int iy = 1; iy < ny_all-1; ++iy) {

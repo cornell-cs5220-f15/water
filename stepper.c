@@ -71,3 +71,21 @@ void central2d_derivs(float* restrict ux, float* restrict uy,
             limited_derivk(gy+offset, g+offset, nx-2, nx);
         }
 }
+
+
+void central2d_predict(float* restrict v,
+                       const float* restrict u,
+                       const float* restrict fx,
+                       const float* restrict gy,
+                       float dtcdx2, float dtcdy2,
+                       int nx, int ny, int nfield)
+{
+    for (int k = 0; k < nfield; ++k)
+        for (int iy = 1; iy < ny-1; ++iy)
+            for (int ix = 1; ix < nx-1; ++ix) {
+                int offset = (k*ny+iy)*nx+ix;
+                v[offset] = u[offset] -
+                    dtcdx2 * fx[offset] -
+                    dtcdy2 * gy[offset];
+            }
+}
