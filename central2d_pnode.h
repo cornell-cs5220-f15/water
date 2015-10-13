@@ -5,12 +5,13 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
+#include <memory>
 #include <omp.h>
 
 //ldoc on
 /**
  * # Jiang-Tadmor central difference scheme
- * 
+ *
  * [Jiang and Tadmor][jt] proposed a high-resolution finite difference
  * scheme for solving hyperbolic PDE systems in two space dimensions.
  * The method is particularly attractive because, unlike many other
@@ -18,24 +19,24 @@
  * solvers for problems with special initial data (so-called Riemann
  * problems), nor even that we compute Jacobians of the flux
  * functions.
- * 
+ *
  * While this code is based loosely on the Fortran code at the end of
  * Jiang and Tadmor's paper, we've written the current code to be
  * physics-agnostic (rather than hardwiring it to the shallow water
  * equations -- or the Euler equations in the Jiang-Tadmor paper).
  * If you're interested in the Euler equations, feel free to add your
  * own physics class to support them!
- * 
+ *
  * [jt]: http://www.cscamm.umd.edu/tadmor/pub/central-schemes/Jiang-Tadmor.SISSC-98.pdf
- * 
+ *
  * ## Staggered grids
- * 
+ *
  * The Jiang-Tadmor scheme works by alternating between a main grid
  * and a staggered grid offset by half a step in each direction.
  * Understanding this is important, particularly if you want to apply
  * a domain decomposition method and batch time steps between
  * synchronization barriers in your parallel code!
- * 
+ *
  * In even-numbered steps, the entry `u(i,j)` in the array of solution
  * values represents the average value of a cell centered at a point
  * $(x_i,y_j)$.  At the following odd-numbered step, the same entry
@@ -46,15 +47,15 @@
  * information at two successive *even* time steps (i.e. they represent
  * data on the same grid), then `unew(i,j)` depends indirectly on
  * `u(p,q)` for $i-3 \leq p \leq i+3$ and $j-3 \leq q \leq j+3$.
- * 
+ *
  * We currently manage this implicitly: the arrays at even time steps
  * represent cell values on the main grid, and arrays at odd steps
- * represent cell values on the staggered grid.  Our main `run` 
+ * represent cell values on the staggered grid.  Our main `run`
  * function always takes an even number of time steps to ensure we end
  * up on the primary grid.
- * 
+ *
  * ## Interface
- * 
+ *
  * We want a clean separation between the physics, the solver,
  * and the auxiliary limiter methods used by the solver.  At the same
  * time, we don't want to pay the overhead (mostly in terms of lost
@@ -67,22 +68,22 @@
  * The `Central2D` solver class takes two template arguments:
  * `Physics` and `Limiter`.  For `Physics`, we expect the name of a class
  * that defines:
- * 
+ *
  *  - A type for numerical data (`real`)
  *  - A type for solution and flux vectors in each cell (`vec`)
  *  - A flux computation function (`flux(vec& F, vec& G, const vec& U)`)
- *  - A wave speed computation function 
+ *  - A wave speed computation function
  *    (`wave_speed(real& cx, real& cy, const vec& U)`).
- * 
+ *
  * The `Limiter` argument is a type with a static function `limdiff`
  * with the signature
- * 
+ *
  *         limdiff(fm, f0, fp)
- * 
+ *
  * The semantics are that `fm`, `f0`, and `fp` are three successive
  * grid points in some direction, and the function returns an approximate
  * (scaled) derivative value from these points.
- * 
+ *
  * The solver keeps arrays for the solution, flux values, derivatives
  * of the solution and the fluxes, and the solution at the next time
  * point.  We use the C++ `vector` class to manage storage for these
@@ -101,20 +102,22 @@ public:
 
     Central2D(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
+              int nxblocks = 1,   // Number of blocks in x for batching
+              int nyblocks = 1,   // Number of blocks in y for batching
               real cfl = 0.45) :  // Max allowed CFL number
-        nx(nx), ny(ny),
+        nx(nx), ny(ny), nxblocks(nxblocks), nyblocks(nyblocks),
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
+        nx_per_block(ceil(nx / nxblocks) + 2*nghost),
+        ny_per_block(ceil(ny / nyblocks) + 2*nghost),
+        nthreads(nxblocks*nyblocks),
         dx(w/nx), dy(h/ny),
-        cfl(cfl), 
-        u_ (nx_all * ny_all),
-        f_ (nx_all * ny_all),
-        g_ (nx_all * ny_all),
-        ux_(nx_all * ny_all),
-        uy_(nx_all * ny_all),
-        fx_(nx_all * ny_all),
-        gy_(nx_all * ny_all),
-        v_ (nx_all * ny_all) {}
+        cfl(cfl),
+        u_(nx_all * ny_all) {
+        for (int i = 0; i < nthreads; ++i)
+            locals_.push_back(std::unique_ptr<LocalState>(
+                new LocalState(nx_per_block, ny_per_block)));
+    }
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -129,47 +132,80 @@ public:
     // Array size accessors
     int xsize() const { return nx; }
     int ysize() const { return ny; }
-    
+
     // Read / write elements of simulation state
     vec&       operator()(int i, int j) {
         return u_[offset(i+nghost,j+nghost)];
     }
-    
+
     const vec& operator()(int i, int j) const {
         return u_[offset(i+nghost,j+nghost)];
     }
-    
+
 private:
+
+    // Class for encapsulating per-thread local state
+    class LocalState {
+     public:
+      LocalState(int nx, int ny) :
+        nx(nx), ny(ny),
+        u_ (nx * ny),
+        v_ (nx * ny),
+        f_ (nx * ny),
+        g_ (nx * ny),
+        ux_(nx * ny),
+        uy_(nx * ny),
+        fx_(nx * ny),
+        gy_(nx * ny) {}
+
+      // Array accessor functions
+      vec& u(int ix, int iy)  { return u_[offset(ix,iy)]; }
+      vec& v(int ix, int iy)  { return v_[offset(ix,iy)]; }
+      vec& f(int ix, int iy)  { return f_[offset(ix,iy)]; }
+      vec& g(int ix, int iy)  { return g_[offset(ix,iy)]; }
+      vec& ux(int ix, int iy) { return ux_[offset(ix,iy)]; }
+      vec& uy(int ix, int iy) { return uy_[offset(ix,iy)]; }
+      vec& fx(int ix, int iy) { return fx_[offset(ix,iy)]; }
+      vec& gy(int ix, int iy) { return gy_[offset(ix,iy)]; }
+
+     private:
+      // Helper to calculate 1D offset from 2D coordinates
+      int offset(int ix, int iy) const { return iy*nx+ix; }
+
+      const int nx, ny;
+
+      std::vector<vec> u_;  // Solution values
+      std::vector<vec> v_;  // Solution values at next step
+      std::vector<vec> f_;  // Fluxes in x
+      std::vector<vec> g_;  // Fluxes in y
+      std::vector<vec> ux_; // x differences of u
+      std::vector<vec> uy_; // y differences of u
+      std::vector<vec> fx_; // x differences of f
+      std::vector<vec> gy_; // y differences of g
+    };
+
     static constexpr int nghost = 3;   // Number of ghost cells
 
-    const int nx, ny;          // Number of (non-ghost) cells in x/y
-    const int nx_all, ny_all;  // Total cells in x/y (including ghost)
-    const real dx, dy;         // Cell size in x/y
-    const real cfl;            // Allowed CFL number
+    const int nx, ny;             // Number of (non-ghost) cells in x/y
+    const int nxblocks, nyblocks; // Number of blocks for batching in x/y
+    const int nx_per_block;       // Number of cells per block in x
+    const int ny_per_block;       // Number of cells per block in y
+    const int nthreads;           // Number of threads
+    const int nx_all, ny_all;     // Total cells in x/y (including ghost)
+    const real dx, dy;            // Cell size in x/y
+    const real cfl;               // Allowed CFL number
 
-    std::vector<vec> u_;            // Solution values
-    std::vector<vec> f_;            // Fluxes in x
-    std::vector<vec> g_;            // Fluxes in y
-    std::vector<vec> ux_;           // x differences of u
-    std::vector<vec> uy_;           // y differences of u
-    std::vector<vec> fx_;           // x differences of f
-    std::vector<vec> gy_;           // y differences of g
-    std::vector<vec> v_;            // Solution values at next step
+    // Global solution values
+    std::vector<vec> u_;
 
-    // Array accessor functions
+    // Local state (per-thread)
+    std::vector<std::unique_ptr<LocalState>> locals_;
+
+    // Array accessor function
 
     int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
-    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
-    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
-    vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
-    vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
-
-    vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
-    vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
-    vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
-
-    vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
+    vec& u(int ix, int iy) { return u_[offset(ix,iy)]; }
 
     // Wrapped accessor (periodic BC)
     int ioffset(int ix, int iy) {
@@ -187,21 +223,26 @@ private:
 
     // Stages of the main algorithm
     void apply_periodic();
-    void compute_fg_speeds(real& cx, real& cy);
-    void limited_derivs();
-    void compute_step(int io, real dt);
+    void compute_wave_speeds(real& cx, real& cy);
+    void compute_flux(int tid);
+    void limited_derivs(int tid);
+    void compute_step(int tid, int io, real dt);
+
+    // Copy data to and from local buffers
+    void copy_to_local(int tid);
+    void copy_from_local(int tid);
 
 };
 
 
 /**
  * ## Initialization
- * 
+ *
  * Before starting the simulation, we need to be able to set the
  * initial conditions.  The `init` function does exactly this by
  * running a callback function at the center of each cell in order
  * to initialize the cell $U$ value.  For the purposes of this function,
- * cell $(i,j)$ is the subdomain 
+ * cell $(i,j)$ is the subdomain
  * $[i \Delta x, (i+1) \Delta x] \times [j \Delta y, (j+1) \Delta y]$.
  */
 
@@ -216,14 +257,14 @@ void Central2D<Physics, Limiter>::init(F f)
 
 /**
  * ## Time stepper implementation
- * 
+ *
  * ### Boundary conditions
- * 
+ *
  * In finite volume methods, boundary conditions are typically applied by
  * setting appropriate values in ghost cells.  For our framework, we will
  * apply periodic boundary conditions; that is, waves that exit one side
  * of the domain will enter from the other side.
- * 
+ *
  * We apply the conditions by assuming that the cells with coordinates
  * `nghost <= ix <= nx+nghost` and `nghost <= iy <= ny+nghost` are
  * "canonical", and setting the values for all other cells `(ix,iy)`
@@ -252,7 +293,7 @@ void Central2D<Physics, Limiter>::apply_periodic()
 
 /**
  * ### Initial flux and speed computations
- * 
+ *
  * At the start of each time step, we need the flux values at
  * cell centers (to advance the numerical method) and a bound
  * on the wave speeds in the $x$ and $y$ directions (so that
@@ -261,58 +302,69 @@ void Central2D<Physics, Limiter>::apply_periodic()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
+void Central2D<Physics, Limiter>::compute_wave_speeds(real& cx_, real& cy_)
 {
-    using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-//            printf("ix,iy = %d,%d\n", ix, iy);
             Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
-            cx = max(cx, cell_cx);
-            cy = max(cy, cell_cy);
+            cx = std::max(cx, cell_cx);
+            cy = std::max(cy, cell_cy);
         }
     cx_ = cx;
     cy_ = cy;
 }
 
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::compute_flux(int tid)
+{
+    for (int iy = 0; iy < ny_per_block; ++iy)
+        for (int ix = 0; ix < nx_per_block; ++ix)
+            Physics::flux(locals_[tid]->f(ix,iy),
+                          locals_[tid]->g(ix,iy),
+                          locals_[tid]->u(ix,iy));
+}
+
 /**
  * ### Derivatives with limiters
- * 
+ *
  * In order to advance the time step, we also need to estimate
  * derivatives of the fluxes and the solution values at each cell.
  * In order to maintain stability, we apply a limiter here.
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::limited_derivs()
+void Central2D<Physics, Limiter>::limited_derivs(int tid)
 {
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
+    for (int iy = 1; iy < ny_per_block-1; ++iy)
+        for (int ix = 1; ix < nx_per_block-1; ++ix) {
 
             // x derivs
-            limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-            limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
+            limdiff( locals_[tid]->ux(ix,iy), locals_[tid]->u(ix-1,iy),
+                     locals_[tid]->u(ix,iy),  locals_[tid]->u(ix+1,iy) );
+            limdiff( locals_[tid]->fx(ix,iy), locals_[tid]->f(ix-1,iy),
+                     locals_[tid]->f(ix,iy),  locals_[tid]->f(ix+1,iy) );
 
             // y derivs
-            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
+            limdiff( locals_[tid]->uy(ix,iy), locals_[tid]->u(ix,iy-1),
+                     locals_[tid]->u(ix,iy),  locals_[tid]->u(ix,iy+1) );
+            limdiff( locals_[tid]->gy(ix,iy), locals_[tid]->g(ix,iy-1),
+                     locals_[tid]->g(ix,iy),  locals_[tid]->g(ix,iy+1) );
         }
 }
 
 
 /**
  * ### Advancing a time step
- * 
+ *
  * Take one step of the numerical scheme.  This consists of two pieces:
  * a first-order corrector computed at a half time step, which is used
  * to obtain new $F$ and $G$ values; and a corrector step that computes
  * the solution at the full step.  For full details, we refer to the
  * [Jiang and Tadmor paper][jt].
- * 
+ *
  * The `compute_step` function takes two arguments: the `io` flag
  * which is the time step modulo 2 (0 if even, 1 if odd); and the `dt`
  * flag, which actually determines the time step length.  We need
@@ -327,85 +379,96 @@ void Central2D<Physics, Limiter>::limited_derivs()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_step(int io, real dt)
+void Central2D<Physics, Limiter>::compute_step(int tid, int io, real dt)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec uh = u(ix,iy);
+    for (int iy = 1; iy < ny_per_block-1; ++iy)
+        for (int ix = 1; ix < nx_per_block-1; ++ix) {
+            vec uh = locals_[tid]->u(ix,iy);
             for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * fx(ix,iy)[m];
-                uh[m] -= dtcdy2 * gy(ix,iy)[m];
+                uh[m] -= dtcdx2 * locals_[tid]->fx(ix,iy)[m];
+                uh[m] -= dtcdy2 * locals_[tid]->gy(ix,iy)[m];
             }
-            Physics::flux(f(ix,iy), g(ix,iy), uh);
+            Physics::flux(locals_[tid]->f(ix,iy), locals_[tid]->g(ix,iy), uh);
         }
 
-
-    // Parallelize comptuation across partitioned blocks. Assume square
-    // grids for now (i.e., nx == ny). This naive parallelization allows
-    // each thread to only advance one even or odd sub-timestep before
-    // synchronizing.
-
-    int nblocks      = 2;
-    int nx_per_block = ceil(nx / nblocks);
-    int nthreads     = nblocks * nblocks;
-    #pragma omp parallel num_threads(nthreads)
-    {
-
-        int tid     = omp_get_thread_num();
-        int biy     = tid / nblocks;
-        int bix     = tid % nblocks;
-        int biy_off = biy * nx_per_block + nghost - io;
-        int bix_off = bix * nx_per_block + nghost - io;
-
-//        printf("DEBUG%d: (%d,%d) %d\n", tid, bix_off, biy_off, nx_per_block);
-
-        // Corrector (finish the step)
-        for (int iy = biy_off; iy < biy_off + nx_per_block; ++iy)
-            for (int ix = bix_off; ix < bix_off + nx_per_block; ++ix) {
-                for (int m = 0; m < v(ix,iy).size(); ++m) {
-                    v(ix,iy)[m] =
-                        0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                                   u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                        0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                                   ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                                   uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                                   uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                        dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                                   f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                        dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                                   g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
-                }
+    // Corrector (finish the step)
+    for (int iy = nghost-io; iy < ny_per_block-nghost-io; ++iy)
+        for (int ix = nghost-io; ix < nx_per_block-nghost-io; ++ix) {
+            for (int m = 0; m < locals_[tid]->v(ix,iy).size(); ++m) {
+                locals_[tid]->v(ix,iy)[m] =
+                    0.2500 * ( locals_[tid]->u(ix,  iy)[m] + locals_[tid]->u(ix+1,iy  )[m] +
+                               locals_[tid]->u(ix,iy+1)[m] + locals_[tid]->u(ix+1,iy+1)[m] ) -
+                    0.0625 * ( locals_[tid]->ux(ix+1,iy  )[m] - locals_[tid]->ux(ix,iy  )[m] +
+                               locals_[tid]->ux(ix+1,iy+1)[m] - locals_[tid]->ux(ix,iy+1)[m] +
+                               locals_[tid]->uy(ix,  iy+1)[m] - locals_[tid]->uy(ix,  iy)[m] +
+                               locals_[tid]->uy(ix+1,iy+1)[m] - locals_[tid]->uy(ix+1,iy)[m] ) -
+                    dtcdx2 * ( locals_[tid]->f(ix+1,iy  )[m] - locals_[tid]->f(ix,iy  )[m] +
+                               locals_[tid]->f(ix+1,iy+1)[m] - locals_[tid]->f(ix,iy+1)[m] ) -
+                    dtcdy2 * ( locals_[tid]->g(ix,  iy+1)[m] - locals_[tid]->g(ix,  iy)[m] +
+                               locals_[tid]->g(ix+1,iy+1)[m] - locals_[tid]->g(ix+1,iy)[m] );
             }
-        #pragma omp barrier
-    }
+        }
 
     // Copy from v storage back to main grid
-    for (int j = nghost; j < ny+nghost; ++j){
-        for (int i = nghost; i < nx+nghost; ++i){
-            u(i,j) = v(i-io,j-io);
-//            printf("u(%d,%d) = %f\n", i, j, u(i,j));
-        }
-    }
+    for (int j = nghost; j < ny_per_block-nghost; ++j)
+        for (int i = nghost; i < nx_per_block-nghost; ++i)
+            locals_[tid]->u(i,j) = locals_[tid]->v(i-io,j-io);
 
 }
 
+/**
+ * ### Copy to/from local buffers
+ *
+ * Each thread needs its own local view of the solution and flux vectors
+ * in order to enable batching of multiple time steps. After every
+ * synchronization point, the relevant blocks of the global solution
+ * vectors are copied to the per-thread local buffers. Before the next
+ * synchronization point, each thread copies its locally updated
+ * solutions to the global solution vectors.
+ */
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::copy_to_local(int tid)
+{
+    int biy     = tid / nyblocks;
+    int bix     = tid % nxblocks;
+    int biy_off = biy * (ny_per_block - 2*nghost);
+    int bix_off = bix * (nx_per_block - 2*nghost);
+
+    for (int iy = 0; iy < ny_per_block; ++iy)
+        for (int ix = 0; ix < nx_per_block; ++ix)
+            locals_[tid]->u(ix, iy) = u(bix_off+ix, biy_off+iy);
+}
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::copy_from_local(int tid)
+{
+    int biy     = tid / nyblocks;
+    int bix     = tid % nxblocks;
+    int biy_off = biy * (ny_per_block - 2*nghost);
+    int bix_off = bix * (nx_per_block - 2*nghost);
+
+    for (int iy = nghost; iy < ny_per_block - nghost; ++iy)
+        for (int ix = nghost; ix < nx_per_block - nghost; ++ix)
+            u(bix_off+ix, biy_off+iy) = locals_[tid]->u(ix, iy);
+}
 
 /**
  * ### Advance time
- * 
+ *
  * The `run` method advances from time 0 (initial conditions) to time
  * `tfinal`.  Note that `run` can be called repeatedly; for example,
  * we might want to advance for a period of time, write out a picture,
  * advance more, and write another picture.  In this sense, `tfinal`
  * should be interpreted as an offset from the time represented by
  * the simulator at the start of the call, rather than as an absolute time.
- * 
+ *
  * We always take an even number of steps so that the solution
- * at the end lives on the main grid instead of the staggered grid. 
+ * at the end lives on the main grid instead of the staggered grid.
  */
 
 template <class Physics, class Limiter>
@@ -414,31 +477,54 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     bool done = false;
     real t = 0;
     while (!done) {
-        real dt;
-        for (int io = 0; io < 2; ++io) {
-//            printf("t = %f (%d)\n", t, io);
-            real cx, cy;
-            apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
-            if (io == 0) {
-//                printf("cfl = %f, cx = %f, dx = %f, cy = %f, dy = %f\n", cfl, cx, dx, cy, dy);
-                dt = cfl / std::max(cx/dx, cy/dy);
-//                printf("dt = %f (%f)\n", dt, tfinal);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
-                }
-            }
-            compute_step(io, dt);
-            t += dt;
+
+        // We only need to update the ghost cells after all threads have
+        // exhausted valid data in the ghost cells in order to calculate
+        // the number of steps in the batch.
+        apply_periodic();
+
+        // We only need to calculate the wave speeds at the beginning of
+        // each super-step to determine the dt for both the even/odd
+        // sub-steps.
+        real cx, cy;
+        compute_wave_speeds(cx, cy);
+
+        // Break out of the loop after this super-step if we have
+        // simulated at least tfinal seconds.
+        real dt = cfl / std::max(cx/dx, cy/dy);
+        if (t + 2*dt >= tfinal) {
+            dt = (tfinal-t)/2;
+            done = true;
         }
+
+        // Parallelize computation across partitioned blocks
+        #pragma omp parallel num_threads(nthreads)
+        {
+          int tid = omp_get_thread_num();
+
+          // Copy global data to local buffers
+          copy_to_local(tid);
+
+          // Execute the even and odd sub-steps for each super-step
+          for (int io = 0; io < 2; ++io) {
+              compute_flux(tid);
+              limited_derivs(tid);
+              compute_step(tid, io, dt);
+          }
+
+          // Copy local data to global buffer
+          copy_from_local(tid);
+
+        }
+
+        // Update simulated time
+        t += 2*dt;
     }
 }
 
 /**
  * ### Diagnostics
- * 
+ *
  * The numerical method is supposed to preserve (up to rounding
  * errors) the total volume of water in the domain and the total
  * momentum.  Ideally, we should also not see negative water heights,
