@@ -222,7 +222,6 @@ private:
 
     // Stages of the main algorithm
     void apply_periodic();
-    void limited_derivs();
     void compute_step(int io, real dt);
 
 };
@@ -267,30 +266,6 @@ void Central2D<Physics>::apply_periodic()
 
 
 /**
- * ### Derivatives with limiters
- *
- * In order to advance the time step, we also need to estimate
- * derivatives of the fluxes and the solution values at each cell.
- * In order to maintain stability, we apply a limiter here.
- */
-
-template <class Physics>
-void Central2D<Physics>::limited_derivs()
-{
-    int ny_hi = ny_all-1;
-    int nx_len = nx_all-2;
-    int stride = ny_all;
-    for (int k = 0; k < nfield; ++k)
-        for (int iy = 1; iy < ny_all-1; ++iy) {
-            limited_deriv1(&ux(0,1,iy), &u(0,1,iy), nx_len);
-            limited_deriv1(&fx(0,1,iy), &f(0,1,iy), nx_len);
-            limited_derivk(&uy(0,1,iy), &u(0,1,iy), nx_len, stride);
-            limited_derivk(&gy(0,1,iy), &g(0,1,iy), nx_len, stride);
-        }
-}
-
-
-/**
  * ### Advancing a time step
  *
  * Take one step of the numerical scheme.  This consists of two pieces:
@@ -321,7 +296,10 @@ void Central2D<Physics>::compute_step(int io, real dt)
     Physics::flux(&f_[0], &g_[0], &u_[0],
                   nx_all * ny_all, nx_all * ny_all);
 
-    limited_derivs();
+    central2d_derivs(&ux_[0], &uy_[0],
+                     &fx_[0], &gy_[0],
+                     &u_[0], &f_[0], &g_[0],
+                     nx_all, ny_all, nfield);
 
     // Limited derivs and half-step predictor
     for (int k = 0; k < nfield; ++k) {

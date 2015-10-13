@@ -3,6 +3,15 @@
 
 typedef float real;
 
+/**
+ * ### Derivatives with limiters
+ *
+ * In order to advance the time step, we also need to estimate
+ * derivatives of the fluxes and the solution values at each cell.
+ * In order to maintain stability, we apply a limiter here.
+ */
+
+
 // Branch-free computation of minmod of two numbers times 2s
 static inline
 real xmin2s(real s, real a, real b) {
@@ -10,6 +19,7 @@ real xmin2s(real s, real a, real b) {
              copysignf(s, b)) *
             fminf( fabsf(a), fabsf(b) ));
 }
+
 
 // Limited combined slope estimate
 static inline
@@ -41,4 +51,23 @@ void limited_derivk(real* restrict du,
     assert(stride > 0);
     for (int i = 0; i < ncell; ++i)
         du[i] = limdiff(u[i-stride], u[i], u[i+stride]);
+}
+
+
+// Compute limited derivs over grid
+void central2d_derivs(float* restrict ux, float* restrict uy,
+                      float* restrict fx, float* restrict gy,
+                      const float* restrict u,
+                      const float* restrict f,
+                      const float* restrict g,
+                      int nx, int ny, int nfield)
+{
+    for (int k = 0; k < nfield; ++k)
+        for (int iy = 1; iy < ny-1; ++iy) {
+            int offset = (k*ny+iy)*nx+1;
+            limited_deriv1(ux+offset, u+offset, nx-2);
+            limited_deriv1(fx+offset, f+offset, nx-2);
+            limited_derivk(uy+offset, u+offset, nx-2, nx);
+            limited_derivk(gy+offset, g+offset, nx-2, nx);
+        }
 }
