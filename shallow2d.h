@@ -62,7 +62,7 @@ struct Shallow2D {
 
     // Type parameters for solver
     typedef float real;
-    typedef std::array<real,3> vec;
+    typedef std::vector<real> vec;
 
     // Gravitational force (compile time constant)
     static constexpr real g = 9.8;
@@ -89,91 +89,78 @@ struct Shallow2D {
      * GU[2]            | hv * hv      | hv * hv      | (hv * hv)/h + (0.5*g)*h*h
      * --------------------------------------------------------------------------
      */
-    static void flux_f11(real& f, const real& hu) {
+    static void flux_f00(real& f, const real& hu) {
         f = hu;
     }
 
-    static void flux_f21(real& f, const real& hu) {
+    static void flux_f10(real& f, const real& hu) {
         f = hu * hu;
     }
 
-    static void flux_f23(real& f, const real& h) {
+    static void flux_f12(real& f, const real& h) {
         f = f/h + (0.5*g)*h*h;
     }
 
-    static void flux_f31(real& f, const real& hu) {
+    static void flux_f20(real& f, const real& hu) {
         f = hu;
     }
 
-    static void flux_f32(real& f, const real& hv) {
+    static void flux_f21(real& f, const real& hv) {
         f *= hv;
     }
 
-    static void flux_f33(real& f, const real& h) {
+    static void flux_f22(real& f, const real& h) {
         f = f/h;
     }
 
-    static void flux_g11(real& gu, const real& hv) {
+    static void flux_g00(real& gu, const real& hv) {
         gu = hv;
     }
 
-    static void flux_g21(real& gu, const real& hv) {
+    static void flux_g10(real& gu, const real& hv) {
         gu = hv;
     }
 
-    static void flux_g22(real& gu, const real& hu) {
+    static void flux_g11(real& gu, const real& hu) {
         gu *= hu;
     }
 
-    static void flux_g23(real& gu, const real& h) {
+    static void flux_g12(real& gu, const real& h) {
         gu = gu/h;
     }
 
-    static void flux_g31(real& gu, const real& hv) {
+    static void flux_g20(real& gu, const real& hv) {
         gu = hv * hv;
     }
 
-    static void flux_g33(real& gu, const real& h) {
+    static void flux_g22(real& gu, const real& h) {
         gu = gu/h+ (0.5*g)*h*h;
     }
 
+    // static void flux(vec& f0, vec& f1, vec& f2, vec& g0, vec& g1, vec& g2,
+            // vec& u_h, vec& u_hu, vec& u_hv) {
+    
+    // }
     // Compute shallow water fluxes F(U), G(U)
-    static void flux(vec& FU, vec& GU, const vec& U) {
-        real h = U[0], hu = U[1], hv = U[2];
+    // static void flux(vec& FU, vec& GU, const vec& U) {
+        // real h = U[0], hu = U[1], hv = U[2];
 
-        FU[0] = hu;
-        FU[1] = hu*hu/h + (0.5*g)*h*h;
-        FU[2] = hu*hv/h;
+        // FU[0] = hu;
+        // FU[1] = hu*hu/h + (0.5*g)*h*h;
+        // FU[2] = hu*hv/h;
 
-        GU[0] = hv;
-        GU[1] = hu*hv/h;
-        GU[2] = hv*hv/h + (0.5*g)*h*h;
-    }
-
-    static void wave_speed_cx_hu(real& cx, const real hu) {
-        cx = hu;
-    }
-
-    static void wave_speed_cx_h(real& cx, const real h) {
-        cx = abs(cx/h) + sqrt(g * h);
-    }
-
-    static void wave_speed_cy_hv(real& cy, const real hv) {
-        cy = hv;
-    }
-
-    static void wave_speed_cy_h(real& cy, const real h) {
-        cy = abs(cy/h) + sqrt(g * h);
-    }
+        // GU[0] = hv;
+        // GU[1] = hu*hv/h;
+        // GU[2] = hv*hv/h + (0.5*g)*h*h;
+    // }
 
     // Compute shallow water wave speed
-    static void wave_speed(real& cx, real& cy, const vec& U) {
-        using namespace std;
-        real h = U[0], hu = U[1], hv = U[2];
+    static void wave_speed(real& cx, real& cy, const real& h, const real& hu, const real& hv) {
         real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
         cx = abs(hu/h) + root_gh;
         cy = abs(hv/h) + root_gh;
     }
+
 };
 
 //ldoc off

@@ -107,23 +107,30 @@ public:
         ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
         cfl(cfl), 
-        u_ (nx_all * ny_all), //TODO: remove this
-        u_h_ (nx_all * ny_all),
-        u_hu_ (nx_all * ny_all),
-        u_hv_ (nx_all * ny_all),
-        f_ (nx_all * ny_all), //TODO: remove this
-        f1_ (nx_all * ny_all),
-        f2_ (nx_all * ny_all),
-        f3_ (nx_all * ny_all),
-        g_ (nx_all * ny_all), //TODO: remove this
-        g1_ (nx_all * ny_all), 
-        g2_ (nx_all * ny_all),
-        g3_ (nx_all * ny_all),
-        ux_(nx_all * ny_all),
-        uy_(nx_all * ny_all),
-        fx_(nx_all * ny_all),
-        gy_(nx_all * ny_all),
-        v_ (nx_all * ny_all) {}
+        u_h_   ( nx_all * ny_all),
+        u_hu_  ( nx_all * ny_all),
+        u_hv_  ( nx_all * ny_all),
+        f0_    ( nx_all * ny_all),
+        f1_    ( nx_all * ny_all),
+        f2_    ( nx_all * ny_all),
+        g0_    ( nx_all * ny_all),
+        g1_    ( nx_all * ny_all),
+        g2_    ( nx_all * ny_all),
+        ux_h_  ( nx_all * ny_all),
+        ux_hu_ ( nx_all * ny_all),
+        ux_hv_ ( nx_all * ny_all),
+        uy_h_  ( nx_all * ny_all),
+        uy_hu_ ( nx_all * ny_all),
+        uy_hv_ ( nx_all * ny_all),
+        fx0_   ( nx_all * ny_all),
+        fx1_   ( nx_all * ny_all),
+        fx2_   ( nx_all * ny_all),
+        gy0_   ( nx_all * ny_all),
+        gy1_   ( nx_all * ny_all),
+        gy2_   ( nx_all * ny_all),
+        v_h_   ( nx_all * ny_all),
+        v_hu_  ( nx_all * ny_all),
+        v_hv_  ( nx_all * ny_all) {}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -141,68 +148,89 @@ public:
     int ysize() const { return ny; }
     
     // Read / write elements of simulation state
-    vec&       operator()(int i, int j) {
-        return u_[offset(i+nghost,j+nghost)];
+    real& operator()(int i, int j) {
+        return u_h_[offset(i+nghost,j+nghost)];
     }
     
-    const vec& operator()(int i, int j) const {
-        return u_[offset(i+nghost,j+nghost)];
+    const real& operator()(int i, int j) const {
+        return u_h_[offset(i+nghost,j+nghost)];
     }
     
 private:
     static constexpr int nghost = 3;   // Number of ghost cells
 
-    const int nx, ny;          // Number of (non-ghost) cells in x/y
-    const int nx_all, ny_all;  // Total cells in x/y (including ghost)
-    const real dx, dy;         // Cell size in x/y
-    const real cfl;            // Allowed CFL number
+    const int nx, ny;         // Number of (non-ghost) cells in x/y
+    const int nx_all, ny_all; // Total cells in x/y (including ghost)
+    const real dx, dy;        // Cell size in x/y
+    const real cfl;           // Allowed CFL number
 
-    std::vector<vec> u_;            // Solution values
-    std::vector<real> u_h_;         // h component of solution
-    std::vector<real> u_hu_;        // hu component of solution
-    std::vector<real> u_hv_;        // hv component of solution
+    std::vector<real> u_h_;   // h component of solution
+    std::vector<real> u_hu_;  // hu component of solution
+    std::vector<real> u_hv_;  // hv component of solution
 
-    std::vector<vec> f_;            // Fluxes in x
-    std::vector<real> f1_;          // First component of flux in x
-    std::vector<real> f2_;          // Second component of flux in x
-    std::vector<real> f3_;          // Third component of flux in x
+    std::vector<real> f0_;    // First component of flux in x
+    std::vector<real> f1_;    // Second component of flux in x
+    std::vector<real> f2_;    // Third component of flux in x
 
-    std::vector<vec> g_;            // Fluxes in y
-    std::vector<real> g1_;          // First component of flux in y
-    std::vector<real> g2_;          // Second component of flux in y
-    std::vector<real> g3_;          // Third component of flux in y
+    std::vector<real> g0_;    // First component of flux in y
+    std::vector<real> g1_;    // Second component of flux in y
+    std::vector<real> g2_;    // Third component of flux in y
 
-    std::vector<vec> ux_;           // x differences of u
-    std::vector<vec> uy_;           // y differences of u
-    std::vector<vec> fx_;           // x differences of f
-    std::vector<vec> gy_;           // y differences of g
+    std::vector<real> ux_h_;  // x differences of u
+    std::vector<real> ux_hu_; // x differences of u
+    std::vector<real> ux_hv_; // x differences of u
 
-    std::vector<vec> v_;            // Solution values at next step
-    std::vector<real> v_h_;         // h component of solution values at next step
-    std::vector<real> v_hu_;        // hu component of solution values at next step
-    std::vector<real> v_hv_;        // hv component of solution values at next step
+    std::vector<real> uy_h_;  // y differences of u
+    std::vector<real> uy_hu_; // y differences of u
+    std::vector<real> uy_hv_; // y differences of u
+
+    std::vector<real> fx0_;   // x differences of f
+    std::vector<real> fx1_;   // x differences of f
+    std::vector<real> fx2_;   // x differences of f
+
+    std::vector<real> gy0_;   // y differences of g
+    std::vector<real> gy1_;   // y differences of g
+    std::vector<real> gy2_;   // y differences of g
+
+    std::vector<real> v_h_;   // h component of solution values at next step
+    std::vector<real> v_hu_;  // hu component of solution values at next step
+    std::vector<real> v_hv_;  // hv component of solution values at next step
 
     // Array accessor functions
 
     int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
-    vec& u(int ix, int iy)     { return u_[offset(ix,iy)];    }
-    real& u_h(int ix, int iy)  { return u_h_[offset(ix,iy)];  }
-    real& u_hu(int ix, int iy) { return u_hu_[offset(ix,iy)]; }
-    real& u_hv(int ix, int iy) { return u_hv_[offset(ix,iy)]; }
+    real& u_h(int ix, int iy)   { return u_h_[offset(ix,iy)];   }
+    real& u_hu(int ix, int iy)  { return u_hu_[offset(ix,iy)];  }
+    real& u_hv(int ix, int iy)  { return u_hv_[offset(ix,iy)];  }
 
-    vec& v(int ix, int iy)     { return v_[offset(ix,iy)];    }
-    real& v_h(int ix, int iy)  { return v_h_[offset(ix,iy)];  }
-    real& v_hu(int ix, int iy) { return v_hu_[offset(ix,iy)]; }
-    real& v_hv(int ix, int iy) { return v_hv_[offset(ix,iy)]; }
+    real& v_h(int ix, int iy)   { return v_h_[offset(ix,iy)];   }
+    real& v_hu(int ix, int iy)  { return v_hu_[offset(ix,iy)];  }
+    real& v_hv(int ix, int iy)  { return v_hv_[offset(ix,iy)];  }
 
-    vec& f(int ix, int iy)     { return f_[offset(ix,iy)];    }
-    vec& g(int ix, int iy)     { return g_[offset(ix,iy)];    }
+    real& f0(int ix, int iy)    { return f0_[offset(ix,iy)];    }
+    real& f1(int ix, int iy)    { return f1_[offset(ix,iy)];    }
+    real& f2(int ix, int iy)    { return f2_[offset(ix,iy)];    }
 
-    vec& ux(int ix, int iy)    { return ux_[offset(ix,iy)];   }
-    vec& uy(int ix, int iy)    { return uy_[offset(ix,iy)];   }
-    vec& fx(int ix, int iy)    { return fx_[offset(ix,iy)];   }
-    vec& gy(int ix, int iy)    { return gy_[offset(ix,iy)];   }
+    real& g0(int ix, int iy)    { return g0_[offset(ix,iy)];    }
+    real& g1(int ix, int iy)    { return g1_[offset(ix,iy)];    }
+    real& g2(int ix, int iy)    { return g2_[offset(ix,iy)];    }
+
+    real& ux_h(int ix, int iy)  { return ux_h_[offset(ix,iy)];  }
+    real& ux_hu(int ix, int iy) { return ux_hu_[offset(ix,iy)]; }
+    real& ux_hv(int ix, int iy) { return ux_hv_[offset(ix,iy)]; }
+
+    real& uy_h(int ix, int iy)  { return uy_h_[offset(ix,iy)];  }
+    real& uy_hu(int ix, int iy) { return uy_hu_[offset(ix,iy)]; }
+    real& uy_hv(int ix, int iy) { return uy_hv_[offset(ix,iy)]; }
+
+    real& fx0(int ix, int iy)   { return fx0_[offset(ix,iy)];   }
+    real& fx1(int ix, int iy)   { return fx1_[offset(ix,iy)];   }
+    real& fx2(int ix, int iy)   { return fx2_[offset(ix,iy)];   }
+
+    real& gy0(int ix, int iy)   { return gy0_[offset(ix,iy)];   }
+    real& gy1(int ix, int iy)   { return gy1_[offset(ix,iy)];   }
+    real& gy2(int ix, int iy)   { return gy2_[offset(ix,iy)];   }
 
     // Wrapped accessor (periodic BC)
     int ioffset(int ix, int iy) {
@@ -210,13 +238,14 @@ private:
                        (iy+ny-nghost) % ny + nghost );
     }
 
-    vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
+    // vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
+    real& u_h_wrap(int ix, int iy)  { return u_h_[ioffset(ix,iy)]; }
+    real& u_hu_wrap(int ix, int iy)  { return u_hu_[ioffset(ix,iy)]; }
+    real& u_hv_wrap(int ix, int iy)  { return u_hv_[ioffset(ix,iy)]; }
 
     // Apply limiter to all components in a vector
-    static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
-        std::cout << "du size: " << du.size() << std::endl;
-        for (int m = 0; m < du.size(); ++m)
-            du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
+    static void limdiff(real& du, const real& um, const real& u0, const real& up) {
+        du = Limiter::limdiff(um, u0, up);
     }
 
     // Stages of the main algorithm
@@ -241,22 +270,21 @@ private:
 
 template <class Physics, class Limiter>
 template <typename F>
-void Central2D<Physics, Limiter>::init(F f1, F f2, F f3)
+void Central2D<Physics, Limiter>::init(F f0, F f1, F f2)
 {
-    //TODO: Add 3 initializations
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix)
-            f1(u_h(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            f0(u_h(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
     }
 
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix)
-            f2(u_hu(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            f1(u_hu(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
     }
 
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix)
-            f3(u_hv(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            f2(u_hv(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
     }
 }
 
@@ -283,15 +311,39 @@ void Central2D<Physics, Limiter>::apply_periodic()
     // Copy data between right and left boundaries
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nghost; ++ix) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
+            u_h(ix,          iy) = u_h_wrap(ix,          iy);
+            u_h(nx+nghost+ix,iy) = u_h_wrap(nx+nghost+ix,iy);
+        }
+
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nghost; ++ix) {
+            u_hu(ix,          iy) = u_hu_wrap(ix,          iy);
+            u_hu(nx+nghost+ix,iy) = u_hu_wrap(nx+nghost+ix,iy);
+        }
+
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nghost; ++ix) {
+            u_hv(ix,          iy) = u_hv_wrap(ix,          iy);
+            u_hv(nx+nghost+ix,iy) = u_hv_wrap(nx+nghost+ix,iy);
         }
 
     // Copy data between top and bottom boundaries
     for (int ix = 0; ix < nx_all; ++ix)
         for (int iy = 0; iy < nghost; ++iy) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
+            u_h(ix,          iy) = u_h_wrap(ix,          iy);
+            u_h(ix,ny+nghost+iy) = u_h_wrap(ix,ny+nghost+iy);
+        }
+
+    for (int ix = 0; ix < nx_all; ++ix)
+        for (int iy = 0; iy < nghost; ++iy) {
+            u_hu(ix,          iy) = u_hu_wrap(ix,          iy);
+            u_hu(ix,ny+nghost+iy) = u_hu_wrap(ix,ny+nghost+iy);
+        }
+
+    for (int ix = 0; ix < nx_all; ++ix)
+        for (int iy = 0; iy < nghost; ++iy) {
+            u_hv(ix,          iy) = u_hv_wrap(ix,          iy);
+            u_hv(ix,ny+nghost+iy) = u_hv_wrap(ix,ny+nghost+iy);
         }
 }
 
@@ -312,11 +364,84 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
+
+    // Update the FU[0] component
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f00(f0(ix,iy), u_hu(ix,iy));
+        }
+
+    // Update the FU[1] component with hu
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f10(f1(ix,iy), u_hu(ix,iy));
+        }
+
+    // Update the FU[1] component with h
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f12(f1(ix,iy), u_h(ix,iy));
+        }
+    
+    // Update the FU[2] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f20(f2(ix,iy), u_hu(ix,iy));
+        }
+    
+    // Update the FU[2] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f21(f2(ix,iy), u_hv(ix,iy));
+        }
+
+    // Update the FU[2] component with h
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f22(f2(ix,iy), u_h(ix,iy));
+        }
+            
+    // Update the GU[0] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g00(g0(ix,iy), u_hv(ix,iy));
+        }
+
+    // Update the GU[1] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g10(g1(ix,iy), u_hv(ix,iy));
+        }
+
+    // Update the GU[1] component with hu
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g10(g1(ix,iy), u_hu(ix,iy));
+        }
+
+    // Update the GU[1] component with h
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g12(g1(ix,iy), u_h(ix,iy));
+        }
+    
+    // Update the GU[2] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g20(g2(ix,iy), u_hv(ix,iy));
+        }
+
+    // Update the GU[2] component with h
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g22(g2(ix,iy), u_h(ix,iy));
+        }
+    
+    //TODO: Maybe there is a better way to vectorize this?
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+            Physics::wave_speed(cell_cx, cell_cy, u_h(ix,iy), u_hu(ix,iy), u_hv(ix,iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
@@ -335,17 +460,56 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
+    // x derivatives
     for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( ux_h(ix,iy), u_h(ix-1,iy), u_h(ix,iy), u_h(ix+1,iy) );
 
-            // x derivs
-            limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-            limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( ux_hu(ix,iy), u_hu(ix-1,iy), u_hu(ix,iy), u_hu(ix+1,iy) );
 
-            // y derivs
-            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
-        }
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( ux_hv(ix,iy), u_hv(ix-1,iy), u_hv(ix,iy), u_hv(ix+1,iy) );
+
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( fx0(ix,iy), f0(ix-1,iy), f0(ix,iy), f0(ix+1,iy) );
+
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( fx1(ix,iy), f1(ix-1,iy), f1(ix,iy), f1(ix+1,iy) );
+
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( fx2(ix,iy), f2(ix-1,iy), f2(ix,iy), f2(ix+1,iy) );
+
+
+    // y derivatives
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( uy_h(ix,iy), uy_h(ix,iy-1), uy_h(ix,iy), uy_h(ix,iy+1) );
+
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( uy_hu(ix,iy), uy_hu(ix,iy-1), uy_hu(ix,iy), uy_hu(ix,iy+1) );
+
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( uy_hv(ix,iy), uy_hv(ix,iy-1), uy_hv(ix,iy), uy_hv(ix,iy+1) );
+
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( gy0(ix,iy), g0(ix,iy-1), g0(ix,iy), g0(ix,iy+1) );
+
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( gy1(ix,iy), g1(ix,iy-1), g1(ix,iy), g1(ix,iy+1) );
+
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix)
+            limdiff( gy2(ix,iy), g2(ix,iy-1), g2(ix,iy), g2(ix,iy+1) );
 }
 
 
@@ -380,36 +544,148 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     // Predictor (flux values of f and g at half step)
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec uh = u(ix,iy);
-            for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * fx(ix,iy)[m];
-                uh[m] -= dtcdy2 * gy(ix,iy)[m];
-            }
-            Physics::flux(f(ix,iy), g(ix,iy), uh);
+            u_h(ix, iy) -= dtcdx2 * fx0(ix, iy);
+            u_h(ix, iy) -= dtcdx2 * gy0(ix, iy);
+            u_hu(ix, iy) -= dtcdx2 * fx1(ix, iy);
+            u_hu(ix, iy) -= dtcdx2 * gy1(ix, iy);
+            u_hv(ix, iy) -= dtcdx2 * fx2(ix, iy);
+            u_hv(ix, iy) -= dtcdx2 * gy2(ix, iy);
         }
 
-    // Corrector (finish the step)
+    // Update the FU[0] component
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f00(f0(ix,iy), u_hu(ix,iy));
+        }
+
+    // Update the FU[1] component with hu
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f10(f1(ix,iy), u_hu(ix,iy));
+        }
+
+    // Update the FU[1] component with h
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f12(f1(ix,iy), u_h(ix,iy));
+        }
+    
+    // Update the FU[2] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f20(f2(ix,iy), u_hu(ix,iy));
+        }
+    
+    // Update the FU[2] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f21(f2(ix,iy), u_hv(ix,iy));
+        }
+
+    // Update the FU[2] component with h
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_f22(f2(ix,iy), u_h(ix,iy));
+        }
+            
+    // Update the GU[0] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g00(g0(ix,iy), u_hv(ix,iy));
+        }
+
+    // Update the GU[1] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g10(g1(ix,iy), u_hv(ix,iy));
+        }
+
+    // Update the GU[1] component with hu
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g10(g1(ix,iy), u_hu(ix,iy));
+        }
+
+    // Update the GU[1] component with h
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g12(g1(ix,iy), u_h(ix,iy));
+        }
+    
+    // Update the GU[2] component with hv
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g20(g2(ix,iy), u_hv(ix,iy));
+        }
+
+    // Update the GU[2] component with h
+    for (int iy = 0; iy < ny_all; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
+            Physics::flux_g22(g2(ix,iy), u_h(ix,iy));
+        }
+
+    // Corrector for h component (finish the step)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int m = 0; m < v(ix,iy).size(); ++m) {
-                v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
-            }
+                v_h(ix,iy) =
+                    0.2500 * ( u_h(ix,  iy) + u_h(ix+1,iy)      +
+                               u_h(ix,iy+1) + u_h(ix+1,iy+1))   -
+                    0.0625 * ( ux_h(ix+1,iy  ) - ux_h(ix,iy)    +
+                               ux_h(ix+1,iy+1) - ux_h(ix,iy+1)  +
+                               uy_h(ix,  iy+1) - uy_h(ix,  iy)  +
+                               uy_h(ix+1,iy+1) - uy_h(ix+1,iy)) -
+                    dtcdx2 * ( f0(ix+1,iy  )   - f0(ix,iy)      +
+                               f0(ix+1,iy+1)   - f0(ix,iy+1))   -
+                    dtcdy2 * ( g0(ix,  iy+1)   - g0(ix,  iy)    +
+                               g0(ix+1,iy+1)   - g0(ix+1,iy));
+        }
+
+    // Corrector for hu component (finish the step)
+    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
+        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+                v_hu(ix,iy) =
+                    0.2500 * ( u_hu(ix,  iy) + u_hu(ix+1,iy)      +
+                               u_hu(ix,iy+1) + u_hu(ix+1,iy+1))   -
+                    0.0625 * ( ux_hu(ix+1,iy  ) - ux_hu(ix,iy)    +
+                               ux_hu(ix+1,iy+1) - ux_hu(ix,iy+1)  +
+                               uy_hu(ix,  iy+1) - uy_hu(ix,  iy)  +
+                               uy_hu(ix+1,iy+1) - uy_hu(ix+1,iy)) -
+                    dtcdx2 * ( f1(ix+1,iy  )   - f1(ix,iy)      +
+                               f1(ix+1,iy+1)   - f1(ix,iy+1))   -
+                    dtcdy2 * ( g1(ix,  iy+1)   - g1(ix,  iy)    +
+                               g1(ix+1,iy+1)   - g1(ix+1,iy));
+        }
+
+    // Corrector for hv component (finish the step)
+    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
+        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+                v_hv(ix,iy) =
+                    0.2500 * ( u_hv(ix,  iy) + u_hv(ix+1,iy)      +
+                               u_hv(ix,iy+1) + u_hv(ix+1,iy+1))   -
+                    0.0625 * ( ux_hv(ix+1,iy  ) - ux_hv(ix,iy)    +
+                               ux_hv(ix+1,iy+1) - ux_hv(ix,iy+1)  +
+                               uy_hv(ix,  iy+1) - uy_hv(ix,  iy)  +
+                               uy_hv(ix+1,iy+1) - uy_hv(ix+1,iy)) -
+                    dtcdx2 * ( f2(ix+1,iy  )   - f2(ix,iy)      +
+                               f2(ix+1,iy+1)   - f2(ix,iy+1))   -
+                    dtcdy2 * ( g2(ix,  iy+1)   - g2(ix,  iy)    +
+                               g2(ix+1,iy+1)   - g2(ix+1,iy));
         }
 
     // Copy from v storage back to main grid
     for (int j = nghost; j < ny+nghost; ++j){
         for (int i = nghost; i < nx+nghost; ++i){
-            u(i,j) = v(i-io,j-io);
+            u_h(i,j) = v_h(i-io,j-io);
+        }
+    }
+    for (int j = nghost; j < ny+nghost; ++j){
+        for (int i = nghost; i < nx+nghost; ++i){
+            u_hu(i,j) = v_hu(i-io,j-io);
+        }
+    }
+    for (int j = nghost; j < ny+nghost; ++j){
+        for (int i = nghost; i < nx+nghost; ++i){
+            u_hv(i,j) = v_hv(i-io,j-io);
         }
     }
 }
@@ -471,15 +747,14 @@ void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u(nghost,nghost)[0];
+    real hmin = u_h(nghost,nghost);
     real hmax = hmin;
     for (int j = nghost; j < ny+nghost; ++j)
         for (int i = nghost; i < nx+nghost; ++i) {
-            vec& uij = u(i,j);
-            real h = uij[0];
+            real h = u_h(i,j);
             h_sum += h;
-            hu_sum += uij[1];
-            hv_sum += uij[2];
+            hu_sum += u_hu(i,j);
+            hv_sum += u_hv(i,j);
             hmax = max(h, hmax);
             hmin = min(h, hmin);
             assert( h > 0) ;
