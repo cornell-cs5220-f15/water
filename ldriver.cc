@@ -244,7 +244,7 @@ void Central2D::apply_periodic()
         for (int iy = 0; iy < ny_all; ++iy)
             for (int ix = 0; ix < nghost; ++ix) {
                 int jlg = offset(k,ix,iy);
-                int jl = ioffset(k,nx,iy);
+                int jl = ioffset(k,ix,iy);
                 int jrg = offset(k,nx+nghost+ix,iy);
                 int jr = ioffset(k,nx+nghost+ix,iy);
                 u_[jlg] = u_[jl];
