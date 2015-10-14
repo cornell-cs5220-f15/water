@@ -27,5 +27,10 @@ void central2d_step(float* u, float* v, float* ux, float* uy,
                     int io, int nx, int ny, int ng,
                     int nfield, flux_t flux, speed_t speed,
                     float dt, float dx, float dy);
+void central2d_run(float* u, float* v, float* ux, float* uy,
+                   float* f, float* fx, float* g, float* gy,
+                   int nx, int ny, int ng,
+                   int nfield, flux_t flux, speed_t speed,
+                   float tfinal, float dx, float dy, float cfl);
 
 #endif /* STEPPER_H */

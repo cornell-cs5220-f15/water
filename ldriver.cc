@@ -198,111 +198,15 @@ private:
     std::vector<real> fx_;           // x differences of f
     std::vector<real> gy_;           // y differences of g
     std::vector<real> v_;            // Solution values at next step
-
-    // Stages of the main algorithm
-    void compute_step(int io, real dt);
-
 };
-
-
-/**
- * ### Advancing a time step
- *
- * Take one step of the numerical scheme.  This consists of two pieces:
- * a first-order corrector computed at a half time step, which is used
- * to obtain new $F$ and $G$ values; and a corrector step that computes
- * the solution at the full step.  For full details, we refer to the
- * [Jiang and Tadmor paper][jt].
- *
- * The `compute_step` function takes two arguments: the `io` flag
- * which is the time step modulo 2 (0 if even, 1 if odd); and the `dt`
- * flag, which actually determines the time step length.  We need
- * to know the even-vs-odd distinction because the Jiang-Tadmor
- * scheme alternates between a primary grid (on even steps) and a
- * staggered grid (on odd steps).  This means that the data at $(i,j)$
- * in an even step and the data at $(i,j)$ in an odd step represent
- * values at different locations in space, offset by half a space step
- * in each direction.  Every other step, we shift things back by one
- * mesh cell in each direction, essentially resetting to the primary
- * indexing scheme.
- */
-
-void Central2D::compute_step(int io, real dt)
-{
-    real dtcdx2 = 0.5 * dt / dx;
-    real dtcdy2 = 0.5 * dt / dy;
-
-    flux(&f_[0], &g_[0], &u_[0],
-         nx_all * ny_all, nx_all * ny_all);
-
-    central2d_derivs(&ux_[0], &uy_[0],
-                     &fx_[0], &gy_[0],
-                     &u_[0], &f_[0], &g_[0],
-                     nx_all, ny_all, nfield);
-
-    central2d_predict(&v_[0], &u_[0], &fx_[0], &gy_[0],
-                      dtcdx2, dtcdy2, nx_all, ny_all, nfield);
-
-    // Flux values of f and g at half step
-    for (int iy = 1; iy < ny_all-1; ++iy) {
-        int jj = iy*nx_all+1;
-        flux(&f_[jj], &g_[jj], &v_[jj],
-             nx_all-2, nx_all * ny_all);
-    }
-
-    central2d_correct(&v_[0], &u_[0], &ux_[0], &uy_[0], &f_[0], &g_[0],
-                      dtcdx2, dtcdy2,
-                      nghost-io, nx+nghost-io,
-                      nghost-io, ny+nghost-io,
-                      nx_all, ny_all, nfield);
-
-    // Copy from v storage back to main grid
-    for (int k = 0; k < nfield; ++k)
-        memcpy(&u_[(k*ny_all+nghost   )*nx_all+nghost   ],
-               &v_[(k*ny_all+nghost-io)*nx_all+nghost-io],
-               ny * nx_all * sizeof(float));
-}
-
-
-/**
- * ### Advance time
- *
- * The `run` method advances from time 0 (initial conditions) to time
- * `tfinal`.  Note that `run` can be called repeatedly; for example,
- * we might want to advance for a period of time, write out a picture,
- * advance more, and write another picture.  In this sense, `tfinal`
- * should be interpreted as an offset from the time represented by
- * the simulator at the start of the call, rather than as an absolute time.
- *
- * We always take an even number of steps so that the solution
- * at the end lives on the main grid instead of the staggered grid.
- */
 
 void Central2D::run(real tfinal)
 {
-    bool done = false;
-    real t = 0;
-    while (!done) {
-        real dt;
-        for (int io = 0; io < 2; ++io) {
-            real cxy[2] = {1.0e-15f, 1.0e-15f};
-            central2d_periodic(&u_[0], nx, ny, nghost, nfield);
-            speed(cxy, &u_[0], nx_all * ny_all, nx_all * ny_all);
-            if (io == 0) {
-                dt = cfl / std::max(cxy[0]/dx, cxy[1]/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
-                }
-            }
-            central2d_step(&u_[0], &v_[0], &ux_[0], &uy_[0],
-                           &f_[0], &fx_[0], &g_[0], &gy_[0],
-                           io, nx, ny, nghost,
-                           nfield, flux, speed,
-                           dt, dx, dy);
-            t += dt;
-        }
-    }
+    central2d_run(&u_[0], &v_[0], &ux_[0], &uy_[0],
+                  &f_[0], &fx_[0], &g_[0], &gy_[0],
+                  nx, ny, nghost,
+                  nfield, flux, speed,
+                  tfinal, dx, dy, cfl);
 }
 
 /**

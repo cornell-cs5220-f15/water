@@ -3,8 +3,8 @@
 #include <math.h>
 #include <string.h>
 #include <assert.h>
+#include <stdbool.h>
 
-typedef float real;
 
 /**
  * ### Derivatives with limiters
@@ -17,32 +17,32 @@ typedef float real;
 
 // Branch-free computation of minmod of two numbers times 2s
 static inline
-real xmin2s(real s, real a, real b) {
-    real sa = copysignf(s, a);
-    real sb = copysignf(s, b);
-    real abs_a = fabsf(a);
-    real abs_b = fabsf(b);
-    real min_abs = fminf(abs_a, abs_b);
+float xmin2s(float s, float a, float b) {
+    float sa = copysignf(s, a);
+    float sb = copysignf(s, b);
+    float abs_a = fabsf(a);
+    float abs_b = fabsf(b);
+    float min_abs = fminf(abs_a, abs_b);
     return (sa+sb) * min_abs;
 }
 
 
 // Limited combined slope estimate
 static inline
-real limdiff(real um, real u0, real up) {
-    const real theta = 2.0;
-    const real quarter = 0.25;
-    real du1 = u0-um;   // Difference to left
-    real du2 = up-u0;   // Difference to right
-    real duc = up-um;   // Twice centered difference
+float limdiff(float um, float u0, float up) {
+    const float theta = 2.0;
+    const float quarter = 0.25;
+    float du1 = u0-um;   // Difference to left
+    float du2 = up-u0;   // Difference to right
+    float duc = up-um;   // Twice centered difference
     return xmin2s( quarter, xmin2s(theta, du1, du2), duc );
 }
 
 
 // Compute limited derivs
 static inline
-void limited_deriv1(real* restrict du,
-                    const real* restrict u,
+void limited_deriv1(float* restrict du,
+                    const float* restrict u,
                     int ncell)
 {
     for (int i = 0; i < ncell; ++i)
@@ -52,8 +52,8 @@ void limited_deriv1(real* restrict du,
 
 // Compute limited derivs across stride
 static inline
-void limited_derivk(real* restrict du,
-                    const real* restrict u,
+void limited_derivk(float* restrict du,
+                    const float* restrict u,
                     int ncell, int stride)
 {
     assert(stride > 0);
@@ -251,4 +251,56 @@ void central2d_step(float* restrict u, float* restrict v,
         memcpy(u+(k*ny_all+ng   )*nx_all+ng,
                v+(k*ny_all+ng-io)*nx_all+ng-io,
                ny * nx_all * sizeof(float));
+}
+
+
+/**
+ * ### Advance time
+ *
+ * The `run` method advances from time 0 (initial conditions) to time
+ * `tfinal`.  Note that `run` can be called repeatedly; for example,
+ * we might want to advance for a period of time, write out a picture,
+ * advance more, and write another picture.  In this sense, `tfinal`
+ * should be interpreted as an offset from the time represented by
+ * the simulator at the start of the call, rather than as an absolute time.
+ *
+ * We always take an even number of steps so that the solution
+ * at the end lives on the main grid instead of the staggered grid.
+ */
+
+void central2d_run(float* restrict u, float* restrict v,
+                   float* restrict ux,
+                   float* restrict uy,
+                   float* restrict f,
+                   float* restrict fx,
+                   float* restrict g,
+                   float* restrict gy,
+                   int nx, int ny, int ng,
+                   int nfield, flux_t flux, speed_t speed,
+                   float tfinal, float dx, float dy, float cfl)
+{
+    int nx_all = nx + 2*ng;
+    int ny_all = ny + 2*ng;
+    bool done = false;
+    float t = 0;
+    while (!done) {
+        float dt;
+        for (int io = 0; io < 2; ++io) {
+            float cxy[2] = {1.0e-15f, 1.0e-15f};
+            central2d_periodic(u, nx, ny, ng, nfield);
+            speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
+            if (io == 0) {
+                dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
+                if (t + 2*dt >= tfinal) {
+                    dt = (tfinal-t)/2;
+                    done = true;
+                }
+            }
+            central2d_step(u, v, ux, uy, f, fx, g, gy,
+                           io, nx, ny, ng,
+                           nfield, flux, speed,
+                           dt, dx, dy);
+            t += dt;
+        }
+    }
 }
