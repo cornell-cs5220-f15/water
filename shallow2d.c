@@ -36,10 +36,10 @@ void shallow2dv_flux(float* restrict fh,
     for (int i = 0; i < ncell; ++i) {
         float hi = h[i], hui = hu[i], hvi = hv[i];
         float inv_h = 1/hi;
-        fhu[i] = hui*hui*inv_h + (0.5*g)*hi*hi;
+        fhu[i] = hui*hui*inv_h + (0.5f*g)*hi*hi;
         fhv[i] = hui*hvi*inv_h;
         ghu[i] = hui*hvi*inv_h;
-        ghv[i] = hvi*hvi*inv_h + (0.5*g)*hi*hi;
+        ghv[i] = hvi*hvi*inv_h + (0.5f*g)*hi*hi;
     }
 }
 
@@ -60,8 +60,8 @@ void shallow2dv_speed(float* restrict cxy,
         float root_gh = sqrtf(g * hi);
         float cxi = fabsf(hu[i] * inv_hi) + root_gh;
         float cyi = fabsf(hv[i] * inv_hi) + root_gh;
-        cx = fmax(cx, cxi);
-        cy = fmax(cy, cyi);
+        if (cx < cxi) cx = cxi;
+        if (cy < cyi) cy = cyi;
     }
     cxy[0] = cx;
     cxy[1] = cy;
