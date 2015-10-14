@@ -6,7 +6,7 @@
 #include <cassert>
 #include <vector>
 
-#include <openmp.h>
+#include <openmpi.h>
 
 //ldoc on
 /**
