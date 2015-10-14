@@ -1,21 +1,16 @@
-extern "C" {
 #include "stepper.h"
 #include "shallow2d.h"
-}
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-}
 
-#include <cassert>
-#include <cstdio>
-#include <vector>
+#include <assert.h>
+#include <stdio.h>
 
 //ldoc on
 /**

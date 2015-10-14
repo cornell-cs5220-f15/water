@@ -17,10 +17,10 @@ include Makefile.in.$(PLATFORM)
 # Main driver and sample run
 
 lshallow: ldriver.o shallow2d.o stepper.o
-	$(CXX) $(CXXFLAGS) $(LUA_CFLAGS) -o $@ $^ $(LUA_LIBS)
+	$(CC) $(CFLAGS) $(LUA_CFLAGS) -o $@ $^ $(LUA_LIBS)
 
-ldriver.o: ldriver.cc shallow2d.h meshio.h
-	$(CXX) $(CXXFLAGS) $(LUA_CFLAGS) -c $<
+ldriver.o: ldriver.c shallow2d.h meshio.h
+	$(CC) $(CFLAGS) $(LUA_CFLAGS) -c $<
 
 shallow2d.o: shallow2d.c
 	$(CC) $(CFLAGS) -c $<
@@ -86,7 +86,7 @@ wave.out: lshallow
 shallow.pdf: intro.md shallow.md
 	pandoc --toc $^ -o $@
 
-shallow.md: shallow2d.h meshio.h ldriver.cc
+shallow.md: shallow2d.h meshio.h ldriver.c
 	ldoc $^ -o $@
 
 # ===
