@@ -107,8 +107,8 @@ void copy_subgrid(float* restrict dst,
                nx * sizeof(float));
 }
 
-void apply_periodic(float* restrict u,
-                    int nx, int ny, int ng, int nfield)
+void central2d_periodic(float* restrict u,
+                        int nx, int ny, int ng, int nfield)
 {
     // Stride and number per field
     int s = nx + 2*ng;

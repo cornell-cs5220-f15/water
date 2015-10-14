@@ -185,10 +185,10 @@ public:
 
     // Read / write elements of simulation state
     real& operator()(int k, int i, int j) {
-        return u_[offset(k,i+nghost,j+nghost)];
+        return u_[(k*ny_all+nghost+j)*nx_all+nghost+i];
     }
     real operator()(int k, int i, int j) const {
-        return u_[offset(k,i+nghost,j+nghost)];
+        return u_[(k*ny_all+nghost+j)*nx_all+nghost+i];
     }
 
 private:
@@ -202,16 +202,6 @@ private:
     std::vector<real> fx_;           // x differences of f
     std::vector<real> gy_;           // y differences of g
     std::vector<real> v_;            // Solution values at next step
-
-    // Array accessor functions
-    int offset(int k, int ix, int iy) const { return (k*ny_all+iy)*nx_all+ix; }
-
-    // Wrapped accessor (periodic BC)
-    int ioffset(int k, int ix, int iy) {
-        return offset(k,
-                      (ix+nx-nghost) % nx + nghost,
-                      (iy+ny-nghost) % ny + nghost );
-    }
 
     // Stages of the main algorithm
     void compute_step(int io, real dt);
@@ -259,7 +249,7 @@ void Central2D::compute_step(int io, real dt)
 
     // Flux values of f and g at half step
     for (int iy = 1; iy < ny_all-1; ++iy) {
-        int jj = offset(0,1,iy);
+        int jj = iy*nx_all+1;
         flux(&f_[jj], &g_[jj], &v_[jj],
              nx_all-2, nx_all * ny_all);
     }
@@ -272,8 +262,8 @@ void Central2D::compute_step(int io, real dt)
 
     // Copy from v storage back to main grid
     for (int k = 0; k < nfield; ++k)
-        memcpy(&u_[offset(k,nghost,nghost)],
-               &v_[offset(k,nghost-io,nghost-io)],
+        memcpy(&u_[(k*ny_all+nghost   )*nx_all+nghost   ],
+               &v_[(k*ny_all+nghost-io)*nx_all+nghost-io],
                ny * nx_all * sizeof(float));
 }
 
