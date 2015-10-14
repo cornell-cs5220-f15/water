@@ -1,10 +1,12 @@
 #include "central2d.h"
 #include "central2d_buggy.h"
 #include "central2d_copy.h"
-#include "central2d_v3.h"
+#include "central2d_par.h"
+#include "central2d_vec.h"
 #include "meshio.h"
 #include "minmod.h"
 #include "shallow2d.h"
+#include "shallow2d_vec.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -56,12 +58,14 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
 
 #if defined(VERSION_ref)
     typedef ReferenceSim Sim;
+#elif defined(VERSION_vec)
+    typedef Central2DVec<Shallow2DVec, MinMod<Shallow2DVec::real>> Sim;
 #elif defined(VERSION_buggy)
     typedef Central2DBuggy<Shallow2D, MinMod<Shallow2D::real>> Sim;
 #elif defined(VERSION_copy)
     typedef Central2DCopy<Shallow2D, MinMod<Shallow2D::real>> Sim;
-#elif defined(VERSION_v3)
-    typedef Central2DV3<Shallow2D, MinMod<Shallow2D::real>> Sim;
+#elif defined(VERSION_par)
+    typedef Central2DPar<Shallow2D, MinMod<Shallow2D::real>> Sim;
 #else
     static_assert(false, "Please define a valid VERSION_* macro.");
 #endif
@@ -226,7 +230,7 @@ int main(int argc, char** argv)
     } else {
         fprintf(stderr, "Unknown initial conditions\n");
     }
-	
+
     // Print parameters for plotting
     printf("\nparse_line\n");
     printf("ic: %s\n", ic.c_str());

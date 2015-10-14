@@ -1,11 +1,11 @@
-#ifndef CENTRAL2D_V3_H
-#define CENTRAL2D_V3_H
+#ifndef CENTRAL2D_VEC_H
+#define CENTRAL2D_VEC_H
 
 #include <cstdio>
 #include <cmath>
 #include <cassert>
 #include <vector>
-#include <omp.h>
+
 //ldoc on
 /**
  * # Jiang-Tadmor central difference scheme
@@ -63,7 +63,7 @@
  * at compile time, that describe separate classes to implement the
  * physics and the limiter.
  *
- * The `Central2DV2` solver class takes two template arguments:
+ * The `Central2DVec` solver class takes two template arguments:
  * `Physics` and `Limiter`.  For `Physics`, we expect the name of a class
  * that defines:
  *
@@ -93,12 +93,13 @@
  */
 
 template <class Physics, class Limiter>
-class Central2DV3 {
+class Central2DVec {
 public:
     typedef typename Physics::real real;
     typedef typename Physics::vec  vec;
+    static constexpr int num_fields = Physics::num_fields;
 
-    Central2DV3(real w, real h,     // Domain width / height
+    Central2DVec(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
               real cfl = 0.45) :  // Max allowed CFL number
         nx(nx), ny(ny),
@@ -106,14 +107,14 @@ public:
         ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
         cfl(cfl),
-        u_ (nx_all * ny_all),
-        f_ (nx_all * ny_all),
-        g_ (nx_all * ny_all),
-        ux_(nx_all * ny_all),
-        uy_(nx_all * ny_all),
-        fx_(nx_all * ny_all),
-        gy_(nx_all * ny_all),
-        v_ (nx_all * ny_all) {}
+        u_ (num_fields * nx_all * ny_all),
+        f_ (num_fields * nx_all * ny_all),
+        g_ (num_fields * nx_all * ny_all),
+        ux_(num_fields * nx_all * ny_all),
+        uy_(num_fields * nx_all * ny_all),
+        fx_(num_fields * nx_all * ny_all),
+        gy_(num_fields * nx_all * ny_all),
+        v_ (num_fields * nx_all * ny_all) {}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -129,13 +130,13 @@ public:
     int xsize() const { return nx; }
     int ysize() const { return ny; }
 
-    // Read / write elements of simulation state
-    vec&       operator()(int i, int j) {
-        return u_[offset(i+nghost,j+nghost)];
-    }
-
-    const vec& operator()(int i, int j) const {
-        return u_[offset(i+nghost,j+nghost)];
+    // Read elements of simulation state
+    const vec operator()(int i, int j) const {
+        vec v;
+        for (int k = 0; k < num_fields; ++k) {
+            v[k] = u_[offset(k, i+nghost,j+nghost)];
+        }
+        return v;
     }
 
 private:
@@ -146,51 +147,62 @@ private:
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
 
-    std::vector<vec> u_;            // Solution values
-    std::vector<vec> f_;            // Fluxes in x
-    std::vector<vec> g_;            // Fluxes in y
-    std::vector<vec> ux_;           // x differences of u
-    std::vector<vec> uy_;           // y differences of u
-    std::vector<vec> fx_;           // x differences of f
-    std::vector<vec> gy_;           // y differences of g
-    std::vector<vec> v_;            // Solution values at next step
+    // All vectors are stored as a flattened representation of a
+    // two-dimensional array of arrays. For example, consider a 2x4 grid where
+    // each element of the grid contains a vector of length three.
+    //
+    //                        +---+---+---+---+
+    //                      1 | d | f | g | h |
+    //                        +---+---+---+---+
+    //                      0 | a | b | c | d |
+    //                        +---+---+---+---+
+    //                          0   1   2   3
+    //
+    // This grid is stored as follows:
+    //
+    //     +---+---+---+---+---+---+---+---+---+   +---+---+   +---+
+    //     |a_0|b_0|c_0|d_0|e_0|f_0|g_0|h_0|a_1|...|h_1|a_2|...|h_2|
+    //     +---+---+---+---+---+---+---+---+---+   +---+---+   +---+
+    //       0   1   2   3   4   5   6   7   8      15  16      23
+    //
+    // This representation is taken from Prof. Bindel's implementation:
+    // https://github.com/dbindel/water
+    std::vector<real> u_;  // Solution values
+    std::vector<real> f_;  // Fluxes in x
+    std::vector<real> g_;  // Fluxes in y
+    std::vector<real> ux_; // x differences of u
+    std::vector<real> uy_; // y differences of u
+    std::vector<real> fx_; // x differences of f
+    std::vector<real> gy_; // y differences of g
+    std::vector<real> v_;  // Solution values at next step
 
     // Array accessor functions
-
-    int offset(int ix, int iy) const { return iy*nx_all+ix; }
-
-    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
-    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
-    vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
-    vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
-
-    vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
-    vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
-    vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
-    vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
+    int offset(int k, int ix, int iy) const {
+        return (((k * ny_all) + iy) * nx_all) + ix;
+    }
 
     // Wrapped accessor (periodic BC)
-    int ioffset(int ix, int iy) {
-        return offset( (ix+nx-nghost) % nx + nghost,
-                       (iy+ny-nghost) % ny + nghost );
+    int ioffset(int k, int ix, int iy) {
+        return offset(k,
+                      (ix+nx-nghost) % nx + nghost,
+                      (iy+ny-nghost) % ny + nghost);
     }
 
-    vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
-
-    // Apply limiter to all components in a vector
-    static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
-        #pragma ivdep
-	for (int m = 0; m < du.size(); ++m)
-            du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
-    }
+    real& u    (int k, int ix, int iy) { return u_ [offset (k, ix, iy)]; }
+    real& v    (int k, int ix, int iy) { return v_ [offset (k, ix, iy)]; }
+    real& f    (int k, int ix, int iy) { return f_ [offset (k, ix, iy)]; }
+    real& g    (int k, int ix, int iy) { return g_ [offset (k, ix, iy)]; }
+    real& ux   (int k, int ix, int iy) { return ux_[offset (k, ix, iy)]; }
+    real& uy   (int k, int ix, int iy) { return uy_[offset (k, ix, iy)]; }
+    real& fx   (int k, int ix, int iy) { return fx_[offset (k, ix, iy)]; }
+    real& gy   (int k, int ix, int iy) { return gy_[offset (k, ix, iy)]; }
+    real& uwrap(int k, int ix, int iy) { return u_ [ioffset(k, ix, iy)]; }
 
     // Stages of the main algorithm
     void apply_periodic();
     void compute_fg_speeds(real& cx, real& cy);
-   // #pragma omp declare simd
     void limited_derivs();
     void compute_step(int io, real dt);
-
 };
 
 
@@ -207,18 +219,19 @@ private:
 
 template <class Physics, class Limiter>
 template <typename F>
-void Central2DV3<Physics, Limiter>::init(F f)
-{
-   
-  // for (int iy = 0; iy < ny; ++iy)
-      // for (int ix = 0; ix < nx; ++ix)
-           // f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
-  	#pragma omp parallel for
-  	for (int iy = 0; iy < ny; ++iy)
-	#pragma omp parallel for
-	for (int ix = 0; ix < nx; ++ix)
-            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
-
+void Central2DVec<Physics, Limiter>::init(F f) {
+    for (int iy = 0; iy < ny; ++iy) {
+        for (int ix = 0; ix < nx; ++ix) {
+            vec v;
+            for (int k = 0; k < num_fields; ++k) {
+                v[k] = u(k, nghost+ix, nghost+iy);
+            }
+            f(v, (ix+0.5)*dx, (iy+0.5)*dy);
+            for (int k = 0; k < num_fields; ++k) {
+                u(k, nghost+ix, nghost+iy) = v[k];
+            }
+        }
+    }
 }
 
 /**
@@ -239,27 +252,26 @@ void Central2DV3<Physics, Limiter>::init(F f)
  */
 
 template <class Physics, class Limiter>
-void Central2DV3<Physics, Limiter>::apply_periodic()
-{
+void Central2DVec<Physics, Limiter>::apply_periodic() {
     // Copy data between right and left boundaries
-    #pragma omp parallel for
-    for (int iy = 0; iy < ny_all; ++iy)
-	#pragma omp parallel for
- 	#pragma ivdep
-	       for (int ix = 0; ix < nghost; ++ix) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
+    for (int iy = 0; iy < ny_all; ++iy) {
+        for (int ix = 0; ix < nghost; ++ix) {
+            for (int k = 0; k < num_fields; ++k) {
+                u(k, ix,          iy) = uwrap(k, ix,          iy);
+                u(k, nx+nghost+ix,iy) = uwrap(k, nx+nghost+ix,iy);
+            }
         }
+    }
 
     // Copy data between top and bottom boundaries
-   #pragma omp parallel for
-    for (int ix = 0; ix < nx_all; ++ix)
-	#pragma omp parallel for
-        #pragma ivdep
-	for (int iy = 0; iy < nghost; ++iy) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
+    for (int ix = 0; ix < nx_all; ++ix) {
+        for (int iy = 0; iy < nghost; ++iy) {
+            for (int k = 0; k < num_fields; ++k) {
+                u(k, ix,          iy) = uwrap(k, ix,          iy);
+                u(k, ix,ny+nghost+iy) = uwrap(k, ix,ny+nghost+iy);
+            }
         }
+    }
 }
 
 
@@ -274,19 +286,19 @@ void Central2DV3<Physics, Limiter>::apply_periodic()
  */
 
 template <class Physics, class Limiter>
-void Central2DV3<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
+void Central2DVec<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 {
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    #pragma omp parallel for
     for (int iy = 0; iy < ny_all; ++iy)
-	#pragma omp parallel for
-       	#pragma ivdep
-	for (int ix = 0; ix < nx_all; ++ix) {
+        for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+            Physics::flux(f(0, ix,iy), f(1, ix, iy), f(2, ix, iy),
+                          g(0, ix,iy), g(1, ix, iy), g(2, ix, iy),
+                          u(0, ix,iy), u(1, ix, iy), u(2, ix, iy));
+            Physics::wave_speed(cell_cx, cell_cy,
+                                u(0, ix,iy), u(1, ix, iy), u(2, ix, iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
@@ -303,22 +315,21 @@ void Central2DV3<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
  */
 
 template <class Physics, class Limiter>
-void Central2DV3<Physics, Limiter>::limited_derivs()
-{
-//	#pragma omp declare simd
-    for (int iy = 1; iy < ny_all-1; ++iy)
-       	#pragma omp parallel for 
-	 #pragma ivdep
-	for (int ix = 1; ix < nx_all-1; ++ix) {
+void Central2DVec<Physics, Limiter>::limited_derivs() {
+    using L = Limiter;
+    for (int iy = 1; iy < ny_all-1; ++iy) {
+        for (int ix = 1; ix < nx_all-1; ++ix) {
+            for (int k = 0; k < num_fields; ++k) {
+                // x derivs
+                ux(k, ix, iy) = L::limdiff(u(k, ix-1,iy), u(k, ix,iy), u(k, ix+1,iy));
+                fx(k, ix, iy) = L::limdiff(f(k, ix-1,iy), f(k, ix,iy), f(k, ix+1,iy));
 
-            // x derivs
-            limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-            limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
-
-            // y derivs
-            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
+                // y derivs
+                uy(k, ix, iy) = L::limdiff(u(k, ix,iy-1), u(k, ix,iy), u(k, ix,iy+1));
+                gy(k, ix, iy) = L::limdiff(g(k, ix,iy-1), g(k, ix,iy), g(k, ix,iy+1));
+            }
         }
+    }
 }
 
 
@@ -345,56 +356,54 @@ void Central2DV3<Physics, Limiter>::limited_derivs()
  */
 
 template <class Physics, class Limiter>
-void Central2DV3<Physics, Limiter>::compute_step(int io, real dt)
+void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-   // #pragma ivdep
     for (int iy = 1; iy < ny_all-1; ++iy)
-	#pragma ivdep
         for (int ix = 1; ix < nx_all-1; ++ix) {
-          
-		 vec uh = u(ix,iy);
-		#pragma ivdep
-            for (int m = 0; m < uh.size(); ++m) {
-              
-		uh[m] -= dtcdx2 * fx(ix,iy)[m];
-                uh[m] -= dtcdy2 * gy(ix,iy)[m];
-            }
-            Physics::flux(f(ix,iy), g(ix,iy), uh);
+            real h  = u(0, ix, iy);
+            real hu = u(1, ix, iy);
+            real hv = u(2, ix, iy);
+
+            h  -= dtcdx2 * fx(0, ix, iy);
+            h  -= dtcdy2 * gy(0, ix, iy);
+            hu -= dtcdx2 * fx(1, ix, iy);
+            hu -= dtcdy2 * gy(1, ix, iy);
+            hv -= dtcdx2 * fx(2, ix, iy);
+            hv -= dtcdy2 * gy(2, ix, iy);
+
+            Physics::flux(f(0, ix,iy), f(1, ix, iy), f(2, ix, iy),
+                          g(0, ix,iy), g(1, ix, iy), g(2, ix, iy),
+                          h, hu, hv);
         }
 
     // Corrector (finish the step)
-   // #pragma ivdep
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-	//#pragma ivdep
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-		#pragma ivdep
-            for (int m = 0; m < v(ix,iy).size(); ++m) {
-		//#pragma ivdep
-                v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
+            for (int k = 0; k < num_fields; ++k) {
+                v(k, ix,iy) =
+                    0.2500 * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
+                               u(k, ix,iy+1) + u(k, ix+1,iy+1) ) -
+                    0.0625 * ( ux(k, ix+1,iy  ) - ux(k, ix,iy  ) +
+                               ux(k, ix+1,iy+1) - ux(k, ix,iy+1) +
+                               uy(k, ix,  iy+1) - uy(k, ix,  iy) +
+                               uy(k, ix+1,iy+1) - uy(k, ix+1,iy) ) -
+                    dtcdx2 * ( f(k, ix+1,iy  ) - f(k, ix,iy  ) +
+                               f(k, ix+1,iy+1) - f(k, ix,iy+1) ) -
+                    dtcdy2 * ( g(k, ix,  iy+1) - g(k, ix,  iy) +
+                               g(k, ix+1,iy+1) - g(k, ix+1,iy) );
             }
         }
 
     // Copy from v storage back to main grid
-    	#pragma omp parallel for 
     for (int j = nghost; j < ny+nghost; ++j){
-	#pragma omp parallel for 
- 	#pragma ivdep      
-	 for (int i = nghost; i < nx+nghost; ++i){
-            u(i,j) = v(i-io,j-io);
+        for (int i = nghost; i < nx+nghost; ++i){
+            for (int k = 0; k < num_fields; ++k) {
+                u(k, i, j) = v(k, i-io, j-io);
+            }
         }
     }
 }
@@ -415,7 +424,7 @@ void Central2DV3<Physics, Limiter>::compute_step(int io, real dt)
  */
 
 template <class Physics, class Limiter>
-void Central2DV3<Physics, Limiter>::run(real tfinal)
+void Central2DVec<Physics, Limiter>::run(real tfinal)
 {
     bool done = false;
     real t = 0;
@@ -424,8 +433,7 @@ void Central2DV3<Physics, Limiter>::run(real tfinal)
         for (int io = 0; io < 2; ++io) {
             real cx, cy;
             apply_periodic();
-            #pragma ivdep
-	    compute_fg_speeds(cx, cy);
+            compute_fg_speeds(cx, cy);
             limited_derivs();
             if (io == 0) {
                 dt = cfl / std::max(cx/dx, cy/dy);
@@ -434,8 +442,7 @@ void Central2DV3<Physics, Limiter>::run(real tfinal)
                     done = true;
                 }
             }
-            #pragma ivdep
-	    compute_step(io, dt);
+            compute_step(io, dt);
             t += dt;
         }
     }
@@ -454,25 +461,23 @@ void Central2DV3<Physics, Limiter>::run(real tfinal)
  */
 
 template <class Physics, class Limiter>
-void Central2DV3<Physics, Limiter>::solution_check()
+void Central2DVec<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u(nghost,nghost)[0];
+    real hmin = u(0, nghost, nghost);
     real hmax = hmin;
-    #pragma omp parallel for
-    for (int j = nghost; j < ny+nghost; ++j)
-        #pragma omp parallel for
-	for (int i = nghost; i < nx+nghost; ++i) {
-            vec& uij = u(i,j);
-            real h = uij[0];
+    for (int j = nghost; j < ny+nghost; ++j) {
+        for (int i = nghost; i < nx+nghost; ++i) {
+            real h = u(0, i, j);
             h_sum += h;
-            hu_sum += uij[1];
-            hv_sum += uij[2];
+            hu_sum += u(1, i, j);
+            hv_sum += u(2, i, j);
             hmax = max(h, hmax);
             hmin = min(h, hmin);
-            assert( h > 0) ;
+            assert(h > 0);
         }
+    }
     real cell_area = dx*dy;
     h_sum *= cell_area;
     hu_sum *= cell_area;
@@ -482,4 +487,4 @@ void Central2DV3<Physics, Limiter>::solution_check()
 }
 
 //ldoc off
-#endif /* CENTRAL2D_H*/
+#endif /* CENTRAL2D_VEC_H*/
