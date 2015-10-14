@@ -214,55 +214,9 @@ private:
     }
 
     // Stages of the main algorithm
-    void apply_periodic();
     void compute_step(int io, real dt);
 
 };
-
-
-/**
- * ## Time stepper implementation
- *
- * ### Boundary conditions
- *
- * In finite volume methods, boundary conditions are typically applied by
- * setting appropriate values in ghost cells.  For our framework, we will
- * apply periodic boundary conditions; that is, waves that exit one side
- * of the domain will enter from the other side.
- *
- * We apply the conditions by assuming that the cells with coordinates
- * `nghost <= ix <= nx+nghost` and `nghost <= iy <= ny+nghost` are
- * "canonical", and setting the values for all other cells `(ix,iy)`
- * to the corresponding canonical values `(ix+p*nx,iy+q*ny)` for some
- * integers `p` and `q`.
- */
-
-void Central2D::apply_periodic()
-{
-    // Copy data between right and left boundaries
-    for (int k = 0; k < nfield; ++k) {
-        for (int iy = 0; iy < ny_all; ++iy)
-            for (int ix = 0; ix < nghost; ++ix) {
-                int jlg = offset(k,ix,iy);
-                int jl = ioffset(k,ix,iy);
-                int jrg = offset(k,nx+nghost+ix,iy);
-                int jr = ioffset(k,nx+nghost+ix,iy);
-                u_[jlg] = u_[jl];
-                u_[jrg] = u_[jr];
-            }
-
-        // Copy data between top and bottom boundaries
-        for (int iy = 0; iy < nghost; ++iy)
-            for (int ix = 0; ix < nx_all; ++ix) {
-                int jbg = offset(k,ix,iy);
-                int jb = ioffset(k,ix,iy);
-                int jtg = offset(k,ix,ny+nghost+iy);
-                int jt = ioffset(k,ix,ny+nghost+iy);
-                u_[jbg] = u_[jb];
-                u_[jtg] = u_[jt];
-            }
-    }
-}
 
 
 /**
@@ -346,7 +300,7 @@ void Central2D::run(real tfinal)
         real dt;
         for (int io = 0; io < 2; ++io) {
             real cxy[2] = {1.0e-15f, 1.0e-15f};
-            apply_periodic();
+            central2d_periodic(&u_[0], nx, ny, nghost, nfield);
             speed(cxy, &u_[0], nx_all * ny_all, nx_all * ny_all);
             if (io == 0) {
                 dt = cfl / std::max(cxy[0]/dx, cxy[1]/dy);

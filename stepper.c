@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 #include <assert.h>
 
 typedef float real;
@@ -37,6 +38,7 @@ real limdiff(real um, real u0, real up) {
 
 
 // Compute limited derivs
+static inline
 void limited_deriv1(real* restrict du,
                     const real* restrict u,
                     int ncell)
@@ -47,6 +49,7 @@ void limited_deriv1(real* restrict du,
 
 
 // Compute limited derivs across stride
+static inline
 void limited_derivk(real* restrict du,
                     const real* restrict u,
                     int ncell, int stride)
@@ -74,6 +77,81 @@ void central2d_derivs(float* restrict ux, float* restrict uy,
             limited_derivk(gy+offset, g+offset, nx-2, nx);
         }
 }
+
+
+/**
+ * ## Time stepper implementation
+ *
+ * ### Boundary conditions
+ *
+ * In finite volume methods, boundary conditions are typically applied by
+ * setting appropriate values in ghost cells.  For our framework, we will
+ * apply periodic boundary conditions; that is, waves that exit one side
+ * of the domain will enter from the other side.
+ *
+ * We apply the conditions by assuming that the cells with coordinates
+ * `nghost <= ix <= nx+nghost` and `nghost <= iy <= ny+nghost` are
+ * "canonical", and setting the values for all other cells `(ix,iy)`
+ * to the corresponding canonical values `(ix+p*nx,iy+q*ny)` for some
+ * integers `p` and `q`.
+ */
+
+static inline
+void copy_subgrid(float* restrict dst,
+                  const float* restrict src,
+                  int nx, int ny, int stride)
+{
+    for (int iy = 0; iy < ny; ++iy)
+        memcpy(dst + iy*stride,
+               src + iy*stride,
+               nx * sizeof(float));
+}
+
+void apply_periodic(float* restrict u,
+                    int nx, int ny, int ng, int nfield)
+{
+    // Stride and number per field
+    int s = nx + 2*ng;
+    int field_stride = (ny+2*ng)*s;
+
+    // Offsets of left, right, top, and bottom data blocks and ghost blocks
+    int l = nx,   lg = 0;
+    int r = ng,   rg = nx+ng;
+    int b = ny*s, bg = 0;
+    int t = ng*s, tg = (nx+ng)*s;
+
+    // Copy data into ghost cells on each side
+    for (int k = 0; k < nfield; ++k) {
+        float* uk = u + k*field_stride;
+        copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s);
+        copy_subgrid(uk+rg, uk+r, ng, ny+2*ng, s);
+        copy_subgrid(uk+tg, uk+t, nx+2*ng, ng, s);
+        copy_subgrid(uk+bg, uk+b, nx+2*ng, ng, s);
+    }
+}
+
+
+/**
+ * ### Advancing a time step
+ *
+ * Take one step of the numerical scheme.  This consists of two pieces:
+ * a first-order corrector computed at a half time step, which is used
+ * to obtain new $F$ and $G$ values; and a corrector step that computes
+ * the solution at the full step.  For full details, we refer to the
+ * [Jiang and Tadmor paper][jt].
+ *
+ * The `compute_step` function takes two arguments: the `io` flag
+ * which is the time step modulo 2 (0 if even, 1 if odd); and the `dt`
+ * flag, which actually determines the time step length.  We need
+ * to know the even-vs-odd distinction because the Jiang-Tadmor
+ * scheme alternates between a primary grid (on even steps) and a
+ * staggered grid (on odd steps).  This means that the data at $(i,j)$
+ * in an even step and the data at $(i,j)$ in an odd step represent
+ * values at different locations in space, offset by half a space step
+ * in each direction.  Every other step, we shift things back by one
+ * mesh cell in each direction, essentially resetting to the primary
+ * indexing scheme.
+ */
 
 
 // Predictor half-step
