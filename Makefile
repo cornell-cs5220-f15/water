@@ -19,7 +19,7 @@ include Makefile.in.$(PLATFORM)
 lshallow: ldriver.o shallow2d.o stepper.o
 	$(CC) $(CFLAGS) $(LUA_CFLAGS) -o $@ $^ $(LUA_LIBS)
 
-ldriver.o: ldriver.c shallow2d.h meshio.h
+ldriver.o: ldriver.c shallow2d.h
 	$(CC) $(CFLAGS) $(LUA_CFLAGS) -c $<
 
 shallow2d.o: shallow2d.c
@@ -36,7 +36,7 @@ run: dam_break.gif
 
 .PHONY: iprofile
 iprofile: lshallow lshallow.dSYM
-	iprofiler -timeprofiler -o lshallow_perf ./lshallow tests.lua dam
+	iprofiler -timeprofiler -o lshallow_perf ./lshallow tests.lua dam 400
 	open lshallow_perf.dtps
 
 big: lshallow

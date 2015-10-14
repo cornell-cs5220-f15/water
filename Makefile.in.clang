@@ -1,16 +1,12 @@
-CXX=clang++
-CXXFLAGS=-std=c++14 -g 
-
 CC=clang
-CFLAGS=-std=c99 -g
+CFLAGS=-std=c99 -g -DSYSTEM
 
 # If you're using clang, these are good flags to try
-OPTFLAGS=-Ofast -march=native -DRESTRICT=__restrict__
+OPTFLAGS=-Ofast -march=native
 
 # Add this flag to determine whether the compiler was able to vectorize
 ANALYSIS=-Rpass-analysis=loop-vectorize
 
-CXXFLAGS+=$(OPTFLAGS) $(ANALYSIS)
 CFLAGS+=$(OPTFLAGS) $(ANALYSIS)
 PYTHON=python
 

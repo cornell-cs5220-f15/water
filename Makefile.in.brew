@@ -1,15 +1,11 @@
-CXX=g++-5
-CXXFLAGS=-std=c++14 -g 
-
 CC=gcc-5
 CFLAGS=-std=c99 -g
 
 # If you're using gcc, these are good flags to try
-OPTFLAGS=-O3 -march=native -fopenmp -DRESTRICT=__restrict__
+OPTFLAGS=-O3 -march=native -fopenmp
 
-CXXFLAGS+=$(OPTFLAGS)
 CFLAGS+=$(OPTFLAGS)
-PYTHON=python
 
+PYTHON=python
 LUA_CFLAGS=-I/usr/local/include
 LUA_LIBS=-L/usr/local/lib -llua

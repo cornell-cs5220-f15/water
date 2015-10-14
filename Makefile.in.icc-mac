@@ -1,17 +1,13 @@
-CXX=icpc
-CXXFLAGS=-std=c++14 -g
-
 CC=icc
-CFLAGS=-std=c99 -g
+CFLAGS=-std=c99 -g -DSYSTIME
 
 # If you're using icc, these are good flags to try
-#OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo -DRESTRICT=restrict
-OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -DRESTRICT=restrict
+#OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo
+OPTFLAGS=-O3 -no-prec-div -xcore-avx2
 
 # Add this for the vectorization reports
 ANALYSIS=-qopt-report=5 -qopt-report-phase=vec 
 
-CXXFLAGS+=$(OPTFLAGS) $(ANALYSIS)
 CFLAGS+=$(OPTFLAGS) $(ANALYSIS)
 
 PYTHON=python
