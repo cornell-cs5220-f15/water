@@ -3,6 +3,8 @@
 
 #ifdef _OPENMP
 #include <omp.h>
+#elif defined SYSTIME
+#include <sys/time.h>
 #endif
 
 #include <lua.h>
@@ -19,7 +21,7 @@
  * The driver code is where we put together the time stepper and
  * the physics routines to actually solve the equations and make
  * pretty pictures of the solutions.
- * 
+ *
  * ## Diagnostics
  *
  * The numerical method is supposed to preserve (up to rounding
@@ -187,9 +189,14 @@ void lua_init_sim(lua_State* L, central2d_t* sim)
  * ### Running the simulation
  *
  * The `run_sim` function looks a lot like the main routine of the
- * "ordinary" command line driver.
- * We can specify the initial conditions by providing the simulator
- * with a callback function to be called at each cell center.
+ * "ordinary" command line driver.  We specify the initial conditions
+ * by providing the simulator with a callback function to be called at
+ * each cell center.  Note that we have two different options for
+ * timing the steps -- we can use the OpenMP timing routines
+ * (preferable if OpenMP is available) or the POSIX `gettimeofday`
+ * if the `SYSTIME` macro is defined.  If there's no OpenMP and
+ * `SYSTIME` is undefined, we fall back to just printing the number
+ * of steps without timing information.
  */
 
 int run_sim(lua_State* L)
@@ -218,11 +225,20 @@ int run_sim(lua_State* L)
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        central2d_run(sim, ftime);
+        int nstep = central2d_run(sim, ftime);
         double t1 = omp_get_wtime();
-        printf("Time: %e\n", t1-t0);
+        double elapsed = t1-t0;
+        printf("Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
+#elif defined SYSTIME
+        struct timeval t0, t1;
+        gettimeofday(&t0, NULL);
+        int nstep = central2d_run(sim, ftime);
+        gettimeofday(&t1, NULL);
+        double elapsed = (t1.tv_sec-t0.tv_sec) + (t1.tv_usec-t0.tv_usec)*1e-6;
+        printf("Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
 #else
-        central2d_run(sim, ftime);
+        int nstep = central2d_run(sim, ftime);
+        printf("Took %d steps\n", nstep);
 #endif
         solution_check(sim);
         viz_frame(viz, sim);
@@ -238,7 +254,7 @@ int run_sim(lua_State* L)
  * The main routine has the usage pattern
  *
  *     lshallow tests.lua args
- * 
+ *
  * where `tests.lua` has a call to the `simulate` function to run
  * the simulation.  The arguments after the Lua file name are passed
  * into the Lua script via a global array called `args`.
