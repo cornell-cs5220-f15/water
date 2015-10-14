@@ -1,15 +1,18 @@
 --
 -- Basic tests
 --
+nx = tonumber(args[2]) or 200
 
 pond = {
   init = function(x,y) return 1, 0, 0 end,
-  out = "pond.out"
+  out = "pond.out",
+  nx = nx
 }
 
 river = {
   init = function(x,y) return 1, 1, 0 end,
-  out = "river.out"
+  out = "river.out",
+  nx = nx
 }
 
 dam = {
@@ -20,7 +23,8 @@ dam = {
       return 1, 0, 0
     end
   end,
-  out = "dam_break.out"
+  out = "dam_break.out",
+  nx = nx
 }
 
 wave = {
@@ -28,7 +32,8 @@ wave = {
     return 1.0 + 0.2 * math.sin(math.pi * x), 1, 0
   end,
   out = "wave.out",
-  frames = 100
+  frames = 100,
+  nx = nx
 }
 
 simulate(_G[args[1]])
