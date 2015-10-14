@@ -6,8 +6,11 @@
 #include <assert.h>
 #include <stdbool.h>
 
+//ldoc on
 /**
- * # Structure allocation
+ * ## Implementation
+ *
+ * ### Structure allocation
  */
 
 central2d_t* central2d_init(float w, float h, int nx, int ny,
@@ -58,11 +61,69 @@ int central2d_offset(central2d_t* sim, int k, int ix, int iy)
 
 
 /**
+ * ### Boundary conditions
+ *
+ * In finite volume methods, boundary conditions are typically applied by
+ * setting appropriate values in ghost cells.  For our framework, we will
+ * apply periodic boundary conditions; that is, waves that exit one side
+ * of the domain will enter from the other side.
+ *
+ * We apply the conditions by assuming that the cells with coordinates
+ * `nghost <= ix <= nx+nghost` and `nghost <= iy <= ny+nghost` are
+ * "canonical", and setting the values for all other cells `(ix,iy)`
+ * to the corresponding canonical values `(ix+p*nx,iy+q*ny)` for some
+ * integers `p` and `q`.
+ */
+
+static inline
+void copy_subgrid(float* restrict dst,
+                  const float* restrict src,
+                  int nx, int ny, int stride)
+{
+    for (int iy = 0; iy < ny; ++iy)
+        memcpy(dst + iy*stride,
+               src + iy*stride,
+               nx * sizeof(float));
+}
+
+void central2d_periodic(float* restrict u,
+                        int nx, int ny, int ng, int nfield)
+{
+    // Stride and number per field
+    int s = nx + 2*ng;
+    int field_stride = (ny+2*ng)*s;
+
+    // Offsets of left, right, top, and bottom data blocks and ghost blocks
+    int l = nx,   lg = 0;
+    int r = ng,   rg = nx+ng;
+    int b = ny*s, bg = 0;
+    int t = ng*s, tg = (nx+ng)*s;
+
+    // Copy data into ghost cells on each side
+    for (int k = 0; k < nfield; ++k) {
+        float* uk = u + k*field_stride;
+        copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s);
+        copy_subgrid(uk+rg, uk+r, ng, ny+2*ng, s);
+        copy_subgrid(uk+tg, uk+t, nx+2*ng, ng, s);
+        copy_subgrid(uk+bg, uk+b, nx+2*ng, ng, s);
+    }
+}
+
+
+/**
  * ### Derivatives with limiters
  *
  * In order to advance the time step, we also need to estimate
  * derivatives of the fluxes and the solution values at each cell.
  * In order to maintain stability, we apply a limiter here.
+ *
+ * The minmod limiter *looks* like it should be expensive to computer,
+ * since superficially it seems to require a number of branches.
+ * We do something a little tricky, getting rid of the condition
+ * on the sign of the arguments using the `copysign` instruction.
+ * If the compiler does the "right" thing with `max` and `min`
+ * for floating point arguments (translating them to branch-free
+ * intrinsic operations), this implementation should be relatively fast.
  */
 
 
@@ -130,58 +191,6 @@ void central2d_derivs(float* restrict ux, float* restrict uy,
             limited_derivk(uy+offset, u+offset, nx-2, nx);
             limited_derivk(gy+offset, g+offset, nx-2, nx);
         }
-}
-
-
-/**
- * ## Time stepper implementation
- *
- * ### Boundary conditions
- *
- * In finite volume methods, boundary conditions are typically applied by
- * setting appropriate values in ghost cells.  For our framework, we will
- * apply periodic boundary conditions; that is, waves that exit one side
- * of the domain will enter from the other side.
- *
- * We apply the conditions by assuming that the cells with coordinates
- * `nghost <= ix <= nx+nghost` and `nghost <= iy <= ny+nghost` are
- * "canonical", and setting the values for all other cells `(ix,iy)`
- * to the corresponding canonical values `(ix+p*nx,iy+q*ny)` for some
- * integers `p` and `q`.
- */
-
-static inline
-void copy_subgrid(float* restrict dst,
-                  const float* restrict src,
-                  int nx, int ny, int stride)
-{
-    for (int iy = 0; iy < ny; ++iy)
-        memcpy(dst + iy*stride,
-               src + iy*stride,
-               nx * sizeof(float));
-}
-
-void central2d_periodic(float* restrict u,
-                        int nx, int ny, int ng, int nfield)
-{
-    // Stride and number per field
-    int s = nx + 2*ng;
-    int field_stride = (ny+2*ng)*s;
-
-    // Offsets of left, right, top, and bottom data blocks and ghost blocks
-    int l = nx,   lg = 0;
-    int r = ng,   rg = nx+ng;
-    int b = ny*s, bg = 0;
-    int t = ng*s, tg = (nx+ng)*s;
-
-    // Copy data into ghost cells on each side
-    for (int k = 0; k < nfield; ++k) {
-        float* uk = u + k*field_stride;
-        copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s);
-        copy_subgrid(uk+rg, uk+r, ng, ny+2*ng, s);
-        copy_subgrid(uk+tg, uk+t, nx+2*ng, ng, s);
-        copy_subgrid(uk+bg, uk+b, nx+2*ng, ng, s);
-    }
 }
 
 
@@ -310,7 +319,7 @@ void central2d_step(float* restrict u, float* restrict v,
 
 
 /**
- * ### Advance time
+ * ### Advance a fixed time
  *
  * The `run` method advances from time 0 (initial conditions) to time
  * `tfinal`.  Note that `run` can be called repeatedly; for example,
@@ -324,17 +333,18 @@ void central2d_step(float* restrict u, float* restrict v,
  */
 
 static
-void central2d_xrun(float* restrict u, float* restrict v,
-                    float* restrict ux,
-                    float* restrict uy,
-                    float* restrict f,
-                    float* restrict fx,
-                    float* restrict g,
-                    float* restrict gy,
-                    int nx, int ny, int ng,
-                    int nfield, flux_t flux, speed_t speed,
-                    float tfinal, float dx, float dy, float cfl)
+int central2d_xrun(float* restrict u, float* restrict v,
+                   float* restrict ux,
+                   float* restrict uy,
+                   float* restrict f,
+                   float* restrict fx,
+                   float* restrict g,
+                   float* restrict gy,
+                   int nx, int ny, int ng,
+                   int nfield, flux_t flux, speed_t speed,
+                   float tfinal, float dx, float dy, float cfl)
 {
+    int nstep = 0;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
     bool done = false;
@@ -357,16 +367,18 @@ void central2d_xrun(float* restrict u, float* restrict v,
                            nfield, flux, speed,
                            dt, dx, dy);
             t += dt;
+            nstep += 2;
         }
     }
+    return nstep;
 }
 
 
-void central2d_run(central2d_t* sim, float tfinal)
+int central2d_run(central2d_t* sim, float tfinal)
 {
-    central2d_xrun(sim->u, sim->v, sim->ux, sim->uy,
-                   sim->f, sim->fx, sim->g, sim->gy,
-                   sim->nx, sim->ny, sim->ng,
-                   sim->nfield, sim->flux, sim->speed,
-                   tfinal, sim->dx, sim->dy, sim->cfl);
+   return central2d_xrun(sim->u, sim->v, sim->ux, sim->uy,
+                         sim->f, sim->fx, sim->g, sim->gy,
+                         sim->nx, sim->ny, sim->ng,
+                         sim->nfield, sim->flux, sim->speed,
+                         tfinal, sim->dx, sim->dy, sim->cfl);
 }

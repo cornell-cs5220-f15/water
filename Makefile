@@ -83,10 +83,10 @@ wave.out: lshallow
 # ===
 # Generate documentation
 
-shallow.pdf: intro.md shallow.md
+shallow.pdf: intro.md jt-scheme.md shallow.md
 	pandoc --toc $^ -o $@
 
-shallow.md: shallow2d.h meshio.h ldriver.c
+shallow.md: stepper.h stepper.c shallow2d.h shallow2d.c ldriver.c
 	ldoc $^ -o $@
 
 # ===
@@ -97,5 +97,6 @@ clean:
 	rm -f lshallow *.o
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
+	rm -f *.optrpt
 	rm -rf *.dSYM
 	rm -rf lshallow_perf.dtps
