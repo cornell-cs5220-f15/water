@@ -151,6 +151,8 @@ const char* lget_string(lua_State* L, const char* name, const char* x)
  *
  * We specify the initial conditions by providing the simulator
  * with a callback function to be called at each cell center.
+ * The callback function is assumed to be the `init` field of
+ * a table at index 1.
  */
 
 void lua_init_sim(lua_State* L, central2d_t* sim)
@@ -188,11 +190,6 @@ void lua_init_sim(lua_State* L, central2d_t* sim)
  * "ordinary" command line driver.
  * We can specify the initial conditions by providing the simulator
  * with a callback function to be called at each cell center.
- * There's nothing wrong with writing that callback in C++, but we
- * do need to make sure to keep the Lua state as context.  It's not
- * so easy to store a Lua function directly in C++, but we can store
- * it in a special registry table in Lua (where the key is the "this"
- * pointer for the object).
  */
 
 int run_sim(lua_State* L)
