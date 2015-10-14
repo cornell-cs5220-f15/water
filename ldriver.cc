@@ -1,6 +1,7 @@
+extern "C" {
 #include "stepper.h"
 #include "shallow2d.h"
-//#include "meshio.h"
+}
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -146,11 +147,6 @@ extern "C" {
 class Central2D {
 public:
     typedef float real;
-    typedef void (*flux_t)(real* FU, real* GU, const real* U,
-                           int ncell, int field_stride);
-    typedef void (*speed_t)(real* cxy, const real* U,
-                            int ncell, int field_stride);
-
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nfield;          // Number of fields
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
@@ -299,7 +295,11 @@ void Central2D::run(real tfinal)
                     done = true;
                 }
             }
-            compute_step(io, dt);
+            central2d_step(&u_[0], &v_[0], &ux_[0], &uy_[0],
+                           &f_[0], &fx_[0], &g_[0], &gy_[0],
+                           io, nx, ny, nghost,
+                           nfield, flux, speed,
+                           dt, dx, dy);
             t += dt;
         }
     }

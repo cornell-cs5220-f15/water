@@ -1,3 +1,5 @@
+#include "stepper.h"
+
 #include <math.h>
 #include <string.h>
 #include <assert.h>
@@ -207,4 +209,46 @@ void central2d_correct(float* restrict v,
                     dtcdy2 * ( g[j01] - g[j00] +
                                g[j11] - g[j10] );
             }
+}
+
+
+void central2d_step(float* restrict u, float* restrict v,
+                    float* restrict ux,
+                    float* restrict uy,
+                    float* restrict f,
+                    float* restrict fx,
+                    float* restrict g,
+                    float* restrict gy,
+                    int io, int nx, int ny, int ng,
+                    int nfield, flux_t flux, speed_t speed,
+                    float dt, float dx, float dy)
+{
+    int nx_all = nx + 2*ng;
+    int ny_all = ny + 2*ng;
+
+    float dtcdx2 = 0.5 * dt / dx;
+    float dtcdy2 = 0.5 * dt / dy;
+
+    flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
+    central2d_derivs(ux, uy, fx, gy, u, f, g,
+                     nx_all, ny_all, nfield);
+    central2d_predict(v, u, fx, gy, dtcdx2, dtcdy2,
+                      nx_all, ny_all, nfield);
+
+    // Flux values of f and g at half step
+    for (int iy = 1; iy < ny_all-1; ++iy) {
+        int jj = iy*nx_all+1;
+        flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
+    }
+
+    central2d_correct(v, u, ux, uy, f, g, dtcdx2, dtcdy2,
+                      ng-io, nx+ng-io,
+                      ng-io, ny+ng-io,
+                      nx_all, ny_all, nfield);
+
+    // Copy from v storage back to main grid
+    for (int k = 0; k < nfield; ++k)
+        memcpy(u+(k*ny_all+ng   )*nx_all+ng,
+               v+(k*ny_all+ng-io)*nx_all+ng-io,
+               ny * nx_all * sizeof(float));
 }
