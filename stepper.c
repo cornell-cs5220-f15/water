@@ -63,6 +63,7 @@ void limited_derivk(float* restrict du,
 
 
 // Compute limited derivs over grid
+static
 void central2d_derivs(float* restrict ux, float* restrict uy,
                       float* restrict fx, float* restrict gy,
                       const float* restrict u,
@@ -157,6 +158,7 @@ void central2d_periodic(float* restrict u,
 
 
 // Predictor half-step
+static
 void central2d_predict(float* restrict v,
                        const float* restrict u,
                        const float* restrict fx,
@@ -176,6 +178,7 @@ void central2d_predict(float* restrict v,
 
 
 // Corrector
+static
 void central2d_correct(float* restrict v,
                        const float* restrict u,
                        const float* restrict ux,
@@ -212,6 +215,7 @@ void central2d_correct(float* restrict v,
 }
 
 
+static
 void central2d_step(float* restrict u, float* restrict v,
                     float* restrict ux,
                     float* restrict uy,

@@ -177,7 +177,13 @@ public:
         v_ (nfield * nx_all * ny_all) {}
 
     // Advance from time 0 to time tfinal
-    void run(real tfinal);
+    void run(real tfinal) {
+        central2d_run(&u_[0], &v_[0], &ux_[0], &uy_[0],
+                      &f_[0], &fx_[0], &g_[0], &gy_[0],
+                      nx, ny, nghost,
+                      nfield, flux, speed,
+                      tfinal, dx, dy, cfl);
+    }
 
     // Read / write elements of simulation state
     real& operator()(int k, int i, int j) {
@@ -199,15 +205,6 @@ private:
     std::vector<real> gy_;           // y differences of g
     std::vector<real> v_;            // Solution values at next step
 };
-
-void Central2D::run(real tfinal)
-{
-    central2d_run(&u_[0], &v_[0], &ux_[0], &uy_[0],
-                  &f_[0], &fx_[0], &g_[0], &gy_[0],
-                  nx, ny, nghost,
-                  nfield, flux, speed,
-                  tfinal, dx, dy, cfl);
-}
 
 /**
  * ### Diagnostics
