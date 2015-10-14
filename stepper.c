@@ -31,14 +31,14 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
     sim->cfl = cfl;
 
     int N = nfield * (nx+2*ng) * (ny+2*ng);
-    sim->u  = (float*) malloc(8 * N * sizeof(float));
+    sim->u  = (float*) malloc((6*N + 2*(nx+2*ng)) * sizeof(float));
     sim->v  = sim->u +   N;
-    sim->ux = sim->u + 2*N;
-    sim->uy = sim->u + 3*N;
-    sim->f  = sim->u + 4*N;
-    sim->fx = sim->u + 5*N;
-    sim->g  = sim->u + 6*N;
-    sim->gy = sim->u + 7*N;
+    sim->f  = sim->u + 2*N;
+    sim->g  = sim->u + 3*N;
+    sim->ux = sim->v + 4*N;
+    sim->uy = sim->u + 5*N;
+    sim->fx = sim->u + 6*N;
+    sim->gy = sim->u + 6*N + (nx+2*ng);
 
     return sim;
 }
@@ -176,19 +176,14 @@ void limited_derivk(float* restrict du,
 // Compute limited derivs over grid
 static
 void central2d_derivs(float* restrict ux, float* restrict uy,
-                      float* restrict fx, float* restrict gy,
                       const float* restrict u,
-                      const float* restrict f,
-                      const float* restrict g,
                       int nx, int ny, int nfield)
 {
     for (int k = 0; k < nfield; ++k)
         for (int iy = 1; iy < ny-1; ++iy) {
             int offset = (k*ny+iy)*nx+1;
             limited_deriv1(ux+offset, u+offset, nx-2);
-            limited_deriv1(fx+offset, f+offset, nx-2);
             limited_derivk(uy+offset, u+offset, nx-2, nx);
-            limited_derivk(gy+offset, g+offset, nx-2, nx);
         }
 }
 
@@ -220,19 +215,26 @@ void central2d_derivs(float* restrict ux, float* restrict uy,
 static
 void central2d_predict(float* restrict v,
                        const float* restrict u,
-                       const float* restrict fx,
-                       const float* restrict gy,
+                       const float* restrict f,
+                       const float* restrict g,
+                       float* restrict fx,
+                       float* restrict gy,
                        float dtcdx2, float dtcdy2,
                        int nx, int ny, int nfield)
 {
-    for (int k = 0; k < nfield; ++k)
-        for (int iy = 1; iy < ny-1; ++iy)
+    for (int k = 0; k < nfield; ++k) {
+        for (int iy = 1; iy < ny-1; ++iy) {
+            int offset = (k*ny+iy)*nx+1;
+            limited_deriv1(fx+1, f+offset, nx-2);
+            limited_derivk(gy+1, g+offset, nx-2, nx);
             for (int ix = 1; ix < nx-1; ++ix) {
                 int offset = (k*ny+iy)*nx+ix;
                 v[offset] = u[offset] -
-                    dtcdx2 * fx[offset] -
-                    dtcdy2 * gy[offset];
+                    dtcdx2 * fx[ix] -
+                    dtcdy2 * gy[ix];
             }
+        }
+    }
 }
 
 
@@ -293,9 +295,7 @@ void central2d_step(float* restrict u, float* restrict v,
     float dtcdy2 = 0.5 * dt / dy;
 
     flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
-    central2d_derivs(ux, uy, fx, gy, u, f, g,
-                     nx_all, ny_all, nfield);
-    central2d_predict(v, u, fx, gy, dtcdx2, dtcdy2,
+    central2d_predict(v, u, f, g, fx, gy, dtcdx2, dtcdy2,
                       nx_all, ny_all, nfield);
 
     // Flux values of f and g at half step
@@ -304,6 +304,7 @@ void central2d_step(float* restrict u, float* restrict v,
         flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
     }
 
+    central2d_derivs(ux, uy, u,nx_all, ny_all, nfield);
     central2d_correct(v, u, ux, uy, f, g, dtcdx2, dtcdy2,
                       ng-io, nx+ng-io,
                       ng-io, ny+ng-io,
