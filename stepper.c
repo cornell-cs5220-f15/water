@@ -323,6 +323,7 @@ void central2d_step(float* restrict u, float* restrict v,
  * at the end lives on the main grid instead of the staggered grid.
  */
 
+static
 void central2d_xrun(float* restrict u, float* restrict v,
                     float* restrict ux,
                     float* restrict uy,
@@ -361,7 +362,7 @@ void central2d_xrun(float* restrict u, float* restrict v,
 }
 
 
-void central2d_run(float tfinal, central2d_t* sim)
+void central2d_run(central2d_t* sim, float tfinal)
 {
     central2d_xrun(sim->u, sim->v, sim->ux, sim->uy,
                    sim->f, sim->fx, sim->g, sim->gy,

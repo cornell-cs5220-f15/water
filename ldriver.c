@@ -342,11 +342,11 @@ int run_sim(lua_State* L)
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        central2d_run(ftime, sim);
+        central2d_run(sim, ftime);
         double t1 = omp_get_wtime();
         printf("Time: %e\n", t1-t0);
 #else
-        central2d_run(ftime, sim);
+        central2d_run(sim, ftime);
 #endif
         solution_check(sim);
         viz_frame(viz, sim);

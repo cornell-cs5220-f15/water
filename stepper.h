@@ -37,16 +37,9 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
                             int nfield, flux_t flux, speed_t speed,
                             float cfl);
 void central2d_free(central2d_t* sim);
-
-int central2d_offset(central2d_t* sim, int k, int ix, int iy);
+int  central2d_offset(central2d_t* sim, int k, int ix, int iy);
+void central2d_run(central2d_t* sim, float tfinal);
 
 void central2d_periodic(float* u, int nx, int ny, int ng, int nfield);
-
-void central2d_xrun(float* u, float* v, float* ux, float* uy,
-                    float* f, float* fx, float* g, float* gy,
-                    int nx, int ny, int ng,
-                    int nfield, flux_t flux, speed_t speed,
-                    float tfinal, float dx, float dy, float cfl);
-void central2d_run(float tfinal, central2d_t* sim);
 
 #endif /* STEPPER_H */
