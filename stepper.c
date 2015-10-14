@@ -81,9 +81,8 @@ void copy_subgrid(float* restrict dst,
                   int nx, int ny, int stride)
 {
     for (int iy = 0; iy < ny; ++iy)
-        memcpy(dst + iy*stride,
-               src + iy*stride,
-               nx * sizeof(float));
+        for (int ix = 0; ix < nx; ++ix)
+            dst[iy*stride+ix] = src[iy*stride+ix];
 }
 
 void central2d_periodic(float* restrict u,
@@ -262,15 +261,15 @@ void central2d_correct(float* restrict v,
                 int j11 = j00+nx+1;
 
                 v[j00] =
-                    0.2500 * ( u[j00] + u[j01] + u[j10] + u[j11] ) -
-                    0.0625 * ( ux[j10] - ux[j00] +
-                               ux[j11] - ux[j01] +
-                               uy[j01] - uy[j00] +
-                               uy[j11] - uy[j10] ) -
-                    dtcdx2 * ( f[j10] - f[j00] +
-                               f[j11] - f[j01] ) -
-                    dtcdy2 * ( g[j01] - g[j00] +
-                               g[j11] - g[j10] );
+                    0.2500f * ( u[j00] + u[j01] + u[j10] + u[j11] ) -
+                    0.0625f * ( ux[j10] - ux[j00] +
+                                ux[j11] - ux[j01] +
+                                uy[j01] - uy[j00] +
+                                uy[j11] - uy[j10] ) -
+                    dtcdx2  * ( f[j10] - f[j00] +
+                                f[j11] - f[j01] ) -
+                    dtcdy2  * ( g[j01] - g[j00] +
+                                g[j11] - g[j10] );
             }
 }
 
