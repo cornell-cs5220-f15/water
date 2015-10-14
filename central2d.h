@@ -6,6 +6,7 @@
 #include <cassert>
 #include <vector>
 #include <iostream>
+#include <omp.h>
 
 //ldoc on
 /**
@@ -472,56 +473,97 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
-    // x derivatives
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( ux_h(ix,iy), u_h(ix-1,iy), u_h(ix,iy), u_h(ix+1,iy) );
+    #pragma omp parallel 
+    {
+        // x derivatives
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy) {
+                for (int ix = 1; ix < nx_all-1; ++ix) {
+                    limdiff( ux_h(ix,iy), u_h(ix-1,iy), u_h(ix,iy), u_h(ix+1,iy) );
+                }
+            }
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( ux_hu(ix,iy), u_hu(ix-1,iy), u_hu(ix,iy), u_hu(ix+1,iy) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( ux_hu(ix,iy), u_hu(ix-1,iy), u_hu(ix,iy), u_hu(ix+1,iy) );
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( ux_hv(ix,iy), u_hv(ix-1,iy), u_hv(ix,iy), u_hv(ix+1,iy) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( ux_hv(ix,iy), u_hv(ix-1,iy), u_hv(ix,iy), u_hv(ix+1,iy) );
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( fx0(ix,iy), f0(ix-1,iy), f0(ix,iy), f0(ix+1,iy) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( fx0(ix,iy), f0(ix-1,iy), f0(ix,iy), f0(ix+1,iy) );
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( fx1(ix,iy), f1(ix-1,iy), f1(ix,iy), f1(ix+1,iy) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( fx1(ix,iy), f1(ix-1,iy), f1(ix,iy), f1(ix+1,iy) );
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( fx2(ix,iy), f2(ix-1,iy), f2(ix,iy), f2(ix+1,iy) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( fx2(ix,iy), f2(ix-1,iy), f2(ix,iy), f2(ix+1,iy) );
+        }
 
+        // y derivatives
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( uy_h(ix,iy), u_h(ix,iy-1), u_h(ix,iy), u_h(ix,iy+1) );
+        }
 
-    // y derivatives
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( uy_h(ix,iy), u_h(ix,iy-1), u_h(ix,iy), u_h(ix,iy+1) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( uy_hu(ix,iy), u_hu(ix,iy-1), u_hu(ix,iy), u_hu(ix,iy+1) );
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( uy_hu(ix,iy), u_hu(ix,iy-1), u_hu(ix,iy), u_hu(ix,iy+1) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( uy_hv(ix,iy), u_hv(ix,iy-1), u_hv(ix,iy), u_hv(ix,iy+1) );
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( uy_hv(ix,iy), u_hv(ix,iy-1), u_hv(ix,iy), u_hv(ix,iy+1) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( gy0(ix,iy), g0(ix,iy-1), g0(ix,iy), g0(ix,iy+1) );
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( gy0(ix,iy), g0(ix,iy-1), g0(ix,iy), g0(ix,iy+1) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( gy1(ix,iy), g1(ix,iy-1), g1(ix,iy), g1(ix,iy+1) );
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( gy1(ix,iy), g1(ix,iy-1), g1(ix,iy), g1(ix,iy+1) );
+        #pragma omp single 
+        {
+            for (int iy = 1; iy < ny_all-1; ++iy)
+                for (int ix = 1; ix < nx_all-1; ++ix)
+                    limdiff( gy2(ix,iy), g2(ix,iy-1), g2(ix,iy), g2(ix,iy+1) );
+        }
 
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix)
-            limdiff( gy2(ix,iy), g2(ix,iy-1), g2(ix,iy), g2(ix,iy+1) );
+    }
 }
 
 

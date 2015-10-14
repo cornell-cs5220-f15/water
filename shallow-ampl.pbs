@@ -8,4 +8,4 @@
 module load cs5220
 cd $PBS_O_WORKDIR
 amplxe-cl -collect advanced-hotspots \
-./shallow -i wave -o wave.out -F 200 -n 400
+./shallow -i wave -o wave.out

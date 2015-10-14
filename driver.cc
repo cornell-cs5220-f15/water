@@ -143,9 +143,9 @@ void wave_hv(Sim::real& hv, double x, double y) {
 
 int main(int argc, char** argv)
 {
-    std::string fname = "waves.out";
+    std::string fname = "wave.out";
     std::string ic    = "dam_break";
-    int    nx         = 200;
+    int    nx         = 100;
     double width      = 2.0;
     double ftime      = 0.01;
     int    frames     = 50;
