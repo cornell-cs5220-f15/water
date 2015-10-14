@@ -209,6 +209,7 @@ int main(int argc, char** argv)
     sim.solution_check();
     viz.write_frame();
 
+    double total = 0.0;
     std::ofstream time_file;
     time_file.open("timings.csv");
     for (int i = 0; i < frames; ++i) {
@@ -218,11 +219,14 @@ int main(int argc, char** argv)
         double t1 = omp_get_wtime();
         printf("Time: %e\n", t1-t0);
         time_file << t1-t0 << std::endl;
+        total += (t1 - t0);
 #else
         sim.run(ftime);
 #endif
         sim.solution_check();
         viz.write_frame();
     }
+    time_file << total << std::endl;
     time_file.close();
+
 }

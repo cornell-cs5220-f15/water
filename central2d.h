@@ -684,6 +684,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector for h component (finish the step)
+    #pragma omp parallel for collapse(2)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
                 v_h(ix,iy) =
@@ -700,6 +701,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector for hu component (finish the step)
+    #pragma omp parallel for collapse(2)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
                 v_hu(ix,iy) =
@@ -716,6 +718,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector for hv component (finish the step)
+    #pragma omp parallel for collapse(2)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
                 v_hv(ix,iy) =
@@ -732,21 +735,23 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-    for (int j = nghost; j < ny+nghost; ++j){
-        for (int i = nghost; i < nx+nghost; ++i){
-            u_h(i,j) = v_h(i-io,j-io);
+        for (int j = nghost; j < ny+nghost; ++j){
+            for (int i = nghost; i < nx+nghost; ++i){
+                u_h(i,j) = v_h(i-io,j-io);
+            }
         }
-    }
-    for (int j = nghost; j < ny+nghost; ++j){
-        for (int i = nghost; i < nx+nghost; ++i){
-            u_hu(i,j) = v_hu(i-io,j-io);
+
+        for (int j = nghost; j < ny+nghost; ++j){
+            for (int i = nghost; i < nx+nghost; ++i){
+                u_hu(i,j) = v_hu(i-io,j-io);
+            }
         }
-    }
-    for (int j = nghost; j < ny+nghost; ++j){
-        for (int i = nghost; i < nx+nghost; ++i){
-            u_hv(i,j) = v_hv(i-io,j-io);
+
+        for (int j = nghost; j < ny+nghost; ++j){
+            for (int i = nghost; i < nx+nghost; ++i){
+                u_hv(i,j) = v_hv(i-io,j-io);
+            }
         }
-    }
 }
 
 
