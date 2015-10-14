@@ -291,7 +291,6 @@ template <class Physics, class Limiter>
  {
     int iy, ix;
     #pragma omp parallel \
-    shared(ny_all, nx_all) \
     private(ix, iy)
     {
         #pragma omp for
