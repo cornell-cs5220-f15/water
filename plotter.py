@@ -34,7 +34,7 @@ def parse(filename, regex, start=None, end=None):
         enabled = True 
     # Enabled, store data
     else:
-      if lines==end:
+      if lines==end+1:
         break 
       res = re.search(regex, line)
       if res: 
@@ -81,15 +81,15 @@ def parse_qsub_result(runs):
     for i in xrange(0, len(parse_lines)-1):
       times = parse_float(arg, "Time: (-?[\d.]+(?:e-?\d+)?)",
           start=parse_lines[i], end=parse_lines[i+1])
-      frames = parse_int(arg, "frames: ([0-9\.]+)",
-          start=parse_lines[i], end=parse_lines[i+1])
-      assert(len(times)==frames[0])
+      #frames = parse_int(arg, "frames: ([0-9\.]+)",
+      #    start=parse_lines[i], end=parse_lines[i+1])
+      #assert(len(times)==frames[0])
       nx = parse_int(arg, "nx: ([0-9\.]+)",
           start=parse_lines[i], end=parse_lines[i+1])
       # Write data 
       # x axis : nx (number of cells per side)
       # y axis : average time/nx 
-      f.write(str(nx[0])+','+str(average(times)/nx[0])+'\n') 
+      f.write(str(nx[0])+','+str(times[0]/nx[0])+'\n') 
   f.close()
 
   # Insert header into first line

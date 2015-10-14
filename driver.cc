@@ -17,6 +17,10 @@
 #include <string>
 #include <unistd.h>
 
+// Define Timing for n interations (1: Turn on timing, 0: No timing)
+#define TIMING_N_ITER 0
+// Define how many interations we would run
+#define N_iter 50
 
 //ldoc on
 /**
@@ -244,12 +248,17 @@ int main(int argc, char** argv)
     ref_sim.init(ref_icfun);
     ref_sim.solution_check();
 
+	// Reference check for only one time, so no timing it
 	for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
+		#if !TIMING_N_ITER
         double t0 = omp_get_wtime();
+		#endif
         sim.run(ftime);
+		#if !TIMING_N_ITER
         double t1 = omp_get_wtime();
         printf("Time: %e\n", t1-t0);
+		#endif
         ref_sim.run(ftime);
 #else
         sim.run(ftime);
@@ -260,4 +269,20 @@ int main(int argc, char** argv)
         viz.write_frame();
         validate(ref_sim, sim);
     }
+
+	// Once validated, measure timing for N iterations
+#if TIMING_N_ITER 
+#ifdef _OPENMP
+    double t0 = omp_get_wtime();
+	for (int n = 0; n < N_iter; ++n) {
+		for (int i = 0; i < frames; ++i) {
+			sim.run(ftime);
+		}
+	}
+    double t1 = omp_get_wtime();
+
+	// Print Average Timing for N iterations
+    printf("Time: %e\n", (t1-t0)/N_iter);
+#endif
+#endif
 }
