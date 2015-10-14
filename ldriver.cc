@@ -144,67 +144,6 @@ extern "C" {
  * of the domain has index (0,0).
  */
 
-class Central2D {
-public:
-    typedef float real;
-    const int nx, ny;          // Number of (non-ghost) cells in x/y
-    const int nfield;          // Number of fields
-    const int nx_all, ny_all;  // Total cells in x/y (including ghost)
-    const real dx, dy;         // Cell size in x/y
-    const flux_t flux;         // Flux function pointer
-    const speed_t speed;       // Speed function pointer
-    const real cfl;            // Allowed CFL number
-
-    Central2D(real w, real h,     // Domain width / height
-              int nx, int ny,     // Number of cells in x/y (without ghosts)
-              int nfield,         // Number of field
-              flux_t flux,        // Flux computation
-              speed_t speed,      // Speed computation
-              real cfl = 0.45) :  // Max allowed CFL number
-        nx(nx), ny(ny), nfield(nfield),
-        nx_all(nx + 2*nghost),
-        ny_all(ny + 2*nghost),
-        dx(w/nx), dy(h/ny),
-        flux(flux), speed(speed),
-        cfl(cfl),
-        u_ (nfield * nx_all * ny_all),
-        f_ (nfield * nx_all * ny_all),
-        g_ (nfield * nx_all * ny_all),
-        ux_(nfield * nx_all * ny_all),
-        uy_(nfield * nx_all * ny_all),
-        fx_(nfield * nx_all * ny_all),
-        gy_(nfield * nx_all * ny_all),
-        v_ (nfield * nx_all * ny_all) {}
-
-    // Advance from time 0 to time tfinal
-    void run(real tfinal) {
-        central2d_run(&u_[0], &v_[0], &ux_[0], &uy_[0],
-                      &f_[0], &fx_[0], &g_[0], &gy_[0],
-                      nx, ny, nghost,
-                      nfield, flux, speed,
-                      tfinal, dx, dy, cfl);
-    }
-
-    // Read / write elements of simulation state
-    real& operator()(int k, int i, int j) {
-        return u_[(k*ny_all+nghost+j)*nx_all+nghost+i];
-    }
-    real operator()(int k, int i, int j) const {
-        return u_[(k*ny_all+nghost+j)*nx_all+nghost+i];
-    }
-
-private:
-    static constexpr int nghost = 3;   // Number of ghost cells
-
-    std::vector<real> u_;            // Solution values
-    std::vector<real> f_;            // Fluxes in x
-    std::vector<real> g_;            // Fluxes in y
-    std::vector<real> ux_;           // x differences of u
-    std::vector<real> uy_;           // y differences of u
-    std::vector<real> fx_;           // x differences of f
-    std::vector<real> gy_;           // y differences of g
-    std::vector<real> v_;            // Solution values at next step
-};
 
 /**
  * ### Diagnostics
@@ -218,23 +157,23 @@ private:
  * of water heights).
  */
 
-void solution_check(Central2D& u)
+void solution_check(central2d_t* sim)
 {
-    using namespace std;
-    typedef float real;
-    real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u(0,0,0);
-    real hmax = hmin;
-    for (int j = 0; j < u.ny; ++j)
-        for (int i = 0; i < u.nx; ++i) {
-            real h = u(0,i,j);
+    int nx = sim->nx, ny = sim->ny;
+    float* u = sim->u;
+    float h_sum = 0, hu_sum = 0, hv_sum = 0;
+    float hmin = u[central2d_offset(sim,0,0,0)];
+    float hmax = hmin;
+    for (int j = 0; j < ny; ++j)
+        for (int i = 0; i < nx; ++i) {
+            float h = u[central2d_offset(sim,0,i,j)];
             h_sum += h;
-            hu_sum += u(1,i,j);
-            hv_sum += u(2,i,j);
-            hmax = max(h, hmax);
-            hmin = min(h, hmin);
+            hu_sum += u[central2d_offset(sim,1,i,j)];
+            hv_sum += u[central2d_offset(sim,2,i,j)];
+            hmax = fmaxf(h, hmax);
+            hmin = fminf(h, hmin);
         }
-    real cell_area = u.dx * u.dy;
+    float cell_area = sim->dx * sim->dy;
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
@@ -253,11 +192,11 @@ void solution_check(Central2D& u)
  * single-precision raster pictures.
  */
 
-FILE* viz_open(const char* fname, Central2D& sim)
+FILE* viz_open(const char* fname, central2d_t* sim)
 {
     FILE* fp = fopen(fname, "w");
     if (fp) {
-        float xy[2] = {sim.nx, sim.ny};
+        float xy[2] = {sim->nx, sim->ny};
         fwrite(xy, sizeof(float), 2, fp);
     }
     return fp;
@@ -268,13 +207,13 @@ void viz_close(FILE* fp)
     fclose(fp);
 }
 
-void viz_frame(FILE* fp, Central2D& sim)
+void viz_frame(FILE* fp, central2d_t* sim)
 {
     if (fp)
-        for (int j = 0; j < sim.ny; ++j)
-            for (int i = 0; i < sim.nx; ++i) {
-                float uij = sim(0,i,j);
-                fwrite(&uij, sizeof(float), 1, fp);
+        for (int j = 0; j < sim->ny; ++j)
+            for (int i = 0; i < sim->nx; ++i) {
+                float* uij = sim->u + central2d_offset(sim,0,i,j);
+                fwrite(uij, sizeof(float), 1, fp);
             }
 }
 
@@ -340,23 +279,27 @@ const char* lget_string(lua_State* L, const char* name, const char* x)
  * with a callback function to be called at each cell center.
  */
 
-void lua_init_sim(lua_State* L, Central2D& sim)
+void lua_init_sim(lua_State* L, central2d_t* sim)
 {
     lua_getfield(L, 1, "init");
     if (lua_type(L, -1) != LUA_TFUNCTION)
         luaL_error(L, "Expected init to be a string");
 
-    for (int ix = 0; ix < sim.nx; ++ix) {
-        float x = (ix + 0.5) * sim.dx;
-        for (int iy = 0; iy < sim.ny; ++iy) {
-            float y = (iy + 0.5) * sim.dy;
+    int nx = sim->nx, ny = sim->ny, nfield = sim->nfield;
+    float dx = sim->dx, dy = sim->dy;
+    float* u = sim->u;
+
+    for (int ix = 0; ix < nx; ++ix) {
+        float x = (ix + 0.5) * dx;
+        for (int iy = 0; iy < ny; ++iy) {
+            float y = (iy + 0.5) * dy;
             lua_pushvalue(L, -1);
             lua_pushnumber(L, x);
             lua_pushnumber(L, y);
-            lua_call(L, 2, sim.nfield);
-            for (int k = 0; k < sim.nfield; ++k)
-                sim(k,ix,iy) = lua_tonumber(L, k-sim.nfield);
-            lua_pop(L, sim.nfield);
+            lua_call(L, 2, nfield);
+            for (int k = 0; k < nfield; ++k)
+                u[central2d_offset(sim,k,ix,iy)] = lua_tonumber(L, k-nfield);
+            lua_pop(L, nfield);
         }
     }
 
@@ -393,7 +336,8 @@ int run_sim(lua_State* L)
     int frames = lget_int(L, "frames", 50);
     const char* fname = lget_string(L, "out", "sim.out");
 
-    Central2D sim(w,h, nx,ny, 3, shallow2d_flux, shallow2d_speed, cfl);
+    central2d_t* sim = central2d_init(w,h, nx,ny,
+                                      3, shallow2d_flux, shallow2d_speed, cfl);
     lua_init_sim(L,sim);
 
     printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
@@ -403,15 +347,16 @@ int run_sim(lua_State* L)
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        sim.run(ftime);
+        central2d_run(ftime, sim);
         double t1 = omp_get_wtime();
         printf("Time: %e\n", t1-t0);
 #else
-        sim.run(ftime);
+        central2d_run(ftime, sim);
 #endif
         solution_check(sim);
         viz_frame(viz, sim);
     }
+    central2d_free(sim);
     return 0;
 }
 

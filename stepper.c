@@ -1,9 +1,60 @@
 #include "stepper.h"
 
-#include <math.h>
+#include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <assert.h>
 #include <stdbool.h>
+
+/**
+ * # Structure allocation
+ */
+
+central2d_t* central2d_init(float w, float h, int nx, int ny,
+                            int nfield, flux_t flux, speed_t speed,
+                            float cfl)
+{
+    int ng = 3;
+
+    central2d_t* sim = (central2d_t*) malloc(sizeof(central2d_t));
+    sim->nx = nx;
+    sim->ny = ny;
+    sim->ng = ng;
+    sim->nfield = nfield;
+    sim->dx = w/nx;
+    sim->dy = h/ny;
+    sim->flux = flux;
+    sim->speed = speed;
+    sim->cfl = cfl;
+
+    int N = nfield * (nx+2*ng) * (ny+2*ng);
+    sim->u  = (float*) malloc(8 * N * sizeof(float));
+    sim->v  = sim->u +   N;
+    sim->ux = sim->u + 2*N;
+    sim->uy = sim->u + 3*N;
+    sim->f  = sim->u + 4*N;
+    sim->fx = sim->u + 5*N;
+    sim->g  = sim->u + 6*N;
+    sim->gy = sim->u + 7*N;
+
+    return sim;
+}
+
+
+void central2d_free(central2d_t* sim)
+{
+    free(sim->u);
+    free(sim);
+}
+
+
+int central2d_offset(central2d_t* sim, int k, int ix, int iy)
+{
+    int nx = sim->nx, ny = sim->ny, ng = sim->ng;
+    int nx_all = nx + 2*ng;
+    int ny_all = ny + 2*ng;
+    return (k*ny_all+(ng+iy))*nx_all+(ng+ix);
+}
 
 
 /**
@@ -272,16 +323,16 @@ void central2d_step(float* restrict u, float* restrict v,
  * at the end lives on the main grid instead of the staggered grid.
  */
 
-void central2d_run(float* restrict u, float* restrict v,
-                   float* restrict ux,
-                   float* restrict uy,
-                   float* restrict f,
-                   float* restrict fx,
-                   float* restrict g,
-                   float* restrict gy,
-                   int nx, int ny, int ng,
-                   int nfield, flux_t flux, speed_t speed,
-                   float tfinal, float dx, float dy, float cfl)
+void central2d_xrun(float* restrict u, float* restrict v,
+                    float* restrict ux,
+                    float* restrict uy,
+                    float* restrict f,
+                    float* restrict fx,
+                    float* restrict g,
+                    float* restrict gy,
+                    int nx, int ny, int ng,
+                    int nfield, flux_t flux, speed_t speed,
+                    float tfinal, float dx, float dy, float cfl)
 {
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
@@ -307,4 +358,14 @@ void central2d_run(float* restrict u, float* restrict v,
             t += dt;
         }
     }
+}
+
+
+void central2d_run(float tfinal, central2d_t* sim)
+{
+    central2d_xrun(sim->u, sim->v, sim->ux, sim->uy,
+                   sim->f, sim->fx, sim->g, sim->gy,
+                   sim->nx, sim->ny, sim->ng,
+                   sim->nfield, sim->flux, sim->speed,
+                   tfinal, sim->dx, sim->dy, sim->cfl);
 }
