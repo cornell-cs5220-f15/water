@@ -216,11 +216,11 @@ void Central2DPar<Physics, Limiter>::init(F f)
       // for (int ix = 0; ix < nx; ++ix)
            // f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
   	omp_set_num_threads(5);
-	#pragma omp Parallel
+	#pragma omp parallel
 	{	
-	#pragma omp Parallel for
+	#pragma omp parallel for
   	for (int iy = 0; iy < ny; ++iy)
-	#pragma omp Parallel for
+	#pragma omp parallel for
 	for (int ix = 0; ix < nx; ++ix)
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
 	}
@@ -248,11 +248,11 @@ void Central2DPar<Physics, Limiter>::apply_periodic()
 {
     // Copy data between right and left boundaries
     omp_set_num_threads(5);
-   #pragma omp Parallel
+   #pragma omp parallel
    { 
-   #pragma omp Parallel for
+   #pragma omp parallel for
     for (int iy = 0; iy < ny_all; ++iy)
-	#pragma omp Parallel for
+	#pragma omp parallel for
  	//#pragma ivdep
 	for (int ix = 0; ix < nghost; ++ix) {
             u(ix,          iy) = uwrap(ix,          iy);
@@ -260,9 +260,9 @@ void Central2DPar<Physics, Limiter>::apply_periodic()
         }
 
     // Copy data between top and bottom boundaries
-   #pragma omp Parallel for
+   #pragma omp parallel for
     for (int ix = 0; ix < nx_all; ++ix)
-	#pragma omp Parallel for
+	#pragma omp parallel for
         //#pragma ivdep
 	for (int iy = 0; iy < nghost; ++iy) {
             u(ix,          iy) = uwrap(ix,          iy);
@@ -289,11 +289,11 @@ void Central2DPar<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     real cx = 1.0e-15;
     real cy = 1.0e-15;
     omp_set_num_threads(5);
-    #pragma omp Parallel
+    #pragma omp parallel
     {
-    #pragma omp Parallel for
+    #pragma omp parallel for
     for (int iy = 0; iy < ny_all; ++iy)
-	#pragma omp Parallel for
+	#pragma omp parallel for
        //#pragma ivdep
 	for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
@@ -320,11 +320,11 @@ void Central2DPar<Physics, Limiter>::limited_derivs()
 {
 //	#pragma omp declare simd
     	omp_set_num_threads(5);
-	#pragma omp Parallel 
+	#pragma omp parallel 
 	{
-	#pragma omp Parallel for 	
+	#pragma omp parallel for 	
 	for (int iy = 1; iy < ny_all-1; ++iy)
-       	#pragma omp Parallel for 
+       	#pragma omp parallel for 
 	// #pragma ivdep
 	for (int ix = 1; ix < nx_all-1; ++ix) {
 
@@ -370,14 +370,14 @@ void Central2DPar<Physics, Limiter>::compute_step(int io, real dt)
 
     // Predictor (flux values of f and g at half step)
  	omp_set_num_threads(20); 
-	#pragma omp Parallel 
+	#pragma omp parallel 
 	{  
-	#pragma omp Parallel for 
+	#pragma omp parallel for 
 	for (int iy = 1; iy < ny_all-1; ++iy)
-	 #pragma omp Parallel for  
+	 #pragma omp parallel for  
     	for (int ix = 1; ix < nx_all-1; ++ix) {
           	 vec uh = u(ix,iy);
-	  #pragma omp Parallel for 
+	  #pragma omp parallel for 
 	for (int m = 0; m < uh.size(); ++m) {
          
 		uh[m] -= dtcdx2 * fx(ix,iy)[m];
@@ -387,11 +387,11 @@ void Central2DPar<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector (finish the step)
-    	#pragma omp Parallel for 
+    	#pragma omp parallel for 
     	for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-	#pragma omp Parallel for 
+	#pragma omp parallel for 
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-	#pragma omp Parallel for 
+	#pragma omp parallel for 
         for (int m = 0; m < v(ix,iy).size(); ++m) {
                 v(ix,iy)[m] =
                     0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
@@ -408,9 +408,9 @@ void Central2DPar<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-    	#pragma omp Parallel for 
+    	#pragma omp parallel for 
     	for (int j = nghost; j < ny+nghost; ++j){
-	#pragma omp Parallel for 
+	#pragma omp parallel for 
  	#pragma ivdep      
 	 for (int i = nghost; i < nx+nghost; ++i){
             u(i,j) = v(i-io,j-io);
@@ -481,11 +481,11 @@ void Central2DPar<Physics, Limiter>::solution_check()
     real hmin = u(nghost,nghost)[0];
     real hmax = hmin;
     omp_set_num_threads(5);
-    #pragma omp Parallel 
+    #pragma omp parallel 
     {
-    #pragma omp Parallel for
+    #pragma omp parallel for
     for (int j = nghost; j < ny+nghost; ++j)
-        #pragma omp Parallel for
+        #pragma omp parallel for
 	for (int i = nghost; i < nx+nghost; ++i) {
             vec& uij = u(i,j);
             real h = uij[0];
