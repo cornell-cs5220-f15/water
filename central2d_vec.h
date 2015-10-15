@@ -269,6 +269,7 @@ void Central2DVec<Physics, Limiter>::apply_periodic() {
     // Copy data between right and left boundaries
     for (int iy = 0; iy < ny_all; ++iy) {
         for (int ix = 0; ix < nghost; ++ix) {
+            #pragma ivdep
             for (int k = 0; k < num_fields; ++k) {
                 u(k, ix,          iy) = uwrap(k, ix,          iy);
                 u(k, nx+nghost+ix,iy) = uwrap(k, nx+nghost+ix,iy);
@@ -279,6 +280,7 @@ void Central2DVec<Physics, Limiter>::apply_periodic() {
     // Copy data between top and bottom boundaries
     for (int ix = 0; ix < nx_all; ++ix) {
         for (int iy = 0; iy < nghost; ++iy) {
+            #pragma ivdep
             for (int k = 0; k < num_fields; ++k) {
                 u(k, ix,          iy) = uwrap(k, ix,          iy);
                 u(k, ix,ny+nghost+iy) = uwrap(k, ix,ny+nghost+iy);
