@@ -238,33 +238,38 @@ void central2d_correct(float* restrict v,
 
     for (int k = 0; k < nfield; ++k) {
 
-        int offset = (k*ny+ylo)*nx+1;
-        limited_deriv1(ux+offset, u+offset, nx-2);
-        limited_derivk(uy+offset, u+offset, nx-2, nx);
+        float* restrict vk = v + k*ny*nx;
+        const float* restrict uk = u + k*ny*nx;
+        const float* restrict fk = f + k*ny*nx;
+        const float* restrict gk = g + k*ny*nx;
+
+        int offset = ylo*nx+1;
+        limited_deriv1(ux+offset, uk+offset, nx-2);
+        limited_derivk(uy+offset, uk+offset, nx-2, nx);
 
         for (int iy = ylo; iy < yhi; ++iy) {
 
-            int offset = (k*ny+iy+1)*nx+1;
-            limited_deriv1(ux+offset, u+offset, nx-2);
-            limited_derivk(uy+offset, u+offset, nx-2, nx);
+            int offset = (iy+1)*nx+1;
+            limited_deriv1(ux+offset, uk+offset, nx-2);
+            limited_derivk(uy+offset, uk+offset, nx-2, nx);
 
             for (int ix = xlo; ix < xhi; ++ix) {
 
-                int j00 = (k*ny+iy)*nx+ix;
+                int j00 = iy*nx+ix;
                 int j10 = j00+1;
                 int j01 = j00+nx;
                 int j11 = j00+nx+1;
 
-                v[j00] =
-                    0.2500f * ( u[j00] + u[j01] + u[j10] + u[j11] ) -
+                vk[j00] =
+                    0.2500f * ( uk[j00] + uk[j01] + uk[j10] + uk[j11] ) -
                     0.0625f * ( ux[j10] - ux[j00] +
                                 ux[j11] - ux[j01] +
                                 uy[j01] - uy[j00] +
                                 uy[j11] - uy[j10] ) -
-                    dtcdx2  * ( f[j10] - f[j00] +
-                                f[j11] - f[j01] ) -
-                    dtcdy2  * ( g[j01] - g[j00] +
-                                g[j11] - g[j10] );
+                    dtcdx2  * ( fk[j10] - fk[j00] +
+                                fk[j11] - fk[j01] ) -
+                    dtcdy2  * ( gk[j01] - gk[j00] +
+                                gk[j11] - gk[j10] );
             }
         }
     }
