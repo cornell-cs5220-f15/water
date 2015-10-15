@@ -10,7 +10,7 @@
 # Or create a Makefile.in.xxx of your own!
 #
 
-PLATFORM=gcc
+PLATFORM=icc
 include Makefile.in.$(PLATFORM)
 
 SIMULATORS = \
