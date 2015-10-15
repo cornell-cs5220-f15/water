@@ -238,13 +238,16 @@ void central2d_correct(float* restrict v,
 
     for (int k = 0; k < nfield; ++k) {
 
-        for (int iy = 1; iy < ny-1; ++iy) {
-            int offset = (k*ny+iy)*nx+1;
-            limited_deriv1(ux+offset, u+offset, nx-2);
-            limited_derivk(uy+offset, u+offset, nx-2, nx);
-        }
+        int offset = (k*ny+ylo)*nx+1;
+        limited_deriv1(ux+offset, u+offset, nx-2);
+        limited_derivk(uy+offset, u+offset, nx-2, nx);
 
         for (int iy = ylo; iy < yhi; ++iy) {
+
+            int offset = (k*ny+iy+1)*nx+1;
+            limited_deriv1(ux+offset, u+offset, nx-2);
+            limited_derivk(uy+offset, u+offset, nx-2, nx);
+
             for (int ix = xlo; ix < xhi; ++ix) {
 
                 int j00 = (k*ny+iy)*nx+ix;
