@@ -67,7 +67,7 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
 
 // When TIMING_ENABLED is defined, simulators are timed, rather than checked
 // for correctness.
-#define TIMING_ENABLED
+// #define TIMING_ENABLED
 
 /*
  * `validate(ref_sim, sim)` validates that `ref_sim` and `sim` are simulating
@@ -247,7 +247,6 @@ int main(int argc, char** argv)
     viz.write_frame();
 
     #ifdef TIMING_ENABLED
-        printf("timing!\n");
         #ifndef _OPENMP
             // timing requires OpenMP
             assert(false);
@@ -259,7 +258,6 @@ int main(int argc, char** argv)
         double t1 = omp_get_wtime();
         printf("Time: %e\n", (t1 - t0) / frames);
     #else
-        printf("not timing!\n");
         // Initialize reference simulator
         ReferenceSim ref_sim(width, width, nx, nx);
         ref_sim.init(ref_icfun);
