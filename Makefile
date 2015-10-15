@@ -38,10 +38,10 @@ HEADERS = \
 all: $(SIMULATORS)
 
 shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $< -DVERSION_ref
+	$(CXX) $(CXXFLAGS) $(TIMING_FLAG) -o $@ $< -DVERSION_ref
 
 shallow_%: driver.cc $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o $@ $< -DVERSION_$*
+	$(CXX) $(CXXFLAGS) $(TIMING_FLAG) -o $@ $< -DVERSION_$*
 
 run: shallow
 	qsub run.pbs -N shallow -vARG1=shallow

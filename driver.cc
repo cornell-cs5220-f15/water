@@ -19,11 +19,6 @@
 #include <string>
 #include <unistd.h>
 
-// Define Timing for n interations (1: Turn on timing, 0: No timing)
-#define TIMING_N_ITER 0
-// Define how many interations we would run
-#define N_iter 50
-
 //ldoc on
 /**
  * # Driver routines
@@ -69,6 +64,10 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
 #else
     static_assert(false, "Please define a valid VERSION_* macro.");
 #endif
+
+// When TIMING_ENABLED is defined, simulators are timed, rather than checked
+// for correctness.
+// #define TIMING_ENABLED
 
 /*
  * `validate(ref_sim, sim)` validates that `ref_sim` and `sim` are simulating
@@ -247,46 +246,40 @@ int main(int argc, char** argv)
     sim.solution_check();
     viz.write_frame();
 
-    // Initialize reference simulator
-    ReferenceSim ref_sim(width, width, nx, nx);
-    ref_sim.init(ref_icfun);
-    ref_sim.solution_check();
-
-	// Reference check for only one time, so no timing it
-	for (int i = 0; i < frames; ++i) {
-#ifdef _OPENMP
-		#if !TIMING_N_ITER
+    #ifdef TIMING_ENABLED
+        printf("timing!\n");
+        #ifndef _OPENMP
+            // timing requires OpenMP
+            assert(false);
+        #endif
         double t0 = omp_get_wtime();
-		#endif
-        sim.run(ftime);
-		#if !TIMING_N_ITER
+        for (int i = 0; i < frames; ++i) {
+            sim.run(ftime);
+        }
         double t1 = omp_get_wtime();
-        printf("Time: %e\n", t1-t0);
-		#endif
-        ref_sim.run(ftime);
-#else
-        sim.run(ftime);
-        ref_sim.run(ftime);
-#endif
-        sim.solution_check();
+        printf("Time: %e\n", (t1 - t0) / frames);
+    #else
+        printf("not timing!\n");
+        // Initialize reference simulator
+        ReferenceSim ref_sim(width, width, nx, nx);
+        ref_sim.init(ref_icfun);
         ref_sim.solution_check();
-        viz.write_frame();
-        validate(ref_sim, sim);
-    }
 
-	// Once validated, measure timing for N iterations
-#if TIMING_N_ITER 
-#ifdef _OPENMP
-    double t0 = omp_get_wtime();
-	for (int n = 0; n < N_iter; ++n) {
-		for (int i = 0; i < frames; ++i) {
-			sim.run(ftime);
-		}
-	}
-    double t1 = omp_get_wtime();
-
-	// Print Average Timing for N iterations
-    printf("Time: %e\n", (t1-t0)/N_iter);
-#endif
-#endif
+        // Reference check for only one time, so no timing it
+        for (int i = 0; i < frames; ++i) {
+            #ifdef _OPENMP
+                double t0 = omp_get_wtime();
+                sim.run(ftime);
+                double t1 = omp_get_wtime();
+                printf("Time: %e\n", t1-t0);
+            #else
+                sim.run(ftime);
+            #endif
+            ref_sim.run(ftime);
+            sim.solution_check();
+            ref_sim.solution_check();
+            viz.write_frame();
+            validate(ref_sim, sim);
+        }
+    #endif
 }
