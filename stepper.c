@@ -173,21 +173,6 @@ void limited_derivk(float* restrict du,
 }
 
 
-// Compute limited derivs over grid
-static
-void central2d_derivs(float* restrict ux, float* restrict uy,
-                      const float* restrict u,
-                      int nx, int ny, int nfield)
-{
-    for (int k = 0; k < nfield; ++k)
-        for (int iy = 1; iy < ny-1; ++iy) {
-            int offset = (k*ny+iy)*nx+1;
-            limited_deriv1(ux+offset, u+offset, nx-2);
-            limited_derivk(uy+offset, u+offset, nx-2, nx);
-        }
-}
-
-
 /**
  * ### Advancing a time step
  *
@@ -240,8 +225,8 @@ void central2d_predict(float* restrict v,
 static
 void central2d_correct(float* restrict v,
                        const float* restrict u,
-                       const float* restrict ux,
-                       const float* restrict uy,
+                       float* restrict ux,
+                       float* restrict uy,
                        const float* restrict f,
                        const float* restrict g,
                        float dtcdx2, float dtcdy2,
@@ -251,8 +236,15 @@ void central2d_correct(float* restrict v,
     assert(0 <= xlo && xlo < xhi && xhi <= nx);
     assert(0 <= ylo && ylo < yhi && yhi <= ny);
 
-    for (int k = 0; k < nfield; ++k)
-        for (int iy = ylo; iy < yhi; ++iy)
+    for (int k = 0; k < nfield; ++k) {
+
+        for (int iy = 1; iy < ny-1; ++iy) {
+            int offset = (k*ny+iy)*nx+1;
+            limited_deriv1(ux+offset, u+offset, nx-2);
+            limited_derivk(uy+offset, u+offset, nx-2, nx);
+        }
+
+        for (int iy = ylo; iy < yhi; ++iy) {
             for (int ix = xlo; ix < xhi; ++ix) {
 
                 int j00 = (k*ny+iy)*nx+ix;
@@ -271,6 +263,8 @@ void central2d_correct(float* restrict v,
                     dtcdy2  * ( g[j01] - g[j00] +
                                 g[j11] - g[j10] );
             }
+        }
+    }
 }
 
 
@@ -293,7 +287,7 @@ void central2d_step(float* restrict u, float* restrict v,
     float dtcdy2 = 0.5 * dt / dy;
 
     flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
-    central2d_derivs(ux, uy, u, nx_all, ny_all, nfield);
+
     central2d_predict(v, fx, gy, u, f, g, dtcdx2, dtcdy2,
                       nx_all, ny_all, nfield);
 
