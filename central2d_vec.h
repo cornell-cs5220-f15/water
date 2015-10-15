@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <cmath>
 #include <cassert>
-#include <vector>
 
 //ldoc on
 /**
@@ -107,14 +106,27 @@ public:
         ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
         cfl(cfl),
-        u_ (num_fields * nx_all * ny_all),
-        f_ (num_fields * nx_all * ny_all),
-        g_ (num_fields * nx_all * ny_all),
-        ux_(num_fields * nx_all * ny_all),
-        uy_(num_fields * nx_all * ny_all),
-        fx_(num_fields * nx_all * ny_all),
-        gy_(num_fields * nx_all * ny_all),
-        v_ (num_fields * nx_all * ny_all) {}
+        u_ (new real[num_fields * nx_all * ny_all]),
+        f_ (new real[num_fields * nx_all * ny_all]),
+        g_ (new real[num_fields * nx_all * ny_all]),
+        ux_(new real[num_fields * nx_all * ny_all]),
+        uy_(new real[num_fields * nx_all * ny_all]),
+        fx_(new real[num_fields * nx_all * ny_all]),
+        gy_(new real[num_fields * nx_all * ny_all]),
+        v_ (new real[num_fields * nx_all * ny_all]) {}
+
+    Central2DVec(const Central2DVec&) = delete;
+
+    ~Central2DVec() {
+        delete [] u_ ;
+        delete [] f_ ;
+        delete [] g_ ;
+        delete [] ux_;
+        delete [] uy_;
+        delete [] fx_;
+        delete [] gy_;
+        delete [] v_ ;
+    }
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -167,14 +179,14 @@ private:
     //
     // This representation is taken from Prof. Bindel's implementation:
     // https://github.com/dbindel/water
-    std::vector<real> u_;  // Solution values
-    std::vector<real> f_;  // Fluxes in x
-    std::vector<real> g_;  // Fluxes in y
-    std::vector<real> ux_; // x differences of u
-    std::vector<real> uy_; // y differences of u
-    std::vector<real> fx_; // x differences of f
-    std::vector<real> gy_; // y differences of g
-    std::vector<real> v_;  // Solution values at next step
+    real *u_;  // Solution values
+    real *f_;  // Fluxes in x
+    real *g_;  // Fluxes in y
+    real *ux_; // x differences of u
+    real *uy_; // y differences of u
+    real *fx_; // x differences of f
+    real *gy_; // y differences of g
+    real *v_;  // Solution values at next step
 
     // Array accessor functions
     int offset(int k, int ix, int iy) const {

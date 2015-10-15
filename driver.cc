@@ -76,7 +76,7 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
  * unequal sized grids or have unequal grids, an error message is printed to
  * stderr and the program is exited with error.
  */
-void validate(ReferenceSim ref_sim, Sim sim) {
+void validate(const ReferenceSim& ref_sim, const Sim& sim) {
     // Check that the two grids are of equal size.
     if (ref_sim.xsize() != sim.xsize() || ref_sim.ysize() != sim.ysize()) {
         fprintf(
