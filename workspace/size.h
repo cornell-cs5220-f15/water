@@ -1,3 +1,3 @@
 #ifndef iters
-#define iters 1000000000
+#define iters 100000000
 #endif

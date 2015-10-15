@@ -18,4 +18,8 @@ parallelmp: size.h parallelmp.cpp
 clean: 
 	rm -rf $(TARGETS) *.o*
 
+run:
+	qsub job-parallel
+	qsub job-parallelmp
+	qsub job-serial
 
