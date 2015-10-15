@@ -1,10 +1,10 @@
 #!/bin/sh -l
 
-#PBS -l nodes=1:ppn=1
+#PBS -l nodes=1:ppn=24
 #PBS -l walltime=0:30:00
-#PBS -N serial
+#PBS -N parallelmp
 #PBS -j oe
 
 module load cs5220
 cd $PBS_O_WORKDIR
-./serial
+./parallelmp
