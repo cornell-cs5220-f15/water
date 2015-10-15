@@ -2,6 +2,7 @@
 #define MINMOD_H
 
 #include <cmath>
+#include <omp.h>
 
 //ldoc on
 /**

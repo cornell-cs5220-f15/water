@@ -3,10 +3,10 @@ CXXFLAGS=-std=c++14
 PYTHON=python
 
 shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $<
+	$(CXX) -fopenmp $(CXXFLAGS) -o $@ $<
 
 mac:
-	make CXX=g++ CXXFLAGS=-std=c++14
+	make CXX=g++-4.9 CXXFLAGS=-std=c++14
 
 run: dam_break.gif
 

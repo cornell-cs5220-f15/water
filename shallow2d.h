@@ -3,6 +3,8 @@
 
 #include <cmath>
 #include <array>
+#include <omp.h>
+#include <iostream>
 
 //ldoc on
 /**
@@ -69,8 +71,20 @@ struct Shallow2D {
 
     // Compute shallow water fluxes F(U), G(U)
     static void flux(vec& FU, vec& GU, const vec& U) {
-        real h = U[0], hu = U[1], hv = U[2];
 
+        
+        //real temp1 = U[1]/U[0], temp2 = U[2]/U[0], temp3 = (0.5*g)*U[0]*U[0];
+        //real temp = (0.5*g)*U[0]*U[0];
+        FU[0] = U[1];
+        FU[1] = U[1]*U[1]/U[0] + (0.5*g)*U[0]*U[0];
+        FU[2] = U[1]*U[2]/U[0];
+
+        GU[0] = U[2];
+        GU[1] = U[1]*U[2]/U[0];
+        GU[2] = U[2]*U[2]/U[0] + (0.5*g)*U[0]*U[0];
+        
+        /*
+        real h = U[0], hu = U[1], hv = U[2];
         FU[0] = hu;
         FU[1] = hu*hu/h + (0.5*g)*h*h;
         FU[2] = hu*hv/h;
@@ -78,15 +92,48 @@ struct Shallow2D {
         GU[0] = hv;
         GU[1] = hu*hv/h;
         GU[2] = hv*hv/h + (0.5*g)*h*h;
+        */
+        
+        /*
+        real h = U[0], hu = U[1], hv = U[2];
+
+        #pragma omp parallel for
+        for (int i = 0; i < 3; ++i){
+            int tid  = omp_get_thread_num();
+            if(tid == 0){
+                #pragma omp critical
+                FU[tid] = hu;
+                GU[tid] = hv;
+            
+            }
+            else if(tid == 1){
+                #pragma omp critical
+                FU[tid] = hu*hu/h + (0.5*g)*h*h;
+                GU[tid] = hu*hv/h;
+                
+            }
+            else{
+                #pragma omp critical
+                FU[tid] = hu*hv/h;
+                GU[tid] = hv*hv/h + (0.5*g)*h*h;
+                
+            }
+        }
+        */
     }
 
+    /*
+    static real abs_dummy(real a, real b){
+
+    }
+    */
     // Compute shallow water wave speed
     static void wave_speed(real& cx, real& cy, const vec& U) {
         using namespace std;
-        real h = U[0], hu = U[1], hv = U[2];
-        real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
-        cx = abs(hu/h) + root_gh;
-        cy = abs(hv/h) + root_gh;
+        //real h = U[0], hu = U[1], hv = U[2];
+        real root_gh = sqrt(g * U[0]);  // NB: Don't let h go negative!
+        cx = abs(U[1]/U[0]) + root_gh;
+        cy = abs(U[2]/U[0]) + root_gh;
     }
 };
 
