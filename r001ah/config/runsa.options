@@ -1,0 +1,13 @@
+-r
+/home/ssw74/water/r001ah
+--itt-config=frame
+--data-limit-mb=500
+--event-config=CPU_CLK_UNHALTED.THREAD:sa=2400000,CPU_CLK_UNHALTED.REF_TSC:sa=2400000,INST_RETIRED.ANY:sa=2400000
+--sample-after-multiplier=1.0
+--event-mux
+--
+./shallow
+-i
+dam_break
+-o
+dam_break.out

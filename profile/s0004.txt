@@ -1,0 +1,34 @@
+Function                                                                                                           Function Stack                                            Module        CPU Time
+-----------------------------------------------------------------------------------------------------------------  --------------------------------------------------------  ------------  --------
+Central2D<Shallow2D, MinMod<float>>::limited_derivs                                                                                                                          shallow         1.348s
+                                                                                                                                                                                                   
+Central2D<Shallow2D, MinMod<float>>::compute_step                                                                                                                            shallow         0.655s
+                                                                                                                                                                                                   
+Central2D<Shallow2D, MinMod<float>>::compute_fg_speeds                                                                                                                       shallow         0.229s
+                                                                                                                                                                                                   
+_IO_fwrite                                                                                                                                                                   libc-2.12.so    0.022s
+                                                                                                                                                                                                   
+_IO_file_xsputn                                                                                                                                                              libc-2.12.so    0.018s
+                                                                                                                                                                                                   
+Central2D<Shallow2D, MinMod<float>>::run                                                                                                                                     shallow         0.011s
+                                                                                                                                                                                                   
+[Outside any known module]                                                                                                                                                                   0.010s
+                                                                                                                                                                                                   
+SimViz<Central2D<Shallow2D, MinMod<float>>>::write_frame                                                                                                                     shallow         0.006s
+                                                                                                                   main                                                      shallow         0.006s
+                                                                                                                                                                                                   
+_IO_fclose                                                                                                                                                                   libc-2.12.so    0.001s
+                                                                                                                                                                                                   
+Central2D<Shallow2D, MinMod<float>>::solution_check                                                                                                                          shallow         0.001s
+                                                                                                                   main                                                      shallow         0.001s
+                                                                                                                                                                                                   
+do_lookup_x                                                                                                                                                                  ld-2.12.so      0.001s
+                                                                                                                                                                                                   
+Central2D<Shallow2D, MinMod<float>>::solution_check                                                                                                                          shallow         0.001s
+                                                                                                                   main                                                      shallow         0.001s
+                                                                                                                                                                                                   
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]                                                            shallow         0.001s
+                                                                                                                   Central2D<Shallow2D, MinMod<float>>::operator()           shallow         0.001s
+                                                                                                                   SimViz<Central2D<Shallow2D, MinMod<float>>>::write_frame  shallow             0s
+                                                                                                                   main                                                      shallow             0s
+                                                                                                                                                                                                   
