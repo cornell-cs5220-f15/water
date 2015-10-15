@@ -22,7 +22,7 @@ the simulator, you should run `make shallow-timing_v`. For example, to build a
 timed version of the vectorized simulator, run
 
 ```bash
-make shallow-timing_v
+make shallow-timing_vec
 ```
 
 ## Running ##
