@@ -86,11 +86,9 @@ void viz_close(FILE* fp)
 void viz_frame(FILE* fp, central2d_t* sim)
 {
     if (fp)
-        for (int j = 0; j < sim->ny; ++j)
-            for (int i = 0; i < sim->nx; ++i) {
-                float* uij = sim->u + central2d_offset(sim,0,i,j);
-                fwrite(uij, sizeof(float), 1, fp);
-            }
+        for (int iy = 0; iy < sim->ny; ++iy)
+            fwrite(sim->u + central2d_offset(sim,0,0,iy),
+                   sizeof(float), sim->nx, fp);
 }
 
 /**
