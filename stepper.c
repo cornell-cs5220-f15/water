@@ -30,15 +30,14 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
     sim->speed = speed;
     sim->cfl = cfl;
 
-    int N = nfield * (nx+2*ng) * (ny+2*ng);
-    sim->u  = (float*) malloc(8 * N * sizeof(float));
+    int nc = (nx+2*ng) * (ny + 2*ng);
+    int N  = nfield * nc;
+    sim->u  = (float*) malloc((4*N + 2*nc)* sizeof(float));
     sim->v  = sim->u +   N;
-    sim->ux = sim->u + 2*N;
-    sim->uy = sim->u + 3*N;
-    sim->f  = sim->u + 4*N;
-    sim->fx = sim->u + 5*N;
-    sim->g  = sim->u + 6*N;
-    sim->gy = sim->u + 7*N;
+    sim->f  = sim->u + 2*N;
+    sim->g  = sim->u + 3*N;
+    sim->ux = sim->u + 4*N;
+    sim->uy = sim->u + 4*N + nc;
 
     return sim;
 }
@@ -281,9 +280,7 @@ void central2d_step(float* restrict u, float* restrict v,
                     float* restrict ux,
                     float* restrict uy,
                     float* restrict f,
-                    float* restrict fx,
                     float* restrict g,
-                    float* restrict gy,
                     int io, int nx, int ny, int ng,
                     int nfield, flux_t flux, speed_t speed,
                     float dt, float dx, float dy)
@@ -296,7 +293,7 @@ void central2d_step(float* restrict u, float* restrict v,
 
     flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
 
-    central2d_predict(v, fx, gy, u, f, g, dtcdx2, dtcdy2,
+    central2d_predict(v, ux, uy, u, f, g, dtcdx2, dtcdy2,
                       nx_all, ny_all, nfield);
 
     // Flux values of f and g at half step
@@ -337,9 +334,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float* restrict ux,
                    float* restrict uy,
                    float* restrict f,
-                   float* restrict fx,
                    float* restrict g,
-                   float* restrict gy,
                    int nx, int ny, int ng,
                    int nfield, flux_t flux, speed_t speed,
                    float tfinal, float dx, float dy, float cfl)
@@ -362,7 +357,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                     done = true;
                 }
             }
-            central2d_step(u, v, ux, uy, f, fx, g, gy,
+            central2d_step(u, v, ux, uy, f, g,
                            io, nx, ny, ng,
                            nfield, flux, speed,
                            dt, dx, dy);
@@ -377,7 +372,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
 int central2d_run(central2d_t* sim, float tfinal)
 {
    return central2d_xrun(sim->u, sim->v, sim->ux, sim->uy,
-                         sim->f, sim->fx, sim->g, sim->gy,
+                         sim->f, sim->g,
                          sim->nx, sim->ny, sim->ng,
                          sim->nfield, sim->flux, sim->speed,
                          tfinal, sim->dx, sim->dy, sim->cfl);
