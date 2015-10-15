@@ -1,9 +1,10 @@
 #ifndef CENTRAL2D_VEC_H
 #define CENTRAL2D_VEC_H
 
-#include <cstdio>
-#include <cmath>
 #include <cassert>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 //ldoc on
 /**
@@ -106,26 +107,26 @@ public:
         ny_all(ny + 2*nghost),
         dx(w/nx), dy(h/ny),
         cfl(cfl),
-        u_ (new real[num_fields * nx_all * ny_all]),
-        f_ (new real[num_fields * nx_all * ny_all]),
-        g_ (new real[num_fields * nx_all * ny_all]),
-        ux_(new real[num_fields * nx_all * ny_all]),
-        uy_(new real[num_fields * nx_all * ny_all]),
-        fx_(new real[num_fields * nx_all * ny_all]),
-        gy_(new real[num_fields * nx_all * ny_all]),
-        v_ (new real[num_fields * nx_all * ny_all]) {}
+        u_ ((real *)malloc(sizeof(real) * num_fields * nx_all * ny_all)),
+        f_ ((real *)malloc(sizeof(real) * num_fields * nx_all * ny_all)),
+        g_ ((real *)malloc(sizeof(real) * num_fields * nx_all * ny_all)),
+        ux_((real *)malloc(sizeof(real) * num_fields * nx_all * ny_all)),
+        uy_((real *)malloc(sizeof(real) * num_fields * nx_all * ny_all)),
+        fx_((real *)malloc(sizeof(real) * num_fields * nx_all * ny_all)),
+        gy_((real *)malloc(sizeof(real) * num_fields * nx_all * ny_all)),
+        v_ ((real *)malloc(sizeof(real) * num_fields * nx_all * ny_all)) {}
 
     Central2DVec(const Central2DVec&) = delete;
 
     ~Central2DVec() {
-        delete [] u_ ;
-        delete [] f_ ;
-        delete [] g_ ;
-        delete [] ux_;
-        delete [] uy_;
-        delete [] fx_;
-        delete [] gy_;
-        delete [] v_ ;
+        free(u_);
+        free(f_);
+        free(g_);
+        free(ux_);
+        free(uy_);
+        free(fx_);
+        free(gy_);
+        free(v_);
     }
 
     // Advance from time 0 to time tfinal
