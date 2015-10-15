@@ -1,0 +1,12 @@
+#!/bin/sh -l
+
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=0:30:00
+#PBS -n
+#PBS -p 1023
+#PBS -j oe
+
+module load cs5220
+cd $PBS_O_WORKDIR
+amplxe-cl -collect advanced-hotspots \
+$ARG1 -i dam_break -o dam_break.out
