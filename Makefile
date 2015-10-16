@@ -53,13 +53,13 @@ run: shallow
 	qsub run.pbs -N shallow -vARG1=shallow
 
 run-ampl: shallow
-	qsub run-ampl.pbs -N shallow -vARG1=shallow
+	qsub run-ampl.pbs -N shallow-ampl -vARG1=shallow
 
 run_%: shallow_%
 	qsub run.pbs -N $* -vARG1=$<
 
 run-ampl_%: shallow_%
-	qsub run-ampl.pbs -N $* -vARG1=$<
+	qsub run-ampl.pbs -N $*-ampl -vARG1=$<
 
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
