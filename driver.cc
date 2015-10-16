@@ -78,6 +78,23 @@ void wave(Sim::vec& u, double x, double y)
     u[2] = 0;
 }
 
+void write_timing(double const * const times, int const frames, std::string const fname){
+  std::string const csv_name = std::string("timing-") + fname + ".csv";
+  std::ofstream csv_file;
+  csv_file.open(csv_name);
+
+  csv_file << "frame, time" << std::endl;
+
+  for (size_t idx = 0; idx < frames; ++idx)
+    {
+      csv_file << idx << ", " << times[idx] << std::endl;
+    }
+
+  csv_file.close();
+
+  return;
+}
+
 
 /**
  * ## Main driver
@@ -89,13 +106,13 @@ void wave(Sim::vec& u, double x, double y)
 
 int main(int argc, char** argv)
 {
-    std::string fname = "waves.out";
+    std::string base_name = "waves";
     std::string ic = "dam_break";
     int    nx = 200;
     double width = 2.0;
     double ftime = 0.01;
     int    frames = 50;
-    
+
     int c;
     extern char* optarg;
     while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
@@ -114,7 +131,7 @@ int main(int argc, char** argv)
                     nx, width, ftime, frames);
             return -1;
         case 'i':  ic     = optarg;          break;
-        case 'o':  fname  = optarg;          break;
+        case 'o':  base_name  = optarg;          break;
         case 'n':  nx     = atoi(optarg);    break;
         case 'w':  width  = atof(optarg);    break;
         case 'f':  ftime  = atof(optarg);    break;
@@ -124,6 +141,7 @@ int main(int argc, char** argv)
             return -1;
         }
     }
+    std::string fname = base_name + ".out";
 
     void (*icfun)(Sim::vec& u, double x, double y) = dam_break;
     if (ic == "dam_break") {
@@ -143,15 +161,22 @@ int main(int argc, char** argv)
     sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
+
+    double frame_times[frames];
+
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
         sim.run(ftime);
         double t1 = omp_get_wtime();
         printf("Time: %e\n", t1-t0);
+	frame_times[i] = t1-t0;
 #else
         sim.run(ftime);
 #endif
+
+	write_timing(frame_times, frames, base_name);
+
         sim.solution_check();
         viz.write_frame();
     }
