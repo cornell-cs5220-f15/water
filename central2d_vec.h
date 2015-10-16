@@ -186,17 +186,36 @@ void Central2DVec<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < ny_all; ++iy)
+
+    // KINDA VEC
+    for (int iy = 0; iy < ny_all; ++iy) {
+        #pragma ivdep
+        for (int ix = 0; ix < nx_all; ++ix) {
+            real& f0 = f(0, ix, iy);
+            real& f1 = f(1, ix, iy);
+            real& f2 = f(2, ix, iy);
+            real& g0 = g(0, ix, iy);
+            real& g1 = g(1, ix, iy);
+            real& g2 = g(2, ix, iy);
+            real& h  = u(0, ix, iy);
+            real& hu = u(1, ix, iy);
+            real& hv = u(2, ix, iy);
+
+            Physics::flux(f0, f1, f2, g0, g1, g2, h, hu, hv);
+        }
+    }
+
+    // KINDA VEC
+    for (int iy = 0; iy < ny_all; ++iy) {
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(0, ix,iy), f(1, ix, iy), f(2, ix, iy),
-                          g(0, ix,iy), g(1, ix, iy), g(2, ix, iy),
-                          u(0, ix,iy), u(1, ix, iy), u(2, ix, iy));
             Physics::wave_speed(cell_cx, cell_cy,
                                 u(0, ix,iy), u(1, ix, iy), u(2, ix, iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
+    }
+
     cx_ = cx;
     cy_ = cy;
 }

@@ -74,12 +74,12 @@ struct Shallow2DVec {
                      real& GU0, real& GU1, real& GU2,
                      const real h, const real hu, const real hv) {
         FU0 = hu;
-        FU1 = hu*hu/h + (0.5*g)*h*h;
+        FU1 = hu*hu/h + (0.5f*g)*h*h;
         FU2 = hu*hv/h;
 
         GU0 = hv;
         GU1 = hu*hv/h;
-        GU2 = hv*hv/h + (0.5*g)*h*h;
+        GU2 = hv*hv/h + (0.5f*g)*h*h;
     }
 
     // Compute shallow water wave speed
