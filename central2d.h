@@ -154,6 +154,9 @@ private:
     std::vector<vec> fx_;           // x differences of f
     std::vector<vec> gy_;           // y differences of g
     std::vector<vec> v_;            // Solution values at next step
+    
+//    std::vector<vec>* const up_ = &u_.data();
+//    std::vector<vec>* const vp_ = v_.data();
 
     // Array accessor functions
 
@@ -269,7 +272,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    #pragma omp for
+    #pragma omp for nowait
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
@@ -293,14 +296,19 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
-    #pragma omp for
+    #pragma omp for nowait
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
 
             // x derivs
             limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
             limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
-
+            
+        }
+    
+    #pragma omp for nowait
+    for (int iy = 1; iy < ny_all-1; ++iy)
+        for (int ix = 1; ix < nx_all-1; ++ix) {
             // y derivs
             limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
             limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
@@ -341,7 +349,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 //    {
 
     // Predictor (flux values of f and g at half step)
-    #pragma omp for
+    #pragma omp for nowait
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             vec uh = u(ix,iy);
@@ -353,7 +361,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector (finish the step)
-    #pragma omp for
+    #pragma omp for nowait
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
             for (int m = 0; m < v(ix,iy).size(); ++m) {
@@ -372,7 +380,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-    #pragma omp for
+    #pragma omp for nowait
     for (int j = nghost; j < ny+nghost; ++j){
         for (int i = nghost; i < nx+nghost; ++i){
             u_[(j)*nx_all+(i)] = v_[(j-io)*nx_all+(i-io)];
