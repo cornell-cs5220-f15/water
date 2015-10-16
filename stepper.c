@@ -133,7 +133,7 @@ float xmin2s(float s, float a, float b) {
     float sb = copysignf(s, b);
     float abs_a = fabsf(a);
     float abs_b = fabsf(b);
-    float min_abs = fminf(abs_a, abs_b);
+    float min_abs = (abs_a < abs_b ? abs_a : abs_b);
     return (sa+sb) * min_abs;
 }
 
