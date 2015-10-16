@@ -308,10 +308,9 @@ void central2d_step(float* restrict u, float* restrict v,
                       nx_all, ny_all, nfield);
 
     // Copy from v storage back to main grid
-    for (int k = 0; k < nfield; ++k)
-        memcpy(u+(k*ny_all+ng   )*nx_all+ng,
-               v+(k*ny_all+ng-io)*nx_all+ng-io,
-               ny * nx_all * sizeof(float));
+    memcpy(u+(ng   )*nx_all+ng,
+           v+(ng-io)*nx_all+ng-io,
+           (nfield*ny_all-ng) * nx_all * sizeof(float));
 }
 
 
