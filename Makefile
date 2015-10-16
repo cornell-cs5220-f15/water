@@ -61,6 +61,8 @@ run_%: shallow_%
 run-ampl_%: shallow_%
 	qsub run-ampl.pbs -N $*-ampl -vARG1=$<
 
+time: clean $(shell echo shallow-timing{,_vec}) $(shell echo run{,_vec})
+
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
 
@@ -111,6 +113,11 @@ shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
 	ldoc $^ -o $@
 
 # ===
+# Rules for printing
+
+print-%: ; @echo $*=$($*)
+
+# ===
 # Clean up
 
 .PHONY: clean
@@ -118,4 +125,3 @@ clean:
 	rm -f $(SIMULATORS)
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
-
