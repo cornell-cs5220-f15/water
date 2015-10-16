@@ -30,14 +30,15 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
     sim->speed = speed;
     sim->cfl = cfl;
 
-    int nc = (nx+2*ng) * (ny + 2*ng);
+    int nx_all = nx + 2*ng;
+    int ny_all = ny + 2*ng;
+    int nc = nx_all * ny_all;
     int N  = nfield * nc;
-    sim->u  = (float*) malloc((4*N + 2*nc)* sizeof(float));
+    sim->u  = (float*) malloc((4*N + 6*nx_all)* sizeof(float));
     sim->v  = sim->u +   N;
     sim->f  = sim->u + 2*N;
     sim->g  = sim->u + 3*N;
-    sim->ux = sim->u + 4*N;
-    sim->uy = sim->u + 4*N + nc;
+    sim->scratch = sim->u + 4*N;
 
     return sim;
 }
@@ -192,20 +193,31 @@ void limited_derivk(float* restrict du,
  * in each direction.  Every other step, we shift things back by one
  * mesh cell in each direction, essentially resetting to the primary
  * indexing scheme.
+ *
+ * We're slightly tricky in the corrector in that we write
+ * $$
+ *   v(i,j) = (s(i+1,j) + s(i,j)) - (d(i+1,j)-d(i,j))
+ * $$
+ * where $s(i,j)$ comprises the $u$ and $x$-derivative terms in the
+ * update formula, and $d(i,j)$ the $y$-derivative terms.  This cuts
+ * the arithmetic cost a little (not that it's that big to start).
+ * It also makes it more obvious that we only need four rows worth
+ * of scratch space.
  */
 
 
 // Predictor half-step
 static
 void central2d_predict(float* restrict v,
-                       float* restrict fx,
-                       float* restrict gy,
+                       float* restrict scratch,
                        const float* restrict u,
                        const float* restrict f,
                        const float* restrict g,
                        float dtcdx2, float dtcdy2,
                        int nx, int ny, int nfield)
 {
+    float* restrict fx = scratch;
+    float* restrict gy = scratch+nx;
     for (int k = 0; k < nfield; ++k) {
         for (int iy = 1; iy < ny-1; ++iy) {
             int offset = (k*ny+iy)*nx+1;
@@ -222,10 +234,33 @@ void central2d_predict(float* restrict v,
 
 // Corrector
 static
+void central2d_correct_sd(float* restrict s,
+                          float* restrict d,
+                          const float* restrict ux,
+                          const float* restrict uy,
+                          const float* restrict u,
+                          const float* restrict f,
+                          const float* restrict g,
+                          float dtcdx2, float dtcdy2,
+                          int xlo, int xhi)
+{
+    for (int ix = xlo; ix < xhi; ++ix)
+        s[ix] =
+            0.2500f * (u [ix] + u [ix+1]) +
+            0.0625f * (ux[ix] - ux[ix+1]) +
+            dtcdx2  * (f [ix] - f [ix+1]);
+    for (int ix = xlo; ix < xhi; ++ix)
+        d[ix] =
+            0.0625f * (uy[ix] + uy[ix+1]) +
+            dtcdy2  * (g [ix] + g [ix+1]);
+}
+
+
+// Corrector
+static
 void central2d_correct(float* restrict v,
+                       float* restrict scratch,
                        const float* restrict u,
-                       float* restrict ux,
-                       float* restrict uy,
                        const float* restrict f,
                        const float* restrict g,
                        float dtcdx2, float dtcdy2,
@@ -235,41 +270,40 @@ void central2d_correct(float* restrict v,
     assert(0 <= xlo && xlo < xhi && xhi <= nx);
     assert(0 <= ylo && ylo < yhi && yhi <= ny);
 
+    float* restrict ux = scratch;
+    float* restrict uy = scratch +   nx;
+    float* restrict s0 = scratch + 2*nx;
+    float* restrict d0 = scratch + 3*nx;
+    float* restrict s1 = scratch + 4*nx;
+    float* restrict d1 = scratch + 5*nx;
+
     for (int k = 0; k < nfield; ++k) {
 
-        float* restrict vk = v + k*ny*nx;
+        float*       restrict vk = v + k*ny*nx;
         const float* restrict uk = u + k*ny*nx;
         const float* restrict fk = f + k*ny*nx;
         const float* restrict gk = g + k*ny*nx;
 
-        int offset = ylo*nx+1;
-        limited_deriv1(ux+offset, uk+offset, nx-2);
-        limited_derivk(uy+offset, uk+offset, nx-2, nx);
+        limited_deriv1(ux+1, uk+ylo*nx+1, nx-2);
+        limited_derivk(uy+1, uk+ylo*nx+1, nx-2, nx);
+        central2d_correct_sd(s1, d1, ux, uy,
+                             uk + ylo*nx, fk + ylo*nx, gk + ylo*nx,
+                             dtcdx2, dtcdy2, xlo, xhi);
 
         for (int iy = ylo; iy < yhi; ++iy) {
 
-            int offset = (iy+1)*nx+1;
-            limited_deriv1(ux+offset, uk+offset, nx-2);
-            limited_derivk(uy+offset, uk+offset, nx-2, nx);
+            float* tmp;
+            tmp = s0; s0 = s1; s1 = tmp;
+            tmp = d0; d0 = d1; d1 = tmp;
 
-            for (int ix = xlo; ix < xhi; ++ix) {
+            limited_deriv1(ux+1, uk+(iy+1)*nx+1, nx-2);
+            limited_derivk(uy+1, uk+(iy+1)*nx+1, nx-2, nx);
+            central2d_correct_sd(s1, d1, ux, uy,
+                                 uk + (iy+1)*nx, fk + (iy+1)*nx, gk + (iy+1)*nx,
+                                 dtcdx2, dtcdy2, xlo, xhi);
 
-                int j00 = iy*nx+ix;
-                int j10 = j00+1;
-                int j01 = j00+nx;
-                int j11 = j00+nx+1;
-
-                vk[j00] =
-                    0.2500f * ( uk[j00] + uk[j01] + uk[j10] + uk[j11] ) -
-                    0.0625f * ( ux[j10] - ux[j00] +
-                                ux[j11] - ux[j01] +
-                                uy[j01] - uy[j00] +
-                                uy[j11] - uy[j10] ) -
-                    dtcdx2  * ( fk[j10] - fk[j00] +
-                                fk[j11] - fk[j01] ) -
-                    dtcdy2  * ( gk[j01] - gk[j00] +
-                                gk[j11] - gk[j10] );
-            }
+            for (int ix = xlo; ix < xhi; ++ix)
+                vk[iy*nx+ix] = (s1[ix]+s0[ix])-(d1[ix]-d0[ix]);
         }
     }
 }
@@ -277,8 +311,7 @@ void central2d_correct(float* restrict v,
 
 static
 void central2d_step(float* restrict u, float* restrict v,
-                    float* restrict ux,
-                    float* restrict uy,
+                    float* restrict scratch,
                     float* restrict f,
                     float* restrict g,
                     int io, int nx, int ny, int ng,
@@ -293,7 +326,7 @@ void central2d_step(float* restrict u, float* restrict v,
 
     flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
 
-    central2d_predict(v, ux, uy, u, f, g, dtcdx2, dtcdy2,
+    central2d_predict(v, scratch, u, f, g, dtcdx2, dtcdy2,
                       nx_all, ny_all, nfield);
 
     // Flux values of f and g at half step
@@ -302,7 +335,7 @@ void central2d_step(float* restrict u, float* restrict v,
         flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
     }
 
-    central2d_correct(v, u, ux, uy, f, g, dtcdx2, dtcdy2,
+    central2d_correct(v, scratch, u, f, g, dtcdx2, dtcdy2,
                       ng-io, nx+ng-io,
                       ng-io, ny+ng-io,
                       nx_all, ny_all, nfield);
@@ -330,8 +363,7 @@ void central2d_step(float* restrict u, float* restrict v,
 
 static
 int central2d_xrun(float* restrict u, float* restrict v,
-                   float* restrict ux,
-                   float* restrict uy,
+                   float* restrict scratch,
                    float* restrict f,
                    float* restrict g,
                    int nx, int ny, int ng,
@@ -344,25 +376,25 @@ int central2d_xrun(float* restrict u, float* restrict v,
     bool done = false;
     float t = 0;
     while (!done) {
-        float dt;
-        for (int io = 0; io < 2; ++io) {
-            float cxy[2] = {1.0e-15f, 1.0e-15f};
-            central2d_periodic(u, nx, ny, ng, nfield);
-            speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
-            if (io == 0) {
-                dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
-                }
-            }
-            central2d_step(u, v, ux, uy, f, g,
-                           io, nx, ny, ng,
-                           nfield, flux, speed,
-                           dt, dx, dy);
-            t += dt;
-            nstep += 2;
+        float cxy[2] = {1.0e-15f, 1.0e-15f};
+        central2d_periodic(u, nx, ny, ng, nfield);
+        speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
+        float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
+        if (t + 2*dt >= tfinal) {
+            dt = (tfinal-t)/2;
+            done = true;
         }
+        central2d_step(u, v, scratch, f, g,
+                       0, nx, ny, ng,
+                       nfield, flux, speed,
+                       dt, dx, dy);
+        central2d_periodic(u, nx, ny, ng, nfield);
+        central2d_step(u, v, scratch, f, g,
+                       1, nx, ny, ng,
+                       nfield, flux, speed,
+                       dt, dx, dy);
+        t += 2*dt;
+        nstep += 2;
     }
     return nstep;
 }
@@ -370,9 +402,9 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
 int central2d_run(central2d_t* sim, float tfinal)
 {
-   return central2d_xrun(sim->u, sim->v, sim->ux, sim->uy,
-                         sim->f, sim->g,
-                         sim->nx, sim->ny, sim->ng,
-                         sim->nfield, sim->flux, sim->speed,
-                         tfinal, sim->dx, sim->dy, sim->cfl);
+    return central2d_xrun(sim->u, sim->v, sim->scratch,
+                          sim->f, sim->g,
+                          sim->nx, sim->ny, sim->ng,
+                          sim->nfield, sim->flux, sim->speed,
+                          tfinal, sim->dx, sim->dy, sim->cfl);
 }
