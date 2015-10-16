@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <array>
+#include <algorithm>
 
 //ldoc on
 /**
@@ -89,78 +90,44 @@ struct Shallow2D {
      * GU[2]            | hv * hv      | hv * hv      | (hv * hv)/h + (0.5*g)*h*h
      * --------------------------------------------------------------------------
      */
-    static void flux_f00(real& f, const real& hu) {
-        f = hu;
-    }
-
-    static void flux_f10(real& f, const real& hu) {
-        f = hu * hu;
-    }
-
-    static void flux_f12(real& f, const real& h) {
-        f = f/h + (0.5*g)*h*h;
-    }
-
-    static void flux_f20(real& f, const real& hu) {
-        f = hu;
-    }
-
-    static void flux_f21(real& f, const real& hv) {
-        f *= hv;
-    }
-
-    static void flux_f22(real& f, const real& h) {
-        f = f/h;
-    }
-
-    static void flux_g00(real& gu, const real& hv) {
-        gu = hv;
-    }
-
-    static void flux_g10(real& gu, const real& hv) {
-        gu = hv;
-    }
-
-    static void flux_g11(real& gu, const real& hu) {
-        gu *= hu;
-    }
-
-    static void flux_g12(real& gu, const real& h) {
-        gu = gu/h;
-    }
-
-    static void flux_g20(real& gu, const real& hv) {
-        gu = hv * hv;
-    }
-
-    static void flux_g22(real& gu, const real& h) {
-        gu = gu/h+ (0.5*g)*h*h;
-    }
-
-    // static void flux(vec& f0, vec& f1, vec& f2, vec& g0, vec& g1, vec& g2,
-            // vec& u_h, vec& u_hu, vec& u_hv) {
+    static void flux(
+            vec& f0, vec& f1, vec& f2, 
+            vec& g0, vec& g1, vec& g2,
+            vec& u_h, vec& u_hu, vec& u_hv, int n) {
     
-    // }
-    // Compute shallow water fluxes F(U), G(U)
-    // static void flux(vec& FU, vec& GU, const vec& U) {
-        // real h = U[0], hu = U[1], hv = U[2];
+        f0 = u_hu;
+        g0 = u_hv;
 
-        // FU[0] = hu;
-        // FU[1] = hu*hu/h + (0.5*g)*h*h;
-        // FU[2] = hu*hv/h;
-
-        // GU[0] = hv;
-        // GU[1] = hu*hv/h;
-        // GU[2] = hv*hv/h + (0.5*g)*h*h;
-    // }
-
-    // Compute shallow water wave speed
-    static void wave_speed(real& cx, real& cy, const real& h, const real& hu, const real& hv) {
-        real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
-        cx = abs(hu/h) + root_gh;
-        cy = abs(hv/h) + root_gh;
+        #pragma ivdep
+        for(int i=0; i<n; i++) {
+            real h = u_h[i];
+            real h_inv = 1/h;
+            real hu = u_hu[i];
+            real hv = u_hv[i];
+            f1[i] = (hu * hu)*h_inv + 0.5 * g * h * h;
+            f2[i] = (hu * hv)*h_inv;
+            g1[i] = (hu * hv)*h_inv;
+            g2[i] = (hv * hv)*h_inv + 0.5 * g * h * h;
+        }
     }
 
+    static void wave_speed(real &cx, real &cy, 
+            const vec& u_h, const vec& u_hu, const vec& u_hv, int n) {
+
+        real cx_c, cy_c;
+        for(int i=0; i<n; i++) {
+            real h = u_h[i];
+            real hu = u_hu[i];
+            real hv = u_hv[i];
+            real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
+            real cx_c = std::fabs(hu/h) + root_gh;
+            real cy_y = std::fabs(hv/h) + root_gh;
+            if (cx_c > cx) 
+                cx = cx_c;
+            if (cy_c > cy)
+                cy = cy_c;
+        }
+    }
 };
 
 //ldoc off

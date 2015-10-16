@@ -145,10 +145,10 @@ int main(int argc, char** argv)
 {
     std::string fname = "wave.out";
     std::string ic    = "dam_break";
-    int    nx         = 100;
+    int    nx         = 200;
     double width      = 2.0;
     double ftime      = 0.01;
-    int    frames     = 50;
+    int    frames     = 100;
     
     int c;
     extern char* optarg;

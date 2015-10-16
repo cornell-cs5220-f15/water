@@ -1,5 +1,6 @@
 import csv
 import matplotlib.pyplot as plt
+import matplotlib
 from matplotlib import rc
 import numpy as np
 import sys

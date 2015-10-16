@@ -169,41 +169,41 @@ private:
     const real dx, dy;        // Cell size in x/y
     const real cfl;           // Allowed CFL number
 
-    std::vector<real> u_h_;   // h component of solution
-    std::vector<real> u_hu_;  // hu component of solution
-    std::vector<real> u_hv_;  // hv component of solution
+    vec u_h_;   // h component of solution
+    vec u_hu_;  // hu component of solution
+    vec u_hv_;  // hv component of solution
 
-    std::vector<real> f0_;    // First component of flux in x
-    std::vector<real> f1_;    // Second component of flux in x
-    std::vector<real> f2_;    // Third component of flux in x
+    vec f0_;    // First component of flux in x
+    vec f1_;    // Second component of flux in x
+    vec f2_;    // Third component of flux in x
 
-    std::vector<real> g0_;    // First component of flux in y
-    std::vector<real> g1_;    // Second component of flux in y
-    std::vector<real> g2_;    // Third component of flux in y
+    vec g0_;    // First component of flux in y
+    vec g1_;    // Second component of flux in y
+    vec g2_;    // Third component of flux in y
 
-    std::vector<real> ux_h_;  // x differences of u
-    std::vector<real> ux_hu_; // x differences of u
-    std::vector<real> ux_hv_; // x differences of u
+    vec ux_h_;  // x differences of u
+    vec ux_hu_; // x differences of u
+    vec ux_hv_; // x differences of u
 
-    std::vector<real> uy_h_;  // y differences of u
-    std::vector<real> uy_hu_; // y differences of u
-    std::vector<real> uy_hv_; // y differences of u
+    vec uy_h_;  // y differences of u
+    vec uy_hu_; // y differences of u
+    vec uy_hv_; // y differences of u
 
-    std::vector<real> fx0_;   // x differences of f
-    std::vector<real> fx1_;   // x differences of f
-    std::vector<real> fx2_;   // x differences of f
+    vec fx0_;   // x differences of f
+    vec fx1_;   // x differences of f
+    vec fx2_;   // x differences of f
 
-    std::vector<real> gy0_;   // y differences of g
-    std::vector<real> gy1_;   // y differences of g
-    std::vector<real> gy2_;   // y differences of g
+    vec gy0_;   // y differences of g
+    vec gy1_;   // y differences of g
+    vec gy2_;   // y differences of g
 
-    std::vector<real> v_h_;   // h component of solution values at next step
-    std::vector<real> v_hu_;  // hu component of solution values at next step
-    std::vector<real> v_hv_;  // hv component of solution values at next step
+    vec v_h_;   // h component of solution values at next step
+    vec v_hu_;  // hu component of solution values at next step
+    vec v_hv_;  // hv component of solution values at next step
 	
-    std::vector<real> uh_h_;   // h component of solution values at half step
-    std::vector<real> uh_hu_;  // hu component of solution values at half step
-    std::vector<real> uh_hv_;  // hv component of solution values at half step
+    vec uh_h_;   // h component of solution values at half step
+    vec uh_hu_;  // hu component of solution values at half step
+    vec uh_hv_;  // hv component of solution values at half step
 	
     // Array accessor functions
 
@@ -378,86 +378,8 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     real cx = 1.0e-15;
     real cy = 1.0e-15;
 
-    // Update the FU[0] component
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f00(f0(ix,iy), u_hu(ix,iy));
-        }
-
-    // Update the FU[1] component with hu
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f10(f1(ix,iy), u_hu(ix,iy));
-        }
-
-    // Update the FU[1] component with h
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f12(f1(ix,iy), u_h(ix,iy));
-        }
-    
-    // Update the FU[2] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f20(f2(ix,iy), u_hu(ix,iy));
-        }
-    
-    // Update the FU[2] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f21(f2(ix,iy), u_hv(ix,iy));
-        }
-
-    // Update the FU[2] component with h
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f22(f2(ix,iy), u_h(ix,iy));
-        }
-            
-    // Update the GU[0] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g00(g0(ix,iy), u_hv(ix,iy));
-        }
-
-    // Update the GU[1] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g10(g1(ix,iy), u_hv(ix,iy));
-        }
-
-    // Update the GU[1] component with hu
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g10(g1(ix,iy), u_hu(ix,iy));
-        }
-
-    // Update the GU[1] component with h
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g12(g1(ix,iy), u_h(ix,iy));
-        }
-    
-    // Update the GU[2] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g20(g2(ix,iy), u_hv(ix,iy));
-        }
-
-    // Update the GU[2] component with h
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g22(g2(ix,iy), u_h(ix,iy));
-        }
-    
-    //TODO: Maybe there is a better way to vectorize this?
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            real cell_cx, cell_cy;
-            Physics::wave_speed(cell_cx, cell_cy, u_h(ix,iy), u_hu(ix,iy), u_hv(ix,iy));
-            cx = max(cx, cell_cx);
-            cy = max(cy, cell_cy);
-        }
+    Physics::flux(f0_, f1_, f2_, g0_, g1_, g2_, u_h_, u_hu_, u_hv_, (nx_all * ny_all));
+    Physics::wave_speed(cx, cy, u_h_, u_hu_, u_hv_, (nx_all * ny_all));
     cx_ = cx;
     cy_ = cy;
 }
@@ -611,77 +533,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
             uh_hv(ix, iy) -= dtcdy2 * gy2(ix, iy);
         }
 
-    // Update the FU[0] component
-    for (int iy = 1; iy < ny_all -1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f00(f0(ix,iy), uh_hu(ix,iy));
-        }
-
-    // Update the FU[1] component with hu
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f10(f1(ix,iy), uh_hu(ix,iy));
-        }
-
-    // Update the FU[1] component with h
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f12(f1(ix,iy), uh_h(ix,iy));
-        }
-    
-    // Update the FU[2] component with hu
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f20(f2(ix,iy), uh_hu(ix,iy));
-        }
-    
-    // Update the FU[2] component with hv
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f21(f2(ix,iy), uh_hv(ix,iy));
-        }
-
-    // Update the FU[2] component with h
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f22(f2(ix,iy), uh_h(ix,iy));
-        }
-            
-    // Update the GU[0] component with hv
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g00(g0(ix,iy), uh_hv(ix,iy));
-        }
-
-    // Update the GU[1] component with hv
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g10(g1(ix,iy), uh_hv(ix,iy));
-        }
-
-    // Update the GU[1] component with hu
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g11(g1(ix,iy), uh_hu(ix,iy));
-        }
-
-    // Update the GU[1] component with h
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g12(g1(ix,iy), uh_h(ix,iy));
-        }
-    
-    // Update the GU[2] component with hv
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g20(g2(ix,iy), uh_hv(ix,iy));
-        }
-
-    // Update the GU[2] component with h
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g22(g2(ix,iy), uh_h(ix,iy));
-        }
+    Physics::flux(f0_, f1_, f2_, g0_, g1_, g2_, u_h_, u_hu_, u_hv_, (nx_all * ny_all));
 
     // Corrector for h component (finish the step)
     #pragma omp parallel for collapse(2)
