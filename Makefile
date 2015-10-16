@@ -23,7 +23,7 @@ shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
 run: dam_break.gif
 
 big: shallow
-	./shallow -i wave -o wave.out -n 1000 -F 100
+	./shallow -i wave -o wave -n 1000 -F 100
 
 
 # ===
@@ -58,10 +58,10 @@ wave.mp4: wave.out
 # Generate output files
 
 dam_break.out: shallow
-	./shallow -i dam_break -o dam_break.out
+	./shallow -i dam_break -o dam_break
 
 wave.out: shallow
-	./shallow -i wave -o wave.out -F 100
+	./shallow -i wave -o wave -F 100
 
 # ===
 # Generate documentation

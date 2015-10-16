@@ -7,6 +7,8 @@
 #include <omp.h>
 #endif
 
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <cmath>
 #include <cstring>
@@ -83,11 +85,11 @@ void write_timing(double const * const times, int const frames, std::string cons
   std::ofstream csv_file;
   csv_file.open(csv_name);
 
-  csv_file << "frame, time" << std::endl;
+  csv_file << "frame,time" << std::endl;
 
   for (size_t idx = 0; idx < frames; ++idx)
     {
-      csv_file << idx << ", " << times[idx] << std::endl;
+      csv_file << idx << "," << times[idx] << std::endl;
     }
 
   csv_file.close();
@@ -127,7 +129,7 @@ int main(int argc, char** argv)
                     "\t-w: domain width in cells (%g)\n"
                     "\t-f: time between frames (%g)\n"
                     "\t-F: number of frames (%d)\n",
-                    argv[0], ic.c_str(), fname.c_str(), 
+                    argv[0], ic.c_str(), base_name.c_str(), 
                     nx, width, ftime, frames);
             return -1;
         case 'i':  ic     = optarg;          break;
