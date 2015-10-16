@@ -267,8 +267,9 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+	    // Compute flux in anticipation of next timestep calculation.
+            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy)); // Computes flux from u, store in f/g
+            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy)); // compute wave speed from u
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
@@ -369,8 +370,8 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 
 /**
  * ### Advance time
- * 
- * The `run` method advances from time 0 (initial conditions) to time
+ *  
+* The `run` method advances from time 0 (initial conditions) to time
  * `tfinal`.  Note that `run` can be called repeatedly; for example,
  * we might want to advance for a period of time, write out a picture,
  * advance more, and write another picture.  In this sense, `tfinal`
