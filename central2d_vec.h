@@ -58,6 +58,8 @@ public:
     int ysize() const { return ny; }
 
     // Read elements of simulation state
+    // Note that this function is not vectorized, but it is only called by
+    // `meshio` and is not used when timing.
     const vec operator()(int i, int j) const {
         vec v;
         for (int k = 0; k < num_fields; ++k) {
@@ -132,6 +134,8 @@ private:
     void compute_step(int io, real dt);
 };
 
+// Note that this function is not vectorized, but since `init` is only called
+// once, we don't care about optimizing it.
 template <class Physics, class Limiter>
 template <typename F>
 void Central2DVec<Physics, Limiter>::init(F f) {
@@ -149,6 +153,8 @@ void Central2DVec<Physics, Limiter>::init(F f) {
     }
 }
 
+// VEC
+// TODO(mwhittaker): convert ny_all to compile time constant.
 template <class Physics, class Limiter>
 void Central2DVec<Physics, Limiter>::apply_periodic() {
     // Copy data between right and left boundaries
@@ -291,6 +297,8 @@ void Central2DVec<Physics, Limiter>::run(real tfinal)
     }
 }
 
+// Note that this function is not vectorized, but we don't check solutions when
+// timing, so we don't have to optimize it.
 template <class Physics, class Limiter>
 void Central2DVec<Physics, Limiter>::solution_check()
 {
