@@ -37,3 +37,25 @@ To run simulator version `v` with VTune Amplifier, run
 ```
 make run-ampl_v
 ```
+
+## Plotting ##
+We plot timing with our own python script [`plotter.py`](plotter.py). This
+generates cells/seconds versus nx (number of cells per side).
+
+After you get `.o` files from qsub, you can run this script like below. This
+will include every files with `.o`.
+
+```
+./plotter.py *.o*
+```
+
+This will automatically find timing in `.o` files and generate `.cvs` files,
+and sort by nx.
+
+You can also generate for two different version in a single plot. For example,
+if you have `vec.o12345` and `par.o12346`, run like below:
+
+```
+./plotter.py vec.o12345 par.o12345
+```
+
