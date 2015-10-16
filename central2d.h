@@ -207,6 +207,7 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
+    #pragma omp for collapse(2)
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
@@ -232,19 +233,23 @@ void Central2D<Physics, Limiter>::init(F f)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
 {
+//#pragma omp parallel
+//    {
     // Copy data between right and left boundaries
+    #pragma omp for
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nghost; ++ix) {
             u(ix,          iy) = uwrap(ix,          iy);
             u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
         }
 
-    // Copy data between top and bottom boundaries
-    for (int ix = 0; ix < nx_all; ++ix)
-        for (int iy = 0; iy < nghost; ++iy) {
+    #pragma omp for
+    for (int iy = 0; iy < nghost; ++iy)
+        for (int ix = 0; ix < nx_all; ++ix) {
             u(ix,          iy) = uwrap(ix,          iy);
             u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
         }
+//    }
 }
 
 
@@ -264,13 +269,14 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
+    #pragma omp for
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
             Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
-            cx = max(cx, cell_cx);
-            cy = max(cy, cell_cy);
+            if (cx<cell_cx) cx = cell_cx;
+            if (cy<cell_cy) cy = cell_cy;
         }
     cx_ = cx;
     cy_ = cy;
@@ -287,6 +293,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
+    #pragma omp for
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
 
@@ -328,8 +335,13 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
+    if (io!=0) io = 1;
+    
+//    #pragma omp parallel
+//    {
 
     // Predictor (flux values of f and g at half step)
+    #pragma omp for
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             vec uh = u(ix,iy);
@@ -341,6 +353,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector (finish the step)
+    #pragma omp for
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
             for (int m = 0; m < v(ix,iy).size(); ++m) {
@@ -359,11 +372,13 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
+    #pragma omp for
     for (int j = nghost; j < ny+nghost; ++j){
         for (int i = nghost; i < nx+nghost; ++i){
-            u(i,j) = v(i-io,j-io);
+            u_[(j)*nx_all+(i)] = v_[(j-io)*nx_all+(i-io)];
         }
-    }
+      }
+//    }
 }
 
 
@@ -390,9 +405,13 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         real dt;
         for (int io = 0; io < 2; ++io) {
             real cx, cy;
+            #pragma omp parallel proc_bind(close)
+            {
             apply_periodic();
             compute_fg_speeds(cx, cy);
             limited_derivs();
+            #pragma omp single
+                {
             if (io == 0) {
                 dt = cfl / std::max(cx/dx, cy/dy);
                 if (t + 2*dt >= tfinal) {
@@ -400,10 +419,15 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     done = true;
                 }
             }
+                }
             compute_step(io, dt);
+            #pragma omp single
             t += dt;
+            }
         }
+//        }
     }
+//    }
 }
 
 /**
@@ -432,8 +456,8 @@ void Central2D<Physics, Limiter>::solution_check()
             h_sum += h;
             hu_sum += uij[1];
             hv_sum += uij[2];
-            hmax = max(h, hmax);
-            hmin = min(h, hmin);
+            if(h > hmax) hmax = h;
+            if (h < hmin) hmin = h;
             assert( h > 0) ;
         }
     real cell_area = dx*dy;
