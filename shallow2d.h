@@ -93,35 +93,34 @@ struct Shallow2D {
     static void flux(
             vec& f0, vec& f1, vec& f2, 
             vec& g0, vec& g1, vec& g2,
-            vec& u_h, vec& u_hu, vec& u_hv, int n) {
+            vec& u_h, vec& u_hu, vec& u_hv, 
+            int x_begin, int x_end, int y_begin, int y_end, int nx) {
     
         f0 = u_hu;
         g0 = u_hv;
 
-        #pragma ivdep
+        // #pragma ivdep
         for(int i=0; i<n; i++) {
             real h = u_h[i];
-            real h_inv = 1/h;
             real hu = u_hu[i];
             real hv = u_hv[i];
-            f1[i] = (hu * hu)*h_inv + 0.5 * g * h * h;
-            f2[i] = (hu * hv)*h_inv;
-            g1[i] = (hu * hv)*h_inv;
-            g2[i] = (hv * hv)*h_inv + 0.5 * g * h * h;
+            f1[i] = (hu * hu)/h + 0.5 * g * h * h;
+            f2[i] = (hu * hv)/h;
+            g1[i] = (hu * hv)/h;
+            g2[i] = (hv * hv)/h + 0.5 * g * h * h;
         }
     }
 
     static void wave_speed(real &cx, real &cy, 
             const vec& u_h, const vec& u_hu, const vec& u_hv, int n) {
 
-        real cx_c, cy_c;
         for(int i=0; i<n; i++) {
             real h = u_h[i];
             real hu = u_hu[i];
             real hv = u_hv[i];
             real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
             real cx_c = std::fabs(hu/h) + root_gh;
-            real cy_y = std::fabs(hv/h) + root_gh;
+            real cy_c = std::fabs(hv/h) + root_gh;
             if (cx_c > cx) 
                 cx = cx_c;
             if (cy_c > cy)

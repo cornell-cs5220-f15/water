@@ -533,7 +533,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
             uh_hv(ix, iy) -= dtcdy2 * gy2(ix, iy);
         }
 
-    Physics::flux(f0_, f1_, f2_, g0_, g1_, g2_, u_h_, u_hu_, u_hv_, (nx_all * ny_all));
+    Physics::flux(f0_, f1_, f2_, g0_, g1_, g2_, uh_h_, uh_hu_, uh_hv_, (nx_all * (ny_all-2)));
 
     // Corrector for h component (finish the step)
     #pragma omp parallel for collapse(2)
