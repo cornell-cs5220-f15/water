@@ -1,7 +1,7 @@
 \section{Timing}
 \subsection{Profiling}
 In order to find the bottleneck of the code, we first profiled
- timing of each steps using Intel’s VTune Amplifier. See ~\ref{lst:amplxe_command}.
+ timing of each steps using Intel’s VTune Amplifier. See Listing~\ref{lst:amplxe_command}.
  
 \begin{lstlisting}[caption={VTune Amplifier Command},label={lst:amplxe_command},frame=single,language=bash]
 amplxe-cl -collect advanced-hotspots ./shallow
@@ -14,7 +14,7 @@ amplxe-cl -report hotspots -source-object function="Central2D
 
 \subsection{Initial Profile Result}
 
-From the code~\ref{lst:initial_profile_result}, we could figure out "limited\_derivs", "compute\_step", and "compute\_fg\_sppeds" take longest time (See profile.sh code). Among these results, "limited\_derivs" function definitely was the worst bottleneck. 
+From the Listing~\ref{lst:initial_profile_result}, we could figure out "limited\_derivs", "compute\_step", and "compute\_fg\_sppeds" take longest time (See profile.sh code). Among these results, "limited\_derivs" function definitely was the worst bottleneck. 
 
 \begin{lstlisting}[caption={Initial Profile Result},label={lst:initial_profile_result},frame=single,language=bash]
 Function                     Module        CPU Time
