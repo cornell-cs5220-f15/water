@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <math.h>
 #include <omp.h>
 #include "size.h"
 
@@ -15,15 +14,10 @@ void main(){
 	#pragma omp parallel shared(totalsum)
 	{
 		double sum;
-        double sum1 = 0, sum2 = 0, sum3 = 0, sum4 = 0;
 		#pragma omp for
-		for(int i = 0; i < iters; i +=4){
-			sum1 += sin(A[i]);
-			sum2 -= sin(A[i+1]);
-			sum3 += cos(A[i+2]);
-			sum4 -= cos(A[i+3]);
+		for(int i = 0; i < iters; i++){
+			sum += fn(A[i]);
 		}
-		sum = sum1 + sum2 + sum3 + sum4;
 
 		#pragma omp atomic
 		totalsum += sum;

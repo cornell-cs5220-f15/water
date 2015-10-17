@@ -1,0 +1,6 @@
+Parallel MP
+1.534369, 0.203028
+Parallel Offload
+1.534369, 3.497940
+Serial
+1.534369, 1.194437
