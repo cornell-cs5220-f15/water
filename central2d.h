@@ -390,6 +390,8 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
+    #pragma omp parallel 
+    {
     Limiter::limdiff_x( ux_h_, u_h_, nx_all, ny_all );
     Limiter::limdiff_x( ux_hu_, u_hu_, nx_all, ny_all );
     Limiter::limdiff_x( ux_hv_, u_hv_, nx_all, ny_all );
@@ -402,6 +404,7 @@ void Central2D<Physics, Limiter>::limited_derivs()
     Limiter::limdiff_y( gy0_, g0_, nx_all, ny_all );
     Limiter::limdiff_y( gy1_, g1_, nx_all, ny_all );
     Limiter::limdiff_y( gy2_, g2_, nx_all, ny_all );
+    }
 }
 
 
@@ -433,7 +436,10 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
+    #pragma omp parallel
+    {
     // Predictor (flux values of f and g at half step)
+    #pragma omp for
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
 			uh_h(ix,iy)=u_h(ix,iy);
@@ -449,9 +455,11 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
             uh_hv(ix, iy) -= dtcdy2 * gy2(ix, iy);
         }
 
+    #pragma omp single
     Physics::flux(f0_, f1_, f2_, g0_, g1_, g2_, uh_h_, uh_hu_, uh_hv_, 1, (nx_all-1), 1, (ny_all-1), nx_all);
 
     // Corrector for h component (finish the step)
+    #pragma omp for
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
                 v_h(ix,iy) =
@@ -467,7 +475,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
                                g0(ix+1,iy+1)   - g0(ix+1,iy));
         }
 
-    // Corrector for hu component (finish the step)
+    #pragma omp for
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
                 v_hu(ix,iy) =
@@ -483,7 +491,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
                                g1(ix+1,iy+1)   - g1(ix+1,iy));
         }
 
-    // Corrector for hv component (finish the step)
+    #pragma omp for
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
                 v_hv(ix,iy) =
@@ -500,23 +508,24 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u_h(i,j) = v_h(i-io,j-io);
-            }
+    #pragma omp for
+    for (int j = nghost; j < ny+nghost; ++j)
+        for (int i = nghost; i < nx+nghost; ++i){
+            u_h(i,j) = v_h(i-io,j-io);
         }
 
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u_hu(i,j) = v_hu(i-io,j-io);
-            }
+    #pragma omp for
+    for (int j = nghost; j < ny+nghost; ++j)
+        for (int i = nghost; i < nx+nghost; ++i){
+            u_hu(i,j) = v_hu(i-io,j-io);
         }
 
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u_hv(i,j) = v_hv(i-io,j-io);
-            }
+    #pragma omp for
+    for (int j = nghost; j < ny+nghost; ++j)
+        for (int i = nghost; i < nx+nghost; ++i){
+            u_hv(i,j) = v_hv(i-io,j-io);
         }
+}
 }
 
 

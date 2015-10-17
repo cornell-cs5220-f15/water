@@ -115,6 +115,7 @@ struct Shallow2D {
     static void wave_speed(real &cx, real &cy, 
             const vec& __restrict u_h, const vec& __restrict u_hu, const vec& __restrict u_hv, int n) {
 
+        #pragma simd
         for(int i=0; i<n; i++) {
             real h = u_h[i];
             real hu = u_hu[i];

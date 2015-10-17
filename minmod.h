@@ -79,7 +79,7 @@ struct MinMod {
 
     static void limdiff_x(vec& __restrict ux, vec& __restrict u, int nx, int ny) {
         real u0, up, um, du1, du2, duc;
-        #pragma ivdep
+        #pragma omp for
         for (int iy = 1; iy < ny-1; ++iy) {
             for (int ix = 1; ix < nx-1; ++ix) {
                 u0 = u[iy * nx + ix];
@@ -95,7 +95,7 @@ struct MinMod {
 
     static void limdiff_y(vec& __restrict uy, vec& __restrict u, int nx, int ny) {
         real u0, up, um, du1, du2, duc;
-        #pragma ivdep
+        #pragma omp for
         for (int iy = 1; iy < ny-1; ++iy) {
             for (int ix = 1; ix < nx-1; ++ix) {
                 u0 = u[iy * nx + ix];
