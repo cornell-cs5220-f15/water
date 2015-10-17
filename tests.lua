@@ -1,6 +1,6 @@
 --
 -- Basic tests
---
+-- Arg 1: Test to run, Arg 2: Test dimension
 nx = tonumber(args[2]) or 200
 
 pond = {
