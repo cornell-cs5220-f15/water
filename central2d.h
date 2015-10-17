@@ -256,11 +256,6 @@ private:
     real& u_hu_wrap(int ix, int iy)  { return u_hu_[ioffset(ix,iy)]; }
     real& u_hv_wrap(int ix, int iy)  { return u_hv_[ioffset(ix,iy)]; }
 
-    // Apply limiter to all components in a vector
-    static void limdiff(real& du, const real& um, const real& u0, const real& up) {
-        du = Limiter::limdiff(um, u0, up);
-    }
-
     // Stages of the main algorithm
     void apply_periodic();
     void compute_fg_speeds(real& cx, real& cy);
@@ -395,97 +390,18 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
-    // #pragma omp parallel 
-    {
-        // x derivatives
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy) {
-                for (int ix = 1; ix < nx_all-1; ++ix) {
-                    limdiff( ux_h(ix,iy), u_h(ix-1,iy), u_h(ix,iy), u_h(ix+1,iy) );
-                }
-            }
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( ux_hu(ix,iy), u_hu(ix-1,iy), u_hu(ix,iy), u_hu(ix+1,iy) );
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( ux_hv(ix,iy), u_hv(ix-1,iy), u_hv(ix,iy), u_hv(ix+1,iy) );
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( fx0(ix,iy), f0(ix-1,iy), f0(ix,iy), f0(ix+1,iy) );
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( fx1(ix,iy), f1(ix-1,iy), f1(ix,iy), f1(ix+1,iy) );
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( fx2(ix,iy), f2(ix-1,iy), f2(ix,iy), f2(ix+1,iy) );
-        }
-
-        // y derivatives
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( uy_h(ix,iy), u_h(ix,iy-1), u_h(ix,iy), u_h(ix,iy+1) );
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( uy_hu(ix,iy), u_hu(ix,iy-1), u_hu(ix,iy), u_hu(ix,iy+1) );
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( uy_hv(ix,iy), u_hv(ix,iy-1), u_hv(ix,iy), u_hv(ix,iy+1) );
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( gy0(ix,iy), g0(ix,iy-1), g0(ix,iy), g0(ix,iy+1) );
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( gy1(ix,iy), g1(ix,iy-1), g1(ix,iy), g1(ix,iy+1) );
-        }
-
-         
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( gy2(ix,iy), g2(ix,iy-1), g2(ix,iy), g2(ix,iy+1) );
-        }
-
-    }
+    Limiter::limdiff_x( ux_h_, u_h_, nx_all, ny_all );
+    Limiter::limdiff_x( ux_hu_, u_hu_, nx_all, ny_all );
+    Limiter::limdiff_x( ux_hv_, u_hv_, nx_all, ny_all );
+    Limiter::limdiff_x( fx0_, f0_, nx_all, ny_all );
+    Limiter::limdiff_x( fx1_, f1_, nx_all, ny_all );
+    Limiter::limdiff_x( fx2_, f2_, nx_all, ny_all );
+    Limiter::limdiff_y( uy_h_, u_h_, nx_all, ny_all );
+    Limiter::limdiff_y( uy_hu_, u_hu_, nx_all, ny_all );
+    Limiter::limdiff_y( uy_hv_, u_hv_, nx_all, ny_all );
+    Limiter::limdiff_y( gy0_, g0_, nx_all, ny_all );
+    Limiter::limdiff_y( gy1_, g1_, nx_all, ny_all );
+    Limiter::limdiff_y( gy2_, g2_, nx_all, ny_all );
 }
 
 
@@ -536,7 +452,6 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     Physics::flux(f0_, f1_, f2_, g0_, g1_, g2_, uh_h_, uh_hu_, uh_hv_, 1, (nx_all-1), 1, (ny_all-1), nx_all);
 
     // Corrector for h component (finish the step)
-    // #pragma omp parallel for collapse(2)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
                 v_h(ix,iy) =
@@ -553,7 +468,6 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector for hu component (finish the step)
-    // #pragma omp parallel for collapse(2)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
                 v_hu(ix,iy) =
@@ -570,7 +484,6 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector for hv component (finish the step)
-    // #pragma omp parallel for collapse(2)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
                 v_hv(ix,iy) =

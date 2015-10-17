@@ -30,7 +30,7 @@
  * limiter:
  */
 
-typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
+typedef Central2D< Shallow2D, MinMod<Shallow2D::real, Shallow2D::vec> > Sim;
 
 /**
  * ## Initial states

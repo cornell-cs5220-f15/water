@@ -57,7 +57,7 @@
  * will improve performance or accuracy.
  */
 
-template <class real>
+template <class real, class vec>
 struct MinMod {
     static constexpr real theta = 2.0;
 
@@ -75,6 +75,38 @@ struct MinMod {
         real du2 = up-u0;         // Difference to right
         real duc = 0.5*(du1+du2); // Centered difference
         return xmin( theta*xmin(du1, du2), duc );
+    }
+
+    static void limdiff_x(vec& __restrict ux, vec& __restrict u, int nx, int ny) {
+        real u0, up, um, du1, du2, duc;
+        #pragma ivdep
+        for (int iy = 1; iy < ny-1; ++iy) {
+            for (int ix = 1; ix < nx-1; ++ix) {
+                u0 = u[iy * nx + ix];
+                up = u[iy * nx + ix + 1];
+                um = u[iy * nx + ix - 1];
+                du1 = u0-um;         // Difference to left
+                du2 = up-u0;         // Difference to right
+                duc = 0.5*(du1+du2); // Centered difference
+                ux[iy * nx + ix] = xmin( theta * xmin(du1, du2), duc );
+            }
+        }
+    }
+
+    static void limdiff_y(vec& __restrict uy, vec& __restrict u, int nx, int ny) {
+        real u0, up, um, du1, du2, duc;
+        #pragma ivdep
+        for (int iy = 1; iy < ny-1; ++iy) {
+            for (int ix = 1; ix < nx-1; ++ix) {
+                u0 = u[iy * nx + ix];
+                up = u[(iy + 1) * nx + ix];
+                um = u[(iy - 1) * nx + ix];
+                du1 = u0-um;         // Difference to left
+                du2 = up-u0;         // Difference to right
+                duc = 0.5*(du1+du2); // Centered difference
+                uy[iy * nx + ix] = xmin( theta * xmin(du1, du2), duc );
+            }
+        }
     }
 };
 
