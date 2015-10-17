@@ -40,7 +40,9 @@ void solution_check(central2d_t* sim)
     float h_sum = 0, hu_sum = 0, hv_sum = 0;
     float hmin = u[central2d_offset(sim,0,0,0)];
     float hmax = hmin;
+    #pragma vector aligned
     for (int j = 0; j < ny; ++j)
+        #pragma vector aligned
         for (int i = 0; i < nx; ++i) {
             float h = u[central2d_offset(sim,0,i,j)];
             h_sum += h;

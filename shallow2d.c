@@ -1,5 +1,6 @@
 #include <string.h>
 #include <math.h>
+#include <immintrin.h>
 
 //ldoc on
 /**
@@ -33,6 +34,7 @@ void shallow2dv_flux(float* restrict fh,
 {
     memcpy(fh, hu, ncell * sizeof(float));
     memcpy(gh, hv, ncell * sizeof(float));
+    #pragma vector aligned
     for (int i = 0; i < ncell; ++i) {
         float hi = h[i], hui = hu[i], hvi = hv[i];
         float inv_h = 1/hi;
@@ -54,6 +56,7 @@ void shallow2dv_speed(float* restrict cxy,
 {
     float cx = cxy[0];
     float cy = cxy[1];
+    #pragma vector aligned
     for (int i = 0; i < ncell; ++i) {
         float hi = h[i];
         float inv_hi = 1.0f/h[i];

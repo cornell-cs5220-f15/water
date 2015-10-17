@@ -5,6 +5,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <immintrin.h>
 
 //ldoc on
 /**
@@ -19,7 +20,7 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
 {
     int ng = 3;
 
-    central2d_t* sim = (central2d_t*) malloc(sizeof(central2d_t));
+    central2d_t* sim = (central2d_t*) _mm_malloc(sizeof(central2d_t), 64);
     sim->nx = nx;
     sim->ny = ny;
     sim->ng = ng;
@@ -34,7 +35,7 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
     int ny_all = ny + 2*ng;
     int nc = nx_all * ny_all;
     int N  = nfield * nc;
-    sim->u  = (float*) malloc((4*N + 6*nx_all)* sizeof(float));
+    sim->u  = (float*) _mm_malloc((4*N + 6*nx_all)* sizeof(float), 64);
     sim->v  = sim->u +   N;
     sim->f  = sim->u + 2*N;
     sim->g  = sim->u + 3*N;
@@ -46,8 +47,8 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
 
 void central2d_free(central2d_t* sim)
 {
-    free(sim->u);
-    free(sim);
+    _mm_free(sim->u);
+    _mm_free(sim);
 }
 
 
@@ -80,7 +81,9 @@ void copy_subgrid(float* restrict dst,
                   const float* restrict src,
                   int nx, int ny, int stride)
 {
+    #pragma vector aligned
     for (int iy = 0; iy < ny; ++iy)
+        #pragma vector aligned
         for (int ix = 0; ix < nx; ++ix)
             dst[iy*stride+ix] = src[iy*stride+ix];
 }
@@ -99,6 +102,7 @@ void central2d_periodic(float* restrict u,
     int t = ng*s, tg = (nx+ng)*s;
 
     // Copy data into ghost cells on each side
+    #pragma vector aligned
     for (int k = 0; k < nfield; ++k) {
         float* uk = u + k*field_stride;
         copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s);
@@ -156,6 +160,7 @@ void limited_deriv1(float* restrict du,
                     const float* restrict u,
                     int ncell)
 {
+    #pragma vector aligned
     for (int i = 0; i < ncell; ++i)
         du[i] = limdiff(u[i-1], u[i], u[i+1]);
 }
@@ -168,6 +173,7 @@ void limited_derivk(float* restrict du,
                     int ncell, int stride)
 {
     assert(stride > 0);
+    #pragma vector aligned
     for (int i = 0; i < ncell; ++i)
         du[i] = limdiff(u[i-stride], u[i], u[i+stride]);
 }
@@ -218,11 +224,14 @@ void central2d_predict(float* restrict v,
 {
     float* restrict fx = scratch;
     float* restrict gy = scratch+nx;
+    #pragma vector aligned
     for (int k = 0; k < nfield; ++k) {
+        #pragma vector aligned
         for (int iy = 1; iy < ny-1; ++iy) {
             int offset = (k*ny+iy)*nx+1;
             limited_deriv1(fx+1, f+offset, nx-2);
             limited_derivk(gy+1, g+offset, nx-2, nx);
+            #pragma vector aligned
             for (int ix = 1; ix < nx-1; ++ix) {
                 int offset = (k*ny+iy)*nx+ix;
                 v[offset] = u[offset] - dtcdx2 * fx[ix] - dtcdy2 * gy[ix];
@@ -244,11 +253,13 @@ void central2d_correct_sd(float* restrict s,
                           float dtcdx2, float dtcdy2,
                           int xlo, int xhi)
 {
+    #pragma vector aligned
     for (int ix = xlo; ix < xhi; ++ix)
         s[ix] =
             0.2500f * (u [ix] + u [ix+1]) +
             0.0625f * (ux[ix] - ux[ix+1]) +
             dtcdx2  * (f [ix] - f [ix+1]);
+    #pragma vector aligned
     for (int ix = xlo; ix < xhi; ++ix)
         d[ix] =
             0.0625f * (uy[ix] + uy[ix+1]) +
@@ -276,7 +287,7 @@ void central2d_correct(float* restrict v,
     float* restrict d0 = scratch + 3*nx;
     float* restrict s1 = scratch + 4*nx;
     float* restrict d1 = scratch + 5*nx;
-
+    #pragma vector aligned
     for (int k = 0; k < nfield; ++k) {
 
         float*       restrict vk = v + k*ny*nx;
@@ -289,7 +300,7 @@ void central2d_correct(float* restrict v,
         central2d_correct_sd(s1, d1, ux, uy,
                              uk + ylo*nx, fk + ylo*nx, gk + ylo*nx,
                              dtcdx2, dtcdy2, xlo, xhi);
-
+        #pragma vector aligned
         for (int iy = ylo; iy < yhi; ++iy) {
 
             float* tmp;
@@ -301,7 +312,7 @@ void central2d_correct(float* restrict v,
             central2d_correct_sd(s1, d1, ux, uy,
                                  uk + (iy+1)*nx, fk + (iy+1)*nx, gk + (iy+1)*nx,
                                  dtcdx2, dtcdy2, xlo, xhi);
-
+            #pragma vector aligned
             for (int ix = xlo; ix < xhi; ++ix)
                 vk[iy*nx+ix] = (s1[ix]+s0[ix])-(d1[ix]-d0[ix]);
         }
@@ -330,6 +341,7 @@ void central2d_step(float* restrict u, float* restrict v,
                       nx_all, ny_all, nfield);
 
     // Flux values of f and g at half step
+    #pragma vector aligned
     for (int iy = 1; iy < ny_all-1; ++iy) {
         int jj = iy*nx_all+1;
         flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
