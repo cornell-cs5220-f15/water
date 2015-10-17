@@ -67,7 +67,7 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
 
 // When TIMING_ENABLED is defined, simulators are timed, rather than checked
 // for correctness.
-// #define TIMING_ENABLED
+ #define TIMING_ENABLED
 
 /*
  * `validate(ref_sim, sim)` validates that `ref_sim` and `sim` are simulating
