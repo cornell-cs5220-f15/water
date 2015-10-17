@@ -1,0 +1,9 @@
+Vectorization and vectorization report
+C, C++ and the troubles with aliasing
+Use one big array and partition in to 3 instead of 3 separate.
+Do flux in one big go. Parallelize later. Same with speed!
+Use assert to tell what the values are to the compiler.
+Memory trimming after vectorization
+
+Domain decomposition
+    Use the same time step for few steps because the max speed may not vary by too much. Synchronize later and check.

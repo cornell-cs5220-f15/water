@@ -91,28 +91,29 @@ struct Shallow2D {
      * --------------------------------------------------------------------------
      */
     static void flux(
-            vec& f0, vec& f1, vec& f2, 
-            vec& g0, vec& g1, vec& g2,
-            vec& u_h, vec& u_hu, vec& u_hv, 
+            vec& __restrict f0, vec& __restrict f1, vec& __restrict f2, 
+            vec& __restrict g0, vec& __restrict g1, vec& __restrict g2,
+            vec& __restrict u_h, vec& __restrict u_hu, vec& __restrict u_hv, 
             int x_begin, int x_end, int y_begin, int y_end, int nx) {
     
-        f0 = u_hu;
-        g0 = u_hv;
-
-        // #pragma ivdep
-        for(int i=0; i<n; i++) {
-            real h = u_h[i];
-            real hu = u_hu[i];
-            real hv = u_hv[i];
-            f1[i] = (hu * hu)/h + 0.5 * g * h * h;
-            f2[i] = (hu * hv)/h;
-            g1[i] = (hu * hv)/h;
-            g2[i] = (hv * hv)/h + 0.5 * g * h * h;
+        #pragma simd
+        for(int i=x_begin; i<x_end; i++) {
+            for(int j=y_begin; j<y_end; j++) {
+                real h = u_h[j*nx + i];
+                real hu = u_hu[j*nx + i];
+                real hv = u_hv[j*nx + i];
+                f0[j*nx + i] = hu;
+                g0[j*nx + i] = hv;
+                f1[j*nx + i] = (hu * hu)/h + 0.5 * g * h * h;
+                f2[j*nx + i] = (hu * hv)/h;
+                g1[j*nx + i] = (hu * hv)/h;
+                g2[j*nx + i] = (hv * hv)/h + 0.5 * g * h * h;
+            }
         }
     }
 
     static void wave_speed(real &cx, real &cy, 
-            const vec& u_h, const vec& u_hu, const vec& u_hv, int n) {
+            const vec& __restrict u_h, const vec& __restrict u_hu, const vec& __restrict u_hv, int n) {
 
         for(int i=0; i<n; i++) {
             real h = u_h[i];
