@@ -10,20 +10,44 @@
 # Or create a Makefile.in.xxx of your own!
 #
 
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Darwin)
+PLATFORM=icc-mac
+else
 PLATFORM=icc
+endif
+
 include Makefile.in.$(PLATFORM)
 
 # ===
 # Main driver and sample run
 
-shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $<
+lshallow: ldriver.o shallow2d.o stepper.o
+	$(CC) $(CFLAGS) $(LUA_CFLAGS) -o $@ $^ $(LUA_LIBS)
 
-.PHONY: run big
+ldriver.o: ldriver.c shallow2d.h
+	$(CC) $(CFLAGS) $(LUA_CFLAGS) -c $<
+
+shallow2d.o: shallow2d.c
+	$(CC) $(CFLAGS) -c $<
+
+stepper.o: stepper.c
+	$(CC) $(CFLAGS) -c $<
+
+lshallow.dSYM: lshallow
+	dsymutil lshallow -o lshallow.dSYM
+
+.PHONY: run big iprofile
 run: dam_break.gif
 
-big: shallow
-	./shallow -i wave -o wave -n 1000 -F 100
+.PHONY: iprofile
+iprofile: lshallow lshallow.dSYM
+	iprofiler -timeprofiler -o lshallow_perf ./lshallow tests.lua dam 400
+	open lshallow_perf.dtps
+
+big: lshallow
+	./lshallow tests.lua dam 400
 
 
 # ===
@@ -31,9 +55,9 @@ big: shallow
 
 .PHONY: maqao scan-build
 
-maqao: shallow
+maqao: lshallow
 	( module load maqao ; \
-	  maqao cqa ./shallow fct=compute_step uarch=HASWELL )
+	  maqao cqa ./lshallow fct=compute_step uarch=HASWELL )
 
 scan-build:
 	( module load llvm-analyzer ; \
@@ -57,19 +81,19 @@ wave.mp4: wave.out
 # ===
 # Generate output files
 
-dam_break.out: shallow
-	./shallow -i dam_break -o dam_break
+dam_break.out: lshallow
+	./lshallow tests.lua dam
 
-wave.out: shallow
-	./shallow -i wave -o wave -F 100
+wave.out: lshallow
+	./lshallow tests.lua wave
 
 # ===
 # Generate documentation
 
-shallow.pdf: intro.md shallow.md
+shallow.pdf: intro.md jt-scheme.md shallow.md
 	pandoc --toc $^ -o $@
 
-shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
+shallow.md: stepper.h stepper.c shallow2d.h shallow2d.c ldriver.c
 	ldoc $^ -o $@
 
 # ===
@@ -77,7 +101,9 @@ shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
 
 .PHONY: clean
 clean:
-	rm -f shallow
+	rm -f lshallow *.o
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
-
+	rm -f *.optrpt
+	rm -rf *.dSYM
+	rm -rf lshallow_perf.dtps
