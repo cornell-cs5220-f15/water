@@ -1,0 +1,3 @@
+#!/bin/bash
+
+scp djf244@totient:workspace/water/$1 .
