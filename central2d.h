@@ -310,8 +310,8 @@ void Central2D<Physics, Limiter>::limited_derivs()
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             // y derivs
-            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
+            limdiff( uy(ix,iy), u(ix, iy-1), u(ix,iy), u(ix,iy+1) );
+            limdiff( gy(ix,iy), g(ix, iy-1), g(ix,iy), g(ix,iy+1) );
         }
 }
 
@@ -349,7 +349,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 //    {
 
     // Predictor (flux values of f and g at half step)
-    #pragma omp for nowait
+    #pragma omp for
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             vec uh = u(ix,iy);
@@ -413,7 +413,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         real dt;
         for (int io = 0; io < 2; ++io) {
             real cx, cy;
-            #pragma omp parallel proc_bind(close)
+            #pragma omp parallel
             {
             apply_periodic();
             compute_fg_speeds(cx, cy);
