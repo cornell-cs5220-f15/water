@@ -9,6 +9,17 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import re
 import os
+from optparse import OptionParser, Option
+
+def option_parse():
+  usage = "usage: %prog [options]"
+  parser = OptionParser(usage=usage)
+  parser.add_option("-t", "--types",
+                  default="1",
+                  dest="types",
+                  help="1 - cells/seconds vs nx, 2 - seconds vs nx "
+                       "[default: %default]")
+  return parser 
 
 def average(l):
   return float(sum(l))/len(l)
@@ -88,8 +99,11 @@ def parse_qsub_result(runs):
           start=parse_lines[i], end=parse_lines[i+1])
       # Write data 
       # x axis : nx (number of cells per side)
-      # y axis : average time/nx 
-      f.write(str(nx[0])+','+str(times[0]/nx[0])+'\n') 
+      # y axis : cells / seconds 
+      if options.types == "1":
+        f.write(str(nx[0])+','+str(nx[0]*nx[0]*nx[0]/times[0])+'\n') 
+      elif options.types == "2":
+        f.write(str(nx[0])+','+str(times[0])+'\n') 
   f.close()
 
   # Insert header into first line
@@ -111,8 +125,11 @@ def make_plot(runs):
       file_name=arg.split('.o')[0]
       df = pd.read_csv("timing-"+file_name+".csv")
       plt.plot(df['nx'], df['time'], label=file_name)
-  plt.xlabel('Number of cells per side')
-  plt.ylabel('Time/#cells [s]')
+  plt.xlabel('nx')
+  if options.types == "1":
+    plt.ylabel('Cells / Seconds')
+  elif options.types == "2":
+    plt.ylabel('Seconds')
 
 def show(runs):
   "Show plot of timing runs (for interactive use)"
@@ -121,12 +138,14 @@ def show(runs):
   plt.show()
 
 def main(runs):
+  print options.types 
   "Parse qsub result and make csv file"
   parse_qsub_result(runs)
   "Show plot of timing runs (non-interactive)"
   make_plot(runs)
   lgd = plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-  plt.savefig('timing.pdf', bbox_extra_artists=(lgd,), bbox_inches='tight')
+  plt.savefig('timing%s.pdf'%options.types, bbox_extra_artists=(lgd,), bbox_inches='tight')
 
 if __name__ == "__main__":
-  main(sys.argv[1:])
+  (options, args) = option_parse().parse_args()
+  main(sys.argv[3:])
