@@ -31,6 +31,7 @@ void shallow2dv_flux(float* restrict fh,
                      float g,
                      int ncell)
 {
+  /* fh = hu, gh = fv, from the flux equations */
     memcpy(fh, hu, ncell * sizeof(float));
     memcpy(gh, hv, ncell * sizeof(float));
     for (int i = 0; i < ncell; ++i) {
