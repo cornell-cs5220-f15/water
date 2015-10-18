@@ -282,9 +282,9 @@ void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-    for (int j = nghost; j < ny+nghost; ++j){
-        for (int i = nghost; i < nx+nghost; ++i){
-            for (int k = 0; k < num_fields; ++k) {
+    for (int k = 0; k < num_fields; ++k) {
+        for (int j = nghost; j < ny+nghost; ++j){
+            for (int i = nghost; i < nx+nghost; ++i){
                 u(k, i, j) = v(k, i-io, j-io);
             }
         }
