@@ -17,9 +17,9 @@
 
 central2d_t* central2d_init(float w, float h, int nx, int ny,
                             int nfield, flux_t flux, speed_t speed,
-                            float cfl)
+                            float cfl, int b)
 {
-    int ng = 3;
+    int ng = 3*b; //TODO: check if this is right
 
     central2d_t* sim = (central2d_t*) _mm_malloc(sizeof(central2d_t), 64);
     sim->nx = nx;
@@ -458,7 +458,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float tfinal, float dx, float dy, float cfl,
                    int p,
                    central2d_t** blocks,
-                   central2d_t* sim
+                   central2d_t* sim,
+                   int b
                 )
 {
     int nstep = 0;
@@ -471,23 +472,21 @@ int central2d_xrun(float* restrict u, float* restrict v,
         central2d_periodic(u, nx, ny, ng, nfield);
         speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
         float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-        if (t + 2*dt >= tfinal) {
-            dt = (tfinal-t)/2;
+        int rounds = b;
+        dt = dt * 0.9; // TODO: Figure out backoff
+        if (t + 2*rounds*dt >= tfinal) {
+            dt = (tfinal-t)/(2*rounds);
             done = true;
         }
         //parallel
         //TODO: memcpy to blocks
-        // print_block(sim);
         for (int i = 0; i < p; i++) {
             int offset_x;
             int offset_y;
             offsets(&offset_x, &offset_y, i, p, sim);
             copy_to_block(offset_x, offset_y, blocks[i], sim);
-            // print_block(blocks[i]);
         }
-        // return 100000;
         //barrier
-        int rounds = 1;
         for (int proc = 0; proc < p; proc++) {
             for(int i = 0; i < rounds; i++) {
                 central2d_step(blocks[proc]->u, blocks[proc]->v, blocks[proc]->scratch, blocks[proc]->f, blocks[proc]->g,
@@ -498,10 +497,6 @@ int central2d_xrun(float* restrict u, float* restrict v,
                                1, blocks[proc]->nx, blocks[proc]->ny, blocks[proc]->ng,
                                blocks[proc]->nfield, blocks[proc]->flux, blocks[proc]->speed,
                                dt, blocks[proc]->dx, blocks[proc]->dy);
-                // central2d_step(u, v, scratch, f, g,
-                //                1, nx, ny, ng,
-                //                nfield, flux, speed,
-                //                dt, dx, dy);
             }
         }
         //parallel
@@ -512,8 +507,6 @@ int central2d_xrun(float* restrict u, float* restrict v,
             offsets(&offset_x, &offset_y, i, p, sim);
             copy_to_global(offset_x, offset_y, blocks[i], sim);
         }
-        // print_block(sim);
-        // return 1000000;
         //barrier
         t += 2*rounds*dt;
         nstep += 2*rounds;
@@ -522,19 +515,18 @@ int central2d_xrun(float* restrict u, float* restrict v,
 }
 
 
-int central2d_run(central2d_t* sim, float tfinal)
+int central2d_run(central2d_t* sim, float tfinal, int p, int b)
 {
-    int p = 4;
     int side = (int) sqrt(p);
     central2d_t** blocks = (central2d_t**) malloc(sizeof(central2d_t*)*p);
     for(int i = 0; i < p; i++) {
         blocks[i] = central2d_init(sim->nx*sim->dx/side, sim->ny*sim->dy/side,
                        sim->nx/side, sim->ny/side, sim->nfield,
-                       sim->flux, sim->speed, sim->cfl);
+                       sim->flux, sim->speed, sim->cfl, b);
     }
     return central2d_xrun(sim->u, sim->v, sim->scratch,
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl, p, blocks, sim);
+                          tfinal, sim->dx, sim->dy, sim->cfl, p, blocks, sim, b);
 }
