@@ -211,6 +211,8 @@ int main(int argc, char** argv)
 
     double total = 0.0;
     std::ofstream time_file;
+    std::ofstream avg_file;
+    avg_file.open("average.csv");
     time_file.open("timings.csv");
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
@@ -226,7 +228,9 @@ int main(int argc, char** argv)
         sim.solution_check();
         viz.write_frame();
     }
+    avg_file << (total/(double)frames) << std::endl;
     time_file << total << std::endl;
     time_file.close();
+    avg_file.close();
 
 }
