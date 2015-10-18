@@ -7,7 +7,9 @@
 \usepackage{listings}
 \usepackage{cpp}
 
+\newcommand{\todo}[1]{{\huge \textcolor{red}{TODO: #1}}}
 \newcommand{\ttt}[1]{{\footnotesize \texttt{#1}}}
+\newcommand{\secref}[1]{\S \ref{sec:#1}}
 
 \begin{document}
 \maketitle
@@ -18,4 +20,5 @@
 \input{vectorization.tex}
 \input{parallelization.tex}
 \input{evaluation.tex}
+\input{future.tex}
 \end{document}
