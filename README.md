@@ -46,7 +46,7 @@ After you get `.o` files from qsub, you can run this script like below. This
 will include every files with `.o`.
 
 ```
-./plotter.py *.o*
+./plotter.py -t 1 *.o*
 ```
 
 This will automatically find timing in `.o` files and generate `.cvs` files,
@@ -56,6 +56,17 @@ You can also generate for two different version in a single plot. For example,
 if you have `vec.o12345` and `par.o12346`, run like below:
 
 ```
-./plotter.py vec.o12345 par.o12345
+./plotter.py -t 1 vec.o12345 par.o12345
+```
+
+If you want to generate different types of graphs.
+```
+./plotter.py -t 2 vec.o12345 par.o12345
+```
+
+Currently, type 1 draws "cells/seconds vs nx", and type 2 draws "seconds vs nx". To see more infomation type:
+
+```
+./plotter.py -h
 ```
 
