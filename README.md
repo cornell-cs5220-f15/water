@@ -64,7 +64,8 @@ If you want to generate different types of graphs.
 ./plotter.py -t 2 vec.o12345 par.o12345
 ```
 
-Currently, type 1 draws "cells/seconds vs nx", and type 2 draws "seconds vs nx". To see more infomation type:
+Currently, type 1 draws "cells/seconds vs nx", and type 2 draws "seconds vs
+nx". To see more infomation type:
 
 ```
 ./plotter.py -h
