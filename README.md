@@ -46,7 +46,7 @@ After you get `.o` files from qsub, you can run this script like below. This
 will include every files with `.o`.
 
 ```
-./plotter.py -t 1 *.o*
+./plotter.py -t 1 *.o[1-9]*
 ```
 
 This will automatically find timing in `.o` files and generate `.cvs` files,
