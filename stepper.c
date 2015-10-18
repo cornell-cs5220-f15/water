@@ -335,15 +335,10 @@ void central2d_step(float* restrict u, float* restrict v,
         flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
     }
 
-    central2d_correct(v, scratch, u, f, g, dtcdx2, dtcdy2,
+    central2d_correct(v+io*(nx_all+1), scratch, u, f, g, dtcdx2, dtcdy2,
                       ng-io, nx+ng-io,
                       ng-io, ny+ng-io,
                       nx_all, ny_all, nfield);
-
-    // Copy from v storage back to main grid
-    memcpy(u+(ng   )*nx_all+ng,
-           v+(ng-io)*nx_all+ng-io,
-           (nfield*ny_all-ng) * nx_all * sizeof(float));
 }
 
 
@@ -388,8 +383,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
                        0, nx, ny, ng,
                        nfield, flux, speed,
                        dt, dx, dy);
-        central2d_periodic(u, nx, ny, ng, nfield);
-        central2d_step(u, v, scratch, f, g,
+        central2d_periodic(v, nx, ny, ng, nfield);
+        central2d_step(v, u, scratch, f, g,
                        1, nx, ny, ng,
                        nfield, flux, speed,
                        dt, dx, dy);
