@@ -478,15 +478,18 @@ int central2d_xrun(float* restrict u, float* restrict v,
             dt = (tfinal-t)/(2*rounds);
             done = true;
         }
-        //parallel
-        //TODO: memcpy to blocks
+
+        //copy memory to each subdomain
+        #pragma omp parallel for
         for (int i = 0; i < p; i++) {
             int offset_x;
             int offset_y;
             offsets(&offset_x, &offset_y, i, p, sim);
             copy_to_block(offset_x, offset_y, blocks[i], sim);
         }
-        //barrier
+
+        // run each subdomain for b*2 steps
+        #pragma omp parallel for
         for (int proc = 0; proc < p; proc++) {
             for(int i = 0; i < rounds; i++) {
                 central2d_step(blocks[proc]->u, blocks[proc]->v, blocks[proc]->scratch, blocks[proc]->f, blocks[proc]->g,
@@ -499,15 +502,17 @@ int central2d_xrun(float* restrict u, float* restrict v,
                                dt, blocks[proc]->dx, blocks[proc]->dy);
             }
         }
-        //parallel
-        //TODO: memcpy to global
+
+
+        // copy memory to global sim
+        #pragma omp parallel for
         for (int i = 0; i < p; i++) {
             int offset_x;
             int offset_y;
             offsets(&offset_x, &offset_y, i, p, sim);
             copy_to_global(offset_x, offset_y, blocks[i], sim);
         }
-        //barrier
+
         t += 2*rounds*dt;
         nstep += 2*rounds;
     }

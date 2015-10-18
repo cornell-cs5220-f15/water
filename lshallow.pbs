@@ -7,4 +7,4 @@
 
 module load cs5220
 cd $PBS_O_WORKDIR
-./lshallow tests.lua river 200 4 4
+./lshallow tests.lua dam 1000 4 4
