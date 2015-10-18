@@ -80,4 +80,5 @@ clean:
 	rm -f shallow
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
-
+	rm -f *.optrpt
+	rm -f *.o*
