@@ -17,7 +17,7 @@ include Makefile.in.$(PLATFORM)
 # Main driver and sample run
 
 
-shallow: driverVEC.cc central2dvec.h shallow2dvec.h minmodvec.h meshio.h
+shallow: driverVEC.cc central2dvec.h shallow2dvec.h minmodvec.h meshiovec.h
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
 .PHONY: run big
