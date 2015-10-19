@@ -66,7 +66,7 @@ struct MinMod {
         using namespace std;
         return ((copysign((real) 0.5, a) +
                  copysign((real) 0.5, b)) *
-                min( abs(a), abs(b) ));
+                fmin( fabs(a), fabs(b) ));
     }
 
     // Limited combined slope estimate
