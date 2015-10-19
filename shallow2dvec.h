@@ -1,5 +1,5 @@
-#ifndef SHALLOW2D_H
-#define SHALLOW2D_H
+#ifndef SHALLOW2DVEC_H
+#define SHALLOW2DVEC_H
 
 #include <cmath>
 #include <array>
@@ -70,7 +70,7 @@ struct Shallow2D {
 
   // Compute shallow water fluxes F(U), G(U) for all points in the grid
   static void vflux(iter F,iter FU, iter FV , iter G,iter GU, iter GV,
-		    const iter h, const iter hu, const iter hv, int ncell)
+		    iter h, iter hu, iter hv, int ncell)
   {
     std::copy(hu,hu+ncell,F);
     std::copy(hv,hv+ncell,G);
@@ -84,19 +84,19 @@ struct Shallow2D {
     }
   }
 
-  static void flux(vec& FU, vec& GU, const vec& U
+  static void flux(iter FU, iter GU, const iter U,
 		   int ncell, int field_stride)
   {
-    vflux(FU.begin(),FU.begin()+field_stride,FU.begin()+2*field_stride,
-	  GU.begin(),GU.begin()+field_stride,GU.begin()+2*field_strid,
-	  U.begin(),U.begin()+field_stride,U.begin()+2*field_strid,ncell);
+    vflux(FU,FU+field_stride,FU+2*field_stride,
+	  GU,GU+field_stride,GU+2*field_stride,
+	  U,U+field_stride,U+2*field_stride,ncell);
   }
 
   // Compute shallow water wave speed
-  static void wavev_speed(real& cx, real& cy, const iter h, const iter hu,
-			  const iter hv, int ncell) {
+  static void wavev_speed(real& cx, real& cy, iter h, iter hu,
+			  iter hv, int ncell) {
     using namespace std;
-    real cx2,cy2
+    real cx2,cy2;
     for (int i = 0; i < ncell; ++i,++h,++hu,++hv){
         real hi = *h;
         real inv_hi=1/hi;
