@@ -530,35 +530,35 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             int nx_local, ny_local;          // Number of (non-ghost) cells in x/y
             nx_local = width;
             ny_local = height;
-            int nx_all_local, ny_all_local;  // Total cells in x/y (including ghost)
-            nx_all_local = width + (2*numPadding);
-            ny_all_local = height + (2* numPadding);
+            // Total cells in x/y (including ghost)
+            const int nx_all_local = width + (2*numPadding);
+            const int ny_all_local = height + (2* numPadding);
             //now the block has been established and the relevant section of the main
             //block of memory is a square with width nx_all_local and height ny_all_local
 
             //copy the relevant section into local memory
-            std::vector<vec> u_local (nx_all_local * ny_all_local);            // Solution values
-            std::vector<vec> f_local (nx_all_local * ny_all_local);            // Fluxes in x
-            std::vector<vec> g_local (nx_all_local * ny_all_local);            // Fluxes in y
-            std::vector<vec> ux_local (nx_all_local * ny_all_local);           // x differences of u
-            std::vector<vec> uy_local (nx_all_local * ny_all_local);           // y differences of u
-            std::vector<vec> fx_local (nx_all_local * ny_all_local);           // x differences of f
-            std::vector<vec> gy_local (nx_all_local * ny_all_local);           // y differences of g
-            std::vector<vec> v_local (nx_all_local * ny_all_local);            // Solution values at next step
+            const std::vector<vec> u_local (nx_all_local * ny_all_local);            // Solution values
+            const std::vector<vec> f_local (nx_all_local * ny_all_local);            // Fluxes in x
+            const std::vector<vec> g_local (nx_all_local * ny_all_local);            // Fluxes in y
+            const std::vector<vec> ux_local (nx_all_local * ny_all_local);           // x differences of u
+            const std::vector<vec> uy_local (nx_all_local * ny_all_local);           // y differences of u
+            const std::vector<vec> fx_local (nx_all_local * ny_all_local);           // x differences of f
+            const std::vector<vec> gy_local (nx_all_local * ny_all_local);           // y differences of g
+            const std::vector<vec> v_local (nx_all_local * ny_all_local);            // Solution values at next step
 
             // Array accessor functions
 
             const auto offset_local = [nx_all_local](int ix, int iy) { return iy*nx_all_local+ix; };
 
-            vec& u_l = [offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
-            vec& v_l = [offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
-            vec& f_l = [offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
-            vec& g_l = [offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
+            const vec& u_l = [offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
+            const vec& v_l = [offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
+            const vec& f_l = [offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
+            const vec& g_l = [offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
 
-            vec& ux_l = [offset_local, ux_local](int ix, int iy)   { return ux_local[offset_local(ix,iy)]; };
-            vec& uy_l = [offset_local, uy_local](int ix, int iy)   { return uy_local[offset_local(ix,iy)]; };
-            vec& fx_l = [offset_local, fx_local](int ix, int iy)   { return fx_local[offset_local(ix,iy)]; };
-            vec& gy_l = [offset_local, gy_local](int ix, int iy)   { return gy_local[offset_local(ix,iy)]; };
+            const vec& ux_l = [offset_local, ux_local](int ix, int iy)   { return ux_local[offset_local(ix,iy)]; };
+            const vec& uy_l = [offset_local, uy_local](int ix, int iy)   { return uy_local[offset_local(ix,iy)]; };
+            const vec& fx_l = [offset_local, fx_local](int ix, int iy)   { return fx_local[offset_local(ix,iy)]; };
+            const vec& gy_l = [offset_local, gy_local](int ix, int iy)   { return gy_local[offset_local(ix,iy)]; };
 
             int xStart = b_x - numPadding;
             int yStart = b_y - numPadding;
