@@ -1,5 +1,5 @@
 #=========================================================================
-# fig-parallel-node-results.py
+# fig-parallel-node-weak-results.py
 #=========================================================================
 
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ import numpy as np
 fig_width_pt  = 244.0
 inches_per_pt = 1.0/72.27                     # convert pt to inch
 
-aspect_ratio  = 0.55
+aspect_ratio  = 0.70
 
 fig_width     = 6.0                           # width in inches
 fig_height    = fig_width * aspect_ratio      # height in inches
@@ -72,13 +72,13 @@ perf_data = [
   # parallel (4 threads)
 
   [
-    1.32e-2, 8.67e-3, 1.10e-2, 1.31e-2,
+    1.02e-1, 5.87e-2, 1.00e-1, 1.11e-1,
   ],
 
   # parallel (16 threads)
 
   [
-    7.22e-3, 5.66e-3, 6.98e-3, 8.52e-3,
+    9.82e-1, 6.86e-1, 9.40e-1, 1.10e0,
   ],
 
 ]

@@ -2,20 +2,41 @@
 % fig-parallel-node-results.tex
 %=========================================================================
 
-\begin{figure}
+\begin{figure*}[h]
+
+  \begin{minipage}[t]{0.48\tw}
+  \begin{subfigure}{\tw}
 
   \centering
-  \includegraphics[width=0.8\tw]{fig-parallel-node-results.py.pdf}
+  \includegraphics[width=1.0\tw]{fig-parallel-node-strong-results.py.pdf}
+  \caption{\textbf{Strong Scaling Study}}
+  \label{fig-parallel-node-strong-results}
 
-  \caption{\textbf{Strong Scaling Study of Parallel Implementation
-      Running on Compute Nodes --} Performance of the parallel
-    implementation of the shallow water equation solver running on the
-    Totient compute nodes compared against the provided serial
-    implementation for all initial conditions. Experiments are on the
-    default 200x200 grid. All results are normalized to the serial
-    implementation. }
+  \end{subfigure}
+  \end{minipage}%
+  \hfill%
+  \begin{minipage}[t]{0.48\tw}
+  \begin{subfigure}{\tw}
 
+  \centering
+  \includegraphics[width=1.0\tw]{fig-parallel-node-weak-results.py.pdf}
+  \caption{\textbf{Weak Scaling Study}}
+  \label{fig-parallel-node-weak-results}
+
+  \end{subfigure}
+  \end{minipage}%
+
+  \caption{\textbf{Performance Results of Parallel Implementation of
+      Shallow Water Equation Solver Running on Compute Nodes --}
+    Performance of the parallel implementation of the shallow water
+    equation solver running on the Totient compute nodes compared against
+    the provided serial implementation for all initial conditions. All
+    speedups are the execution time normalized to the serial
+    implementation. For the strong scaling experiment, we use the default
+    200x200 grid.  For the weak scaling study, we increase the problem
+    size at the same factor as the increasing number of threads (e.g.,
+    200x200 grid for 1 thread, 400x400 grid for 4 threads, etc.). }
   \label{fig-parallel-node-results}
 
-\end{figure}
+\end{figure*}
 

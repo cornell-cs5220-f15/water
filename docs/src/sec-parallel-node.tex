@@ -119,11 +119,11 @@ The pseudocode for our current parallelization is as follows:
   }
 \end{verbatim}
 
+\input{fig-parallel-node-results}
+
 The preliminary results comparing the performance of the serial and
 parallel implementations of the shallow water equation solver running the
 compute nodes is shown in Figure~\ref{fig-parallel-node-results}.
-
-\input{fig-parallel-node-results}
 
 Currently we only support square block sizes and block sizes that evenly
 divide the grid dimensions, so we only experiment with running 4 and 16
