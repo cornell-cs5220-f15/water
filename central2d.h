@@ -206,7 +206,7 @@ private:
                               vec& fx, 
                               vec& gy);
     void compute_step_local(int io, 
-                            real dt 
+                            real dt, 
                             int nx_all, 
                             int ny_all, 
                             vec& u, 
@@ -420,7 +420,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_step_local(int io, 
-                                                     real dt 
+                                                     real dt, 
                                                      int nx_all, 
                                                      int ny_all, 
                                                      vec& u, 
