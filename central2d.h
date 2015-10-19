@@ -548,17 +548,17 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             // Array accessor functions
 
-            const auto offset_local = [nx_all_local](int ix, int iy) { return iy*nx_all_local+ix; };
+            auto offset_local = [nx_all_local](int ix, int iy) { return iy*nx_all_local+ix; };
 
-            const vec& u_l = [offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
-            const vec& v_l = [offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
-            const vec& f_l = [offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
-            const vec& g_l = [offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
+            vec& u_l = [offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
+            vec& v_l = [offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
+            vec& f_l = [offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
+            vec& g_l = [offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
 
-            const vec& ux_l = [offset_local, ux_local](int ix, int iy)   { return ux_local[offset_local(ix,iy)]; };
-            const vec& uy_l = [offset_local, uy_local](int ix, int iy)   { return uy_local[offset_local(ix,iy)]; };
-            const vec& fx_l = [offset_local, fx_local](int ix, int iy)   { return fx_local[offset_local(ix,iy)]; };
-            const vec& gy_l = [offset_local, gy_local](int ix, int iy)   { return gy_local[offset_local(ix,iy)]; };
+            vec& ux_l = [offset_local, ux_local](int ix, int iy)   { return ux_local[offset_local(ix,iy)]; };
+            vec& uy_l = [offset_local, uy_local](int ix, int iy)   { return uy_local[offset_local(ix,iy)]; };
+            vec& fx_l = [offset_local, fx_local](int ix, int iy)   { return fx_local[offset_local(ix,iy)]; };
+            vec& gy_l = [offset_local, gy_local](int ix, int iy)   { return gy_local[offset_local(ix,iy)]; };
 
             int xStart = b_x - numPadding;
             int yStart = b_y - numPadding;
