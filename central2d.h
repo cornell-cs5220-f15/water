@@ -550,8 +550,8 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             auto offset_local = [nx_all_local](int ix, int iy) { return iy*nx_all_local+ix; };
 
-            vec& u_l = [const offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
-            vec& v_l = [const offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
+            vec& u_l = [offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
+            vec& v_l = [offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
             vec& f_l = [offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
             vec& g_l = [offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
 
