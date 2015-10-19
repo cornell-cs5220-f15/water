@@ -551,15 +551,15 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             const std::function<int(int, int)> offset_local = [nx_all_local](int ix, int iy) { return iy*nx_all_local+ix; };
 
-            std::function<vec&(int, int)> u_l = [offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
-            std::function<vec&(int, int)> v_l = [offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
-            std::function<vec&(int, int)> f_l = [offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
-            std::function<vec&(int, int)> g_l = [offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
+            std::function<vec(int, int)> u_l = [&, offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
+            std::function<vec(int, int)> v_l = [&, offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
+            std::function<vec(int, int)> f_l = [&, offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
+            std::function<vec(int, int)> g_l = [&, offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
 
-            std::function<vec&(int, int)> ux_l = [offset_local, ux_local](int ix, int iy)   { return ux_local[offset_local(ix,iy)]; };
-            std::function<vec&(int, int)> uy_l = [offset_local, uy_local](int ix, int iy)   { return uy_local[offset_local(ix,iy)]; };
-            std::function<vec&(int, int)> fx_l = [offset_local, fx_local](int ix, int iy)   { return fx_local[offset_local(ix,iy)]; };
-            std::function<vec&(int, int)> gy_l = [offset_local, gy_local](int ix, int iy)   { return gy_local[offset_local(ix,iy)]; };
+            std::function<vec(int, int)> ux_l = [&, offset_local, ux_local](int ix, int iy)   { return ux_local[offset_local(ix,iy)]; };
+            std::function<vec(int, int)> uy_l = [&, offset_local, uy_local](int ix, int iy)   { return uy_local[offset_local(ix,iy)]; };
+            std::function<vec(int, int)> fx_l = [&, offset_local, fx_local](int ix, int iy)   { return fx_local[offset_local(ix,iy)]; };
+            std::function<vec(int, int)> gy_l = [&, offset_local, gy_local](int ix, int iy)   { return gy_local[offset_local(ix,iy)]; };
 
             int xStart = b_x - numPadding;
             int yStart = b_y - numPadding;
