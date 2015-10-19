@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2013.5.30)  19 OCT 2015 17:26
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2013.5.30)  19 OCT 2015 18:32
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -393,32 +393,41 @@ File: nowait.png Graphic file (type png)
 <use nowait.png>
 Package pdftex.def Info: nowait.png used on input line 188.
 (pdftex.def)             Requested size: 375.80544pt x 34.18657pt.
- [6 <./ThreadMovement.png> <./bindoff.png>]
-<nowait2.png, id=41, 2284.535pt x 205.76875pt>
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<nowait2.png, id=36, 2284.535pt x 205.76875pt>
 File: nowait2.png Graphic file (type png)
  <use nowait2.png>
 Package pdftex.def Info: nowait2.png used on input line 196.
 (pdftex.def)             Requested size: 375.80544pt x 33.84676pt.
 
-<bindspread.png, id=42, 1336.995pt x 119.44624pt>
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<bindspread.png, id=37, 1336.995pt x 119.44624pt>
 File: bindspread.png Graphic file (type png)
  <use bindspread.png>
 Package pdftex.def Info: bindspread.png used on input line 204.
 (pdftex.def)             Requested size: 375.80544pt x 33.57411pt.
- [7 <./nowait.png> <./nowait2.png> <./bindspread.png>]
-<ssplot.png, id=50, 481.8pt x 361.35pt>
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+[6 <./ThreadMovement.png> <./bindoff.png>] [7 <./nowait.png> <./nowait2.png>]
+<ssplot.png, id=49, 481.8pt x 361.35pt>
 File: ssplot.png Graphic file (type png)
  <use ssplot.png>
 Package pdftex.def Info: ssplot.png used on input line 247.
 (pdftex.def)             Requested size: 234.8775pt x 176.1588pt.
- [8 <./ssplot.png>]
-<wsplot.png, id=56, 481.8pt x 361.35pt>
+ [8 <./bindspread.png> <./ssplot.png>] <wsplot.png, id=56, 481.8pt x 361.35pt>
 File: wsplot.png Graphic file (type png)
  <use wsplot.png>
 Package pdftex.def Info: wsplot.png used on input line 276.
 (pdftex.def)             Requested size: 234.8775pt x 176.1588pt.
- [9 <./wsplot.png>]
-[10] (./Report_prelim.aux)
+
+[9 <./wsplot.png>] [10] (./Report_prelim.aux)
 
 LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
@@ -430,7 +439,7 @@ Here is how much of TeX's memory you used:
  7763 multiletter control sequences out of 15000+600000
  11161 words of font info for 42 fonts, out of 8000000 for 9000
  957 hyphenation exceptions out of 8191
- 38i,8n,36p,1259b,280s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 38i,8n,36p,1247b,280s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/local/texlive/2013/texmf-dist/fonts/enc/dvips/base/8r.enc}</usr/local/t
 exlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/local/te
 xlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/local/tex
@@ -445,7 +454,7 @@ f-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texlive/2013/texmf-
 dist/fonts/type1/public/amsfonts/cm/cmtt12.pfb></usr/local/texlive/2013/texmf-d
 ist/fonts/type1/urw/courier/ucrb8a.pfb></usr/local/texlive/2013/texmf-dist/font
 s/type1/urw/courier/ucrr8a.pfb>
-Output written on Report_prelim.pdf (10 pages, 482120 bytes).
+Output written on Report_prelim.pdf (10 pages, 482136 bytes).
 PDF statistics:
  111 PDF objects out of 1000 (max. 8388607)
  65 compressed objects within 1 object stream

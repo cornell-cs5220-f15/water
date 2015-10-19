@@ -78,7 +78,7 @@
 		\end{figure}
 		
 		\subsection{\texttt{compute\_step} - Advanced Hotspots}
-		The purpose of \texttt{compute\_step} is to update the wave equation to the next time step using a predictor-corrector method. First, the fluxes are calculated in the prediction. Next, the corrector step uses the predicted fluxes, the differences in velocities, and the current velocities, to advance to the next time state. Luckily, VTUNE's report is more helpful than in the previous case, and provides extensive timings for this function, shown in Figure~\ref{init_compute_step}. The calculation in the corrector step can be seen to be the most expensive cost of the function. It is important to note, however, that the predictor step and copying of the solution to the \texttt{u} array sum to half of the function's cost.
+		The purpose of \texttt{compute\_step} is to update the wave equation to the next time step using a predictor-corrector method. First, the fluxes are calculated in the prediction. Next, the corrector step uses the predicted fluxes, the differences in velocities, and the current velocities, to advance to the next time state. Luckily, VTUNE's report is more helpful than in the previous case, and provides extensive timings for this function, shown in Figure~\ref{init_compute_step}. The calculation in the corrector step can be seen as the most expensive cost of the function. It is important to note, however, that the predictor step and copying of the solution to the \texttt{u} array sum to half of the function's cost.
 		\begin{figure}[h!]
 			\begin{center}
 				\includegraphics[width=0.7\columnwidth]{init_compute_step}
@@ -99,7 +99,7 @@
 		
 		\FloatBarrier
 	\section{Parallelization}
-	While we are aware that the optimal programming of this code will not wholly be due to parallelization by OpenMP, it is most certainly necessary. Furthermore, future tuning and optimization of the code may change depending on whether the code is run in serial or parallel. For these reason, we first decided to parallelize the code and compare it's performance against the initial, serial code.
+	While we are aware that the optimal programming of this code will not wholly be due to parallelization by OpenMP, it is most certainly necessary. Furthermore, future tuning and optimization of the code may change depending on whether the code is run in serial or parallel. For these reasons, we first decided to parallelize the code and compare its performance against the initial, serial code.
 		\subsection{Naive Implementation of OpenMP}
 		First, a naive implementation of OpenMP using pragmas was used. This involved placing \texttt{\#pragma omp parallel for} in front of the start of each for loop in the functions \texttt{init}, \texttt{apply\_periodic}, \texttt{compute\_fg\_speeds}, \texttt{limited\_derivs}, and \texttt{compute\_step}. This proved to improve performance significantly when run on one node of Totient (24 threads), as seen in Figure~\ref{naive_omp}. It should be noted that the time shown is the total processor time spent and not the per processor time.
 		
@@ -128,7 +128,7 @@
 		
 		\subsection{OpenMP thread creation limited:}
 		
-		The constant creation of threads creates a large overhead cost that negatively effects the performance of the program. Therefore, the fewer times that a pool of threads needs to be created the better. In the previous examples, the thread pools were created each time a parallel for loop was called. In order to reduce this costly operation, a pool of threads was only  created within the main run function as shown in the below code section.
+		The constant creation of threads creates a large overhead cost that negatively affects the performance of the program. Therefore, the fewer times that a pool of threads needs to be created the better. In the previous examples, the thread pools were created each time a parallel for loop was called. In order to reduce this costly operation, a pool of threads was only  created within the main run function as shown in the below code section.
 		
 		\begin{verbatim}
 	    for (int io = 0; io < 2; ++io) {
@@ -181,7 +181,7 @@
 		\noindent It can be seen by comparing Figure~\ref{ThreadMovement} and Figure~\ref{bindoff} that the overall time spent in the barrier function call has gone down drastically by including the nowait call.
 		
 		\subsection{Thread Affinity:}
-		OpenMP 4.0 offers the ability to describe the ordering of the threads among the CPUs/MICs. Threads can be placed near each other on the same CPU using the OpenMP pragma command \texttt{proc\_bind(close)}. The benefit of doing this is that amount of time for synchronization between threads should decrease. The downside of this is that the available cache and bandwidth per thread will decrease. Another option available distributes the threads more evenly throughout the available CPUs/MIC, and it can be turned on using the OpenMP pragma command \texttt{proc\_bind(spread)}. It should lead to the opposite effects of the close command. The thread affinity was implemented on the code base that used the \texttt{nowait} pragma command. The performance of this implementation for the top five costliest function calls when run on the big simulation can be found in Figure ~\ref{nowait} and Figure ~\ref{nowait2} for the \texttt{proc\_bind(close)} pragma command. Due to system traffic, timing can vary across multiple runs. For this reason, it was decided to show two figures so some measure of variance could be judged. The results for the \texttt{proc\_bind(spread)} command can be found in Figure ~\ref{bindspread}.
+		OpenMP 4.0 offers the ability to describe the ordering of the threads among the CPUs/MICs. Threads can be placed near each other on the same CPU using the OpenMP pragma command \texttt{proc\_bind(close)}. The benefit of doing this is that amount of time for synchronization between threads should decrease. The downside of this is that the available cache and bandwidth per thread will decrease. Another option available distributes the threads more evenly throughout the available CPUs/MIC, and it can be turned on using the OpenMP pragma command \texttt{proc\_bind(spread)}. It should lead to the opposite effects of the close command. The thread affinity was implemented on the code base that used the \texttt{nowait} pragma command. The performance of this implementation for the top five costliest function calls when run on the big simulation can be found in Figure ~\ref{nowait} and Figure ~\ref{nowait2} for the \texttt{proc\_bind(close)} pragma command. Due to system traffic, timing can vary across multiple runs. For this reason, two figures were shown so some measure of variance could be judged. The results for the \texttt{proc\_bind(spread)} command can be found in Figure ~\ref{bindspread}.
 		
 		\begin{figure}[h]
 			\begin{center}
