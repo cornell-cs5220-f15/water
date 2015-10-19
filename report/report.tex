@@ -2,6 +2,7 @@
 \documentclass[11pt]{article}
 \usepackage{amsmath,amsthm,verbatim,amssymb,amsfonts,amscd, graphicx}
 \usepackage{graphicx}
+\usepackage{listings}
 \usepackage{float}
 \usepackage{url}
 \graphicspath{{./times/}}
@@ -19,10 +20,43 @@
 \maketitle
 
 \section{Introduction}
-
-\section{Implementation Overview}
+Define structured grid computations \\
+Define shallow water simulations \\
+Math overview \\
 
 \section{Design Decisions}
+
+The following sections describe the implementation changes from the original code found at \url{https://github.com/cornell-cs5220-f15/water}.
+
+\subsection{Memory Layout}
+The original solution a two dimensional vectors of 3-vectors to represent $U_t$, $F(U)_x$, and $G(U)_y$. During each time step, the solution accesses each element in the 2-D grid sequentially. Then, the \texttt{vector<vector<real>>} representation leads to memory accesses that are not local spatially. \\
+
+Therefore, our solution chooses to use 3 separate two dimensional vectors per objects, $U_t$, $F(U)_x$, and $G(U)_y$. Thus, we are required in general to perform three loop iterations in place of a single loop in the original solution. But this approach leverages spatial locality, especially in \texttt{compute\_step} and \texttt{limited\_derivs} functions.
+
+\subsection{Vectorization}
+
+By observing the profiling information, we noticed that the original solution spends majority of its computational time in the functions \texttt{limited\_derivs}, \texttt{compute\_step} and \texttt{compute\_fg\_speeds}. By adopting the newer memory layout, we enabled spatially local memory accesses. We were also able to decompose \texttt{for} loops in the solution to improve vectorization. Refer to \texttt{ipo\_out\_vectorization.optrpt} in \url{https://github.com/sheroze1123/water/tree/vectorization} for more information. \\
+
+In \texttt{compute\_fg\_speeds}, we performed two separate loops to compute flux and wave speeds. The flux computation and the wave speed computation for the complete grid is not handled by the \texttt{Physics} class. We used \texttt{\#pragma simd} directives to instruct the compiler the ability to vectorize these computations. The compiler was successfully able to vectorize these functions with an estimated potential speedup of 6.7. \\
+
+\texttt{limited\_derivs} uses the \texttt{limdiff} function in \texttt{minmod.h}. To improve the vectorization of this computation, we changed the implementation of \texttt{limdiff} in the following ways. 
+
+\begin{enumerate}
+	\item \texttt{limdiff} now performs the computation on the complete grid instead of at one grid point.
+	\item \texttt{limdiff} was decomposed as \texttt{limdiff\_x} and \texttt{limdiff\_y} to perform the limiter along the $x$ dimension and the $y$ dimension separately while still retaining unit stride. 
+\end{enumerate}
+
+\subsection{Parallelization}
+The updated memory layout is amenable to parallelization via OpenMP. 
+\subsection{Domain Decomposition}
+
+\section{Analysis}
+\subsection{Profiling} \label{sec:prof}
+
+\subsubsection{Original solution}
+We began the optimization by analyzing the time profiles of the original code.
+\lstinputlisting[basicstyle=\tiny]{./profiling/original.txt}
+\subsection{Speedup Plots}
 
 
 
