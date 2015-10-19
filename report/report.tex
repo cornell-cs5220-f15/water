@@ -22,7 +22,7 @@
 \section{Introduction}
 Define structured grid computations \\
 Define shallow water simulations \\
-Math overview \\
+Math overview and associated abstractions in code\\
 
 \section{Design Decisions}
 
@@ -52,17 +52,51 @@ The updated memory layout is amenable to parallelization via OpenMP, particular 
 At the beginning of a call to \texttt{limited\_derivs} we initialize a team of threads using \texttt{\#pragma omp parallel}. Each application of the limiter to the components of $U_t$, $F(U)_x$, and $G(U)_y$ can be computed in parallel since we removed the data dependencies by creating 3 separate two dimensional arrays per component. We use the \texttt{\#pragma omp for} directive to parallelize the grid computation of each component. \\
 
 In \texttt{compute\_step}, we initialize a team of threads using \texttt{\#pragma omp parallel}. The predictor step is now performed in parallel. Then, we create a barrier before proceeding to the corrector step since the the corrector step needs information from the predictor. After computing the corrector step, we perform a barrier before finally copying back to storage in parallel. The performance increase we observed via parallelization reached up to 3+ speedup. Results are plotted in section~\ref{sec:speedup}.
+
+
 \subsection{Domain Decomposition}
 
 \section{Analysis}
 \subsection{Profiling} \label{sec:prof}
 
+The following time profiles were obtained on a 200x200 grid by advancing 100 frames. 
+
 \subsubsection{Original solution}
-We began the optimization by analyzing the time profiles of the original code.
+We began the optimization by analyzing the time profiles of the original code. The following table shows the top 4 functions by CPU time. 
 \lstinputlisting[basicstyle=\tiny]{./profiling/original.txt}
-\subsection{Speedup Plots} \label{sec:speedup}
+
+\subsubsection{Memory Layout Update}
+
+\subsubsection{Vectorization}
+Profiling of vectorization shows good improvements in performance, especially in the \texttt{limited\_derivs} and \texttt{compute\_fg\_speeds} functions, but a reduction in performance in the \texttt{compute\_step} function. The repetition of \texttt{limdiff\_x} and \texttt{limdiff\_y} is due to separation of components and axes in \texttt{limited\_derivs}. 
+\lstinputlisting[basicstyle=\tiny]{./profiling/vectorization.txt}
+
+\subsubsection{Parallelization}
+
+\subsubsection{Domain Decomposition}
 
 
+\subsection{Scaling Study} \label{sec:speedup}
+
+
+\subsubsection{Strong Scaling Study}
+Using a 500x500 grid and 100 frames, we observe the speedup with respect to the number of threads in our parallel implementation.
+
+\begin{figure}[H]
+    \includegraphics[width=0.9\textwidth]{./strong_scaling/strong_scaling.png}
+    \caption{Speedup as a function of the number of threads}
+    \label{fig:strong_scaling}
+\end{figure} 
+
+
+\subsubsection{Weak Scaling Study}
+
+We vary the threads but keep the problem size/thread constant.
+\begin{figure}[H]
+    \includegraphics[width=0.9\textwidth]{./weak_scaling/weak_scaling.png}
+    \caption{Speedup as a function of the number of threads}
+    \label{fig:weak_scaling}
+\end{figure} 
 
 
 

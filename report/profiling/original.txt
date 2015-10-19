@@ -1,0 +1,7 @@
+Function                                                    Module        CPU Time  Spin Time  Overhead Time
+----------------------------------------------------------  ------------  --------  ---------  -------------
+Central2D<Shallow2D, MinMod<float>>::limited_derivs         shallow         2.529s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_step           shallow         1.210s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_fg_speeds      shallow         0.426s         0s             0s
+_IO_file_xsputn                                             libc-2.12.so    0.027s         0s             0s
+_IO_fwrite                                                  libc-2.12.so    0.025s         0s             0s
