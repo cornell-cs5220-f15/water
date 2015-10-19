@@ -199,25 +199,25 @@ private:
     void compute_step(int io, real dt);
     void limited_derivs_local(int nx_all,
                               int ny_all, 
-                              const auto u, 
-                              const auto f, 
-                              const auto g, 
-                              const auto ux, 
-                              const auto uy, 
-                              const auto fx, 
-                              const auto gy);
+                              std::function<vec&(int, int)> u, 
+                              std::function<vec&(int, int)> f, 
+                              std::function<vec&(int, int)> g, 
+                              std::function<vec&(int, int)> ux, 
+                              std::function<vec&(int, int)> uy, 
+                              std::function<vec&(int, int)> fx, 
+                              std::function<vec&(int, int)> gy);
     void compute_step_local(int io, 
                             real dt, 
                             int nx_all, 
                             int ny_all, 
-                            const auto u, 
-                            const auto f, 
-                            const auto g, 
-                            const auto v,
-                            const auto ux, 
-                            const auto uy, 
-                            const auto fx, 
-                            const auto gy);
+                            std::function<vec&(int, int)> u, 
+                            std::function<vec&(int, int)> f, 
+                            std::function<vec&(int, int)> g, 
+                            std::function<vec&(int, int)> v,
+                            std::function<vec&(int, int)> ux, 
+                            std::function<vec&(int, int)> uy, 
+                            std::function<vec&(int, int)> fx, 
+                            std::function<vec&(int, int)> gy);
 };
 
 
@@ -332,13 +332,13 @@ void Central2D<Physics, Limiter>::limited_derivs()
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs_local(int nx_all, 
                                                        int ny_all, 
-                                                       const auto u, 
-                                                       const auto f, 
-                                                       const auto g, 
-                                                       const auto ux, 
-                                                       const auto uy, 
-                                                       const auto fx, 
-                                                       const auto gy)
+                                                       std::function<vec&(int, int)> u, 
+                                                       std::function<vec&(int, int)> f, 
+                                                       std::function<vec&(int, int)> g, 
+                                                       std::function<vec&(int, int)> ux, 
+                                                       std::function<vec&(int, int)> uy, 
+                                                       std::function<vec&(int, int)> fx, 
+                                                       std::function<vec&(int, int)> gy)
 {
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
@@ -424,14 +424,14 @@ void Central2D<Physics, Limiter>::compute_step_local(int io,
                                                      real dt, 
                                                      int nx_all, 
                                                      int ny_all, 
-                                                     vec& u, 
-                                                     vec& f, 
-                                                     vec& g, 
-                                                     vec& v,
-                                                     vec& ux, 
-                                                     vec& uy, 
-                                                     vec& fx, 
-                                                     vec& gy)
+                                                     std::function<vec&(int, int)> u, 
+                                                     std::function<vec&(int, int)> f, 
+                                                     std::function<vec&(int, int)> g, 
+                                                     std::function<vec&(int, int)> v,
+                                                     std::function<vec&(int, int)> ux, 
+                                                     std::function<vec&(int, int)> uy, 
+                                                     std::function<vec&(int, int)> fx, 
+                                                     std::function<vec&(int, int)> gy)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
@@ -548,17 +548,17 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             // Array accessor functions
 
-            const auto offset_local = [nx_all_local](int ix, int iy) { return iy*nx_all_local+ix; };
+            const std::function<int(int, int)> offset_local = [nx_all_local](int ix, int iy) { return iy*nx_all_local+ix; };
 
-            const auto u_l = [offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
-            const auto v_l = [offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
-            const auto f_l = [offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
-            const auto g_l = [offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
+            std::function<vec&(int, int)> u_l = [offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
+            std::function<vec&(int, int)> v_l = [offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
+            std::function<vec&(int, int)> f_l = [offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
+            std::function<vec&(int, int)> g_l = [offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
 
-            const auto ux_l = [offset_local, ux_local](int ix, int iy)   { return ux_local[offset_local(ix,iy)]; };
-            const auto uy_l = [offset_local, uy_local](int ix, int iy)   { return uy_local[offset_local(ix,iy)]; };
-            const auto fx_l = [offset_local, fx_local](int ix, int iy)   { return fx_local[offset_local(ix,iy)]; };
-            const auto gy_l = [offset_local, gy_local](int ix, int iy)   { return gy_local[offset_local(ix,iy)]; };
+            std::function<vec&(int, int)> ux_l = [offset_local, ux_local](int ix, int iy)   { return ux_local[offset_local(ix,iy)]; };
+            std::function<vec&(int, int)> uy_l = [offset_local, uy_local](int ix, int iy)   { return uy_local[offset_local(ix,iy)]; };
+            std::function<vec&(int, int)> fx_l = [offset_local, fx_local](int ix, int iy)   { return fx_local[offset_local(ix,iy)]; };
+            std::function<vec&(int, int)> gy_l = [offset_local, gy_local](int ix, int iy)   { return gy_local[offset_local(ix,iy)]; };
 
             int xStart = b_x - numPadding;
             int yStart = b_y - numPadding;
