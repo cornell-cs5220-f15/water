@@ -1,0 +1,51 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{graphics}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[margin=1.0in]{geometry}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\begin{document}
+\title{Homework 2\\CS 5220}
+\author{Lara Backer, Xiang Long, Saul Toscano}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Initial Profiling - Vtune}
+\bigskip An initial profiling of the shallow wave code on the Totient cluster was done using Vtune, to identify which regions of the code took the longest time to run. This was done in order to target parallelization of the functions that took the longest time to complete. \\ \\
+Figure \ref{fig1} displays the Vtune assessment of the overall program. The top three most time consuming functions are limited\_derivs, compute\_step, and compute\_fg\_speeds. 
+
+ \begin{figure}[here]
+  \centering
+  \includegraphics[width=0.8\linewidth]{vtune_orig_water_code.png}
+  \caption{Most time consuming functions for shallow wave code on Totient cluster}
+  \label{fig1}
+\end{figure}
+
+\noindent The function limited\_derivs is used to limit the estimation of the derivative of the fluxes by calling the limdiff function. Compute\_fg\_speeds is used to evaluate the fluxes at the cell centers. The compute\_step function is the seciton of the code that evaluates both the predictor and corrector calculations for the timestep. To see the time spent in each step using Vtune, the specific functions must be referenced. While this is not overly useful for the limited\_derivs function, which only performs the two limdiff calls, the in-depth timings for the other two most expensive functions are shown in Figures \ref{fig2} and \ref{fig3}.
+ 
+ \begin{figure}[here]
+  \centering
+  \includegraphics[width=0.8\linewidth]{vtune_origcode_computestep.png}
+  \caption{compute step function timings}
+  \label{fig2}
+\end{figure}
+
+\begin{figure}[here]
+  \centering
+  \includegraphics[width=0.8\linewidth]{compute_fgspeeds_orig_vtune.png}
+  \caption{fgspeeds function timings}
+  \label{fig3}
+\end{figure}
+
+\end{document}
