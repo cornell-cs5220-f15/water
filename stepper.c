@@ -1,11 +1,13 @@
 #include "stepper.h"
-
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
-
+#include <omp.h>
+#define NBATCH 6 //2*k
+#define NUMPARA 10 // we should let NUMPARA devide by nx
 //ldoc on
 /**
  * ## Implementation
@@ -17,7 +19,7 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
                             int nfield, flux_t flux, speed_t speed,
                             float cfl)
 {
-    int ng = 3;
+    int ng = NBATCH;
 
     central2d_t* sim = (central2d_t*) malloc(sizeof(central2d_t));
     sim->nx = nx;
@@ -133,7 +135,7 @@ float xmin2s(float s, float a, float b) {
     float sb = copysignf(s, b);
     float abs_a = fabsf(a);
     float abs_b = fabsf(b);
-    float min_abs = (abs_a < abs_b ? abs_a : abs_b);
+    float min_abs = fminf(abs_a, abs_b);
     return (sa+sb) * min_abs;
 }
 
@@ -218,6 +220,7 @@ void central2d_predict(float* restrict v,
 {
     float* restrict fx = scratch;
     float* restrict gy = scratch+nx;
+
     for (int k = 0; k < nfield; ++k) {
         for (int iy = 1; iy < ny-1; ++iy) {
             int offset = (k*ny+iy)*nx+1;
@@ -310,13 +313,13 @@ void central2d_correct(float* restrict v,
 
 
 static
-void central2d_step(float* restrict u, float* restrict v,
+void central2d_step_i(float* restrict u, float* restrict v,
                     float* restrict scratch,
                     float* restrict f,
                     float* restrict g,
                     int io, int nx, int ny, int ng,
                     int nfield, flux_t flux, speed_t speed,
-                    float dt, float dx, float dy)
+                    float dt, float dx, float dy, int numthread)
 {
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
@@ -330,20 +333,36 @@ void central2d_step(float* restrict u, float* restrict v,
                       nx_all, ny_all, nfield);
 
     // Flux values of f and g at half step
+
     for (int iy = 1; iy < ny_all-1; ++iy) {
         int jj = iy*nx_all+1;
         flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
     }
-
+	
     central2d_correct(v, scratch, u, f, g, dtcdx2, dtcdy2,
                       ng-io, nx+ng-io,
                       ng-io, ny+ng-io,
                       nx_all, ny_all, nfield);
-
+	
     // Copy from v storage back to main grid
-    memcpy(u+(ng   )*nx_all+ng,
+    for (int j = ng; j < ny+ng; ++j){
+		for (int i = ng; i < nx+ng; ++i){
+			u[j*nx_all+i] = v[(j-io)*nx_all+i-io];
+			u[nx_all*ny_all+j*nx_all+i] = v[nx_all*ny_all+(j-io)*nx_all+i-io];
+			u[nx_all*ny_all*2+j*nx_all+i] = v[nx_all*ny_all*2+(j-io)*nx_all+i-io];
+		}
+	}
+	/*memcpy(u+(ng)*nx_all+ng,
            v+(ng-io)*nx_all+ng-io,
            (nfield*ny_all-ng) * nx_all * sizeof(float));
+	*/
+	/*if(io==1&&numthread==0){
+		printf("check 1\n");
+		fflush(stdout);
+		free(v);
+		printf("check 2\n");
+		fflush(stdout);
+	}*/
 }
 
 
@@ -375,27 +394,109 @@ int central2d_xrun(float* restrict u, float* restrict v,
     int ny_all = ny + 2*ng;
     bool done = false;
     float t = 0;
+	float** fblock=(float**)malloc(NUMPARA* sizeof(float*));
+	float** gblock=(float**)malloc(NUMPARA* sizeof(float*));
+	float** ublock=(float**)malloc(NUMPARA* sizeof(float*));
+	float** vblock=(float**)malloc(NUMPARA* sizeof(float*));
+	float** sblock=(float**)malloc(NUMPARA* sizeof(float*));
+	
+	int blocksize = ny/NUMPARA;
+	
+	for(int i=0;i<NUMPARA;++i){
+		ublock[i] = (float*)malloc((nx_all*nfield*(2*NBATCH+blocksize))* sizeof(float));
+		vblock[i] = (float*)malloc((nx_all*nfield*(2*NBATCH+blocksize))* sizeof(float));
+		fblock[i] = (float*)malloc((nx_all*nfield*(2*NBATCH+blocksize))* sizeof(float));
+		gblock[i] = (float*)malloc((nx_all*nfield*(2*NBATCH+blocksize))* sizeof(float));
+		sblock[i] = (float*)malloc(nx_all*6* sizeof(float));
+	}
     while (!done) {
-        float cxy[2] = {1.0e-15f, 1.0e-15f};
-        central2d_periodic(u, nx, ny, ng, nfield);
-        speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
-        float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-        if (t + 2*dt >= tfinal) {
-            dt = (tfinal-t)/2;
-            done = true;
-        }
-        central2d_step(u, v, scratch, f, g,
-                       0, nx, ny, ng,
-                       nfield, flux, speed,
-                       dt, dx, dy);
-        central2d_periodic(u, nx, ny, ng, nfield);
-        central2d_step(u, v, scratch, f, g,
-                       1, nx, ny, ng,
-                       nfield, flux, speed,
-                       dt, dx, dy);
-        t += 2*dt;
-        nstep += 2;
+		
+		float cxy[2] = {1.0e-15f, 1.0e-15f};
+		speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
+		central2d_periodic(u, nx, ny, ng, nfield);
+		float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
+		if (t + NBATCH*dt >= tfinal) {
+			dt = (tfinal-t)/NBATCH;
+			done = true;
+		}
+		
+		#pragma omp parallel num_threads(NUMPARA)
+		{
+			int curthread = omp_get_thread_num();
+/*			float tmpadd=0;
+			for(int sos = ng;sos<nx+ng;++sos){
+				tmpadd+=u[(nx_all*(blocksize*curthread))+nx_all*ng+sos];
+			}*/
+			//#pragma omp barrier
+			
+			for(int k =0;k<nfield;++k){
+				memcpy((ublock[curthread]+k*nx_all*(2*NBATCH+blocksize)),u+k*nx_all*ny_all+(nx_all*(blocksize*curthread)),(nx_all*(2*NBATCH+blocksize))* sizeof(float));
+				memcpy((vblock[curthread]+k*nx_all*(2*NBATCH+blocksize)),v+k*nx_all*ny_all+(nx_all*(blocksize*curthread)),(nx_all*(2*NBATCH+blocksize))* sizeof(float));
+				memcpy((fblock[curthread]+k*nx_all*(2*NBATCH+blocksize)),f+k*nx_all*ny_all+(nx_all*(blocksize*curthread)),(nx_all*(2*NBATCH+blocksize))* sizeof(float));
+				memcpy((gblock[curthread]+k*nx_all*(2*NBATCH+blocksize)),g+k*nx_all*ny_all+(nx_all*(blocksize*curthread)),(nx_all*(2*NBATCH+blocksize))* sizeof(float));
+
+			}
+			#pragma omp barrier
+			
+			for(int j = 0; j<NBATCH/2;++j){
+				
+				central2d_step_i(ublock[curthread], vblock[curthread], sblock[curthread], fblock[curthread], gblock[curthread],
+							   0, nx, blocksize, ng,
+							   nfield, flux, speed,
+							   dt, dx, dy, curthread);
+				
+				
+				
+				//central2d_periodic(u, nx, ny, ng, nfield);
+				central2d_step_i(ublock[curthread], vblock[curthread], sblock[curthread], fblock[curthread], gblock[curthread],
+							   1, nx, blocksize, ng,
+							   nfield, flux, speed,
+							   dt, dx, dy, curthread);
+			}
+			
+			if(curthread==0){
+				for(int k = 0;k<nfield;++k){
+					memcpy(u+k*nx_all*ny_all,ublock[curthread]+k*nx_all*(2*NBATCH+blocksize),(nx_all*NBATCH)* sizeof(float));
+					memcpy(v+k*nx_all*ny_all,vblock[curthread]+k*nx_all*(2*NBATCH+blocksize),(nx_all*NBATCH)* sizeof(float));
+					memcpy(f+k*nx_all*ny_all,fblock[curthread]+k*nx_all*(2*NBATCH+blocksize),(nx_all*NBATCH)* sizeof(float));
+					memcpy(g+k*nx_all*ny_all,gblock[curthread]+k*nx_all*(2*NBATCH+blocksize),(nx_all*NBATCH)* sizeof(float));
+				}
+			}
+			if(curthread==NUMPARA-1){
+				for(int k = 0;k<nfield;++k){
+					memcpy(u+k*nx_all*ny_all+(nx_all*(ny_all-ng)),ublock[curthread]+k*nx_all*(2*NBATCH+blocksize)+(nx_all*(NBATCH+blocksize)),(nx_all*NBATCH)* sizeof(float));
+					memcpy(v+k*nx_all*ny_all+(nx_all*(ny_all-ng)),vblock[curthread]+k*nx_all*(2*NBATCH+blocksize)+(nx_all*(NBATCH+blocksize)),(nx_all*NBATCH)* sizeof(float));
+					memcpy(f+k*nx_all*ny_all+(nx_all*(ny_all-ng)),fblock[curthread]+k*nx_all*(2*NBATCH+blocksize)+(nx_all*(NBATCH+blocksize)),(nx_all*NBATCH)* sizeof(float));
+					memcpy(g+k*nx_all*ny_all+(nx_all*(ny_all-ng)),gblock[curthread]+k*nx_all*(2*NBATCH+blocksize)+(nx_all*(NBATCH+blocksize)),(nx_all*NBATCH)* sizeof(float));
+				}
+			}
+			#pragma omp critical
+			{
+				for(int k = 0;k<nfield;++k){
+					memcpy(u+k*nx_all*ny_all+(nx_all*(ng+blocksize*curthread)),(ublock[curthread]+k*nx_all*(2*NBATCH+blocksize)+NBATCH*nx_all),(nx_all*(blocksize))* sizeof(float));
+					memcpy(v+k*nx_all*ny_all+(nx_all*(ng+blocksize*curthread)),(vblock[curthread]+k*nx_all*(2*NBATCH+blocksize)+NBATCH*nx_all),(nx_all*(blocksize))* sizeof(float));
+					memcpy(f+k*nx_all*ny_all+(nx_all*(ng+blocksize*curthread)),(fblock[curthread]+k*nx_all*(2*NBATCH+blocksize)+NBATCH*nx_all),(nx_all*(blocksize))* sizeof(float));
+					memcpy(g+k*nx_all*ny_all+(nx_all*(ng+blocksize*curthread)),(gblock[curthread]+k*nx_all*(2*NBATCH+blocksize)+NBATCH*nx_all),(nx_all*(blocksize))* sizeof(float));
+				}
+			}
+
+			#pragma omp barrier
+			if(curthread==0){
+				printf("done %d %d\n",nstep,0+done);
+				fflush(stdout);
+			}
+		
+		}
+		t =t+NBATCH*dt;
+		nstep = nstep+NBATCH;		
     }
+	for(int i=0;i<NUMPARA;++i){
+		free(ublock[i]);
+		free(vblock[i]);
+		free(fblock[i]);
+		free(gblock[i]);
+		free(sblock[i]);
+	}
     return nstep;
 }
 
