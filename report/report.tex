@@ -47,7 +47,11 @@ In \texttt{compute\_fg\_speeds}, we performed two separate loops to compute flux
 \end{enumerate}
 
 \subsection{Parallelization}
-The updated memory layout is amenable to parallelization via OpenMP. 
+The updated memory layout is amenable to parallelization via OpenMP, particular during the costly operations of \texttt{limited\_derivs} and \texttt{compute\_step}. \\
+
+At the beginning of a call to \texttt{limited\_derivs} we initialize a team of threads using \texttt{\#pragma omp parallel}. Each application of the limiter to the components of $U_t$, $F(U)_x$, and $G(U)_y$ can be computed in parallel since we removed the data dependencies by creating 3 separate two dimensional arrays per component. We use the \texttt{\#pragma omp for} directive to parallelize the grid computation of each component. \\
+
+In \texttt{compute\_step}, we initialize a team of threads using \texttt{\#pragma omp parallel}. The predictor step is now performed in parallel. Then, we create a barrier before proceeding to the corrector step since the the corrector step needs information from the predictor. After computing the corrector step, we perform a barrier before finally copying back to storage in parallel. The performance increase we observed via parallelization reached up to 3+ speedup. Results are plotted in section~\ref{sec:speedup}.
 \subsection{Domain Decomposition}
 
 \section{Analysis}
@@ -56,7 +60,7 @@ The updated memory layout is amenable to parallelization via OpenMP.
 \subsubsection{Original solution}
 We began the optimization by analyzing the time profiles of the original code.
 \lstinputlisting[basicstyle=\tiny]{./profiling/original.txt}
-\subsection{Speedup Plots}
+\subsection{Speedup Plots} \label{sec:speedup}
 
 
 
