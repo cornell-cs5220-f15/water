@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
+#include <omp.h>
 
 //ldoc on
 /**
@@ -583,7 +584,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             for(int step = 0; step < stepsPerParallelBlock; step++) {
                 for(int io = 0; io < 2; io++) {
-                    limited_derivs_localint(nx_all_local, 
+                    limited_derivs_local(nx_all_local, 
                                             ny_all_local, 
                                             u_l, 
                                             f_l, 
