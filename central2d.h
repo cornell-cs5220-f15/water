@@ -548,7 +548,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             // Array accessor functions
 
-            int offset_local(int ix, int iy) const { return iy*nx_all_local+ix; }
+            int offset_local(int ix, int iy) { return iy*nx_all_local+ix; }
 
             vec& u_l(int ix, int iy)    { return u_local[offset_local(ix,iy)]; }
             vec& v_l(int ix, int iy)    { return v_local[offset_local(ix,iy)]; }
