@@ -532,7 +532,8 @@ int Central2D<Physics, Limiter>::xrun(iter u, iter v,
             real cx, cy;
             apply_periodic(u,nx,ny,ng,nfield);
             Physics::wave_speed(cx,cy,u,nx_all * ny_all, nx_all * ny_all);
-            limited_derivs();
+
+            limited_derivs(ux,uy,fx,gy,u,f,g,nx,ny,nfield);
             if (io == 0) {
                 dt = cfl / fmax(cx/dx, cy/dy);
                 if (t + 2*dt >= tfinal) {
