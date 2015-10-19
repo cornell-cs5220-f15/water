@@ -537,14 +537,14 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             //block of memory is a square with width nx_all_local and height ny_all_local
 
             //copy the relevant section into local memory
-            std::vector<vec> u_local (nx_local_all * ny_local_all);            // Solution values
-            std::vector<vec> f_local (nx_local_all * ny_local_all);            // Fluxes in x
-            std::vector<vec> g_local (nx_local_all * ny_local_all);            // Fluxes in y
-            std::vector<vec> ux_local (nx_local_all * ny_local_all);           // x differences of u
-            std::vector<vec> uy_local (nx_local_all * ny_local_all);           // y differences of u
-            std::vector<vec> fx_local (nx_local_all * ny_local_all);           // x differences of f
-            std::vector<vec> gy_local (nx_local_all * ny_local_all);           // y differences of g
-            std::vector<vec> v_local (nx_local_all * ny_local_all);            // Solution values at next step
+            std::vector<vec> u_local (nx_all_local * ny_all_local);            // Solution values
+            std::vector<vec> f_local (nx_all_local * ny_all_local);            // Fluxes in x
+            std::vector<vec> g_local (nx_all_local * ny_all_local);            // Fluxes in y
+            std::vector<vec> ux_local (nx_all_local * ny_all_local);           // x differences of u
+            std::vector<vec> uy_local (nx_all_local * ny_all_local);           // y differences of u
+            std::vector<vec> fx_local (nx_all_local * ny_all_local);           // x differences of f
+            std::vector<vec> gy_local (nx_all_local * ny_all_local);           // y differences of g
+            std::vector<vec> v_local (nx_all_local * ny_all_local);            // Solution values at next step
 
             // Array accessor functions
 
@@ -563,8 +563,8 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             int xStart = b_x - numPadding;
             int yStart = b_y - numPadding;
             //setup
-            for(int i = 0; i<nx_local_all; i++){
-                for(int j = 0; j<ny_local_all; j++){
+            for(int i = 0; i<nx_all_local; i++){
+                for(int j = 0; j<ny_all_local; j++){
                     u_l(i, j) = uwrap(i + xStart, j+yStart);
                     v_l(i, j) = vwrap(i + xStart, j+yStart);
                     f_l(i, j) = fwrap(i + xStart, j+yStart);
