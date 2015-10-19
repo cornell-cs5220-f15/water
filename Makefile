@@ -10,13 +10,14 @@
 # Or create a Makefile.in.xxx of your own!
 #
 
-PLATFORM=icc
+PLATFORM=clang
 include Makefile.in.$(PLATFORM)
 
 # ===
 # Main driver and sample run
 
-shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
+
+shallow: driverVEC.cc central2dvec.h shallow2dvec.h minmodvec.h meshio.h
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
 .PHONY: run big
