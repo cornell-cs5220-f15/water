@@ -48,4 +48,17 @@ Figure \ref{fig1} displays the Vtune assessment of the overall program. The top 
   \label{fig3}
 \end{figure}
 
+\section*{Vectorization}
+
+One method of speeding up the code is to apply vectorization, applying operations to arrays instead of array sub elements, reducing the number of required computations. To apply vectorization to our code for instance, we grouped the fluxes into single arrays, specifying pointers to the locations of each flux, and indicating the strides required for each component.   
+
+The .optreport file output shows the sections that could be vectorized to improve efficiency. 
+
+\section*{openMP Parallelization}
+OpenMP can be used to further improve performance by multithreading, where each thread executes a section of the code independently. In C++, OpenMP uses \#pragmas to signify the parallelization of code. The pragma omp parallel, for instance, is used to fork threads to carry out the enclosed work. Additional pragmas can be used to specify sections of work, or splitting up loop iterations. 
+
+\section*{Domain Decomposition}
+The method best suited to parallelize the shallow water problem is domain decomposition. For this method, the overall domain is split and solved for on separate processors. Communications between processors are needed to solve for `ghost cells' that overlap neighboring domains. However, communications can overtake the domain computations in cost, depending on the number of processors and communications compared to the domain size that each processor has to solve, so scaling trials must be employed to determine the optimal problem size per processor.
+
+
 \end{document}
