@@ -1,5 +1,5 @@
 \section{Parallelization}\label{sec:parallelization}
-Wensi
+
 	In this assignment, we used OpenMP to parallel our codes in hopes of improving the computation performance. OpenMP stands for Open Multi-threads Programming; it is an industry standard API of C/C++ for shared memory parallel programming. The way OpenMP works is first decomposing the work into smaller chunks, and then assigning the tasks to different threads such that multiple threads can share work in parallel. When the work is done, the threads will synchronize implicitly by reading and writing shared variables.
 
 	Although OpenMP is a very powerful tool to use to increase speedup, we found that using OpenMP will actually kill the performance if it is not implemented appropriately. Two of the possible ways that contribute to the cause are load imbalance overhead and parallel overhead. Load imbalance overhead is when the threads are performing unequal amount of work in the shared region. The faster thread will need to wait for all the other threads to finish the work before they can synchronize the information; when the threads are not doing any work/idling, it accumulates synchronization overhead. Since our code was not vectorized yet, using OpenMP would not help us to achieve our goal.
