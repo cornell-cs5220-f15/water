@@ -53,29 +53,30 @@ void dam_break(Sim::iter u, double x, double y, int stride)
 }
 
 // Still pond (ideally, nothing should move here!)
-void pond(Sim::vec& u, double x, double y)
+void pond(Sim::iter u, double x, double y, int stride)
 {
-    u[0] = 1.0;
-    u[1] = 0;
-    u[2] = 0;
+    *u=1.0;
+    *(u+stride)=0;
+    *(u+2*stride)=0;
 }
 
 // River (ideally, the solver shouldn't do much with this, either)
-void river(Sim::vec& u, double x, double y)
+void river(Sim::iter u, double x, double y, int stride)
 {
-    u[0] = 1.0;
-    u[1] = 1.0;
-    u[2] = 0;
+    *u=1.0;
+    *(u+stride)=1.0;
+    *(u+2*stride)=0;
 }
 
 
 // Wave on a river -- develops a shock in finite time!
-void wave(Sim::vec& u, double x, double y)
+void wave(Sim::iter u, double x, double y, int stride)
 {
     using namespace std;
-    u[0] = 1.0 + 0.2 * sin(M_PI*x);
-    u[1] = 1.0;
-    u[2] = 0;
+    *u=1.0 + 0.2 * sin(M_PI*x);
+    *(u+stride)=1.0;
+    *(u+2*stride)=0;
+
 }
 
 
@@ -125,7 +126,7 @@ int main(int argc, char** argv)
         }
     }
 
-    void (*icfun)(Sim::vec& u, double x, double y) = dam_break;
+    void (*icfun)(Sim::iter u, double x, double y,int stride) = dam_break;
     if (ic == "dam_break") {
         icfun = dam_break;
     } else if (ic == "pond") {
