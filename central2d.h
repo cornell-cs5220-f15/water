@@ -489,7 +489,7 @@ void Central2D<Physics, Limiter>::compute_step_local(int io,
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
-    int numProcs = 4;
+    int numProcs = 1;
     int sqrtProcs = std::sqrt(numProcs);
     real stepsPerParallelBlock = 1;
     int block_size_x = std::floor(nx / sqrtProcs);
@@ -547,7 +547,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             // Array accessor functions
 
-            int offset(int ix, int iy) const { return iy*nx_all+ix; }
+            int offset(int ix, int iy) { return iy*nx_all_local+ix; }
 
             vec& u_l(int ix, int iy)    { return u_local[offset(ix,iy)]; }
             vec& v_l(int ix, int iy)    { return v_local[offset(ix,iy)]; }
