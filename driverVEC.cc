@@ -153,7 +153,7 @@ int main(int argc, char** argv)
 #else
         sim.run(ftime);
 #endif
-        sim.solution_check();
+       // sim.solution_check();
         viz.write_frame();
     }
 }

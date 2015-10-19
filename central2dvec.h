@@ -107,7 +107,7 @@ public:
 	nx_all(2*ng+nx), ny_all(2*ng+ny),
 	nfield(nfield),
     dx(w/nx), dy(h/ny),
-	cfl(cfl),
+    cfl(cfl),
 	N(nfield * (nx + 2*ng)* (ny + 2*ng)),
 	all(8*N), pointers(8) {}
 
@@ -126,25 +126,30 @@ public:
     int ysize() const { return ny; }
     
     // Read / write elements of simulation state
-  /*  vec&  operator()(int i, int j) {
+   /* vec&  operator()(int i, int j) {
         return u_[offset(i+nghost,j+nghost)];
     }
     
     const vec& operator()(int i, int j) const {
         return u_[offset(i+nghost,j+nghost)];
-    }*/
+    }
+    */
+    static constexpr int ng = 3;
+    std::vector<iter> pointers;
+    const int nx_all,ny_all, nfield;
     
 private:
-    static constexpr int ng = 3;   // Number of ghost cells
-    const int nx_all,ny_all, nfield;
+       // Number of ghost cells
+    
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
     const int N;
+    std::vector<real> u_;
     
     std::vector<real> all;            // Solution values
  
-    std::vector<iter> pointers;
+    
 
 
     
