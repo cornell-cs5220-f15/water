@@ -138,6 +138,9 @@ public:
     std::vector<iter> pointers;
     const int nx_all,ny_all, nfield;
     int run(float tfinal);
+    
+
+    
 private:
        // Number of ghost cells
     
@@ -571,23 +574,21 @@ int Central2D<Physics, Limiter>::run(float tfinal)
  * of water heights).
  */
 
-/*template <class Physics, class Limiter>
+template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u(nghost,nghost)[0];
+    real hmin = *(pointers[0]+ng*nx_all+ng);
     real hmax = hmin;
-    for (int j = nghost; j < ny+nghost; ++j)
-        for (int i = nghost; i < nx+nghost; ++i) {
-            vec& uij = u(i,j);
-            real h = uij[0];
-            h_sum += h;
-            hu_sum += uij[1];
-            hv_sum += uij[2];
-            hmax = max(h, hmax);
-            hmin = min(h, hmin);
-            assert( h > 0) ;
+    for (int j = 0; j < ny; ++j)
+        for (int i = 0; i < nx; ++i) {
+            real h=*(pointers[0]+(ng+j)*nx_all+(ng+i));
+            h_sum+=h;
+            hu_sum+=*(pointers[0]+(ny_all+(ng+j))*nx_all+(ng+i));
+            hv_sum+=*(pointers[0]+(2*ny_all+(ng+j))*nx_all+(ng+i));
+            hmax=fmax(h,hmax);
+            hmin=fmin(h,hmin);
         }
     real cell_area = dx*dy;
     h_sum *= cell_area;
@@ -595,7 +596,8 @@ void Central2D<Physics, Limiter>::solution_check()
     hv_sum *= cell_area;
     printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
            h_sum, hu_sum, hv_sum, hmin, hmax);
-}*/
+    assert(hmin >0 );
+}
 
 //ldoc off
 #endif /* CENTRAL2D_H*/

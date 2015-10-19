@@ -142,7 +142,7 @@ int main(int argc, char** argv)
     Sim sim(width,width, nx,nx,3);
     SimViz<Sim> viz(fname.c_str(), sim);
     sim.init(icfun);
-   // sim.solution_check();
+    sim.solution_check();
     viz.write_frame();
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
@@ -153,7 +153,7 @@ int main(int argc, char** argv)
 #else
         sim.run(ftime);
 #endif
-       // sim.solution_check();
+        sim.solution_check();
         viz.write_frame();
     }
 }
