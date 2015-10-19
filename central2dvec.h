@@ -112,7 +112,7 @@ public:
 	all(8*N), pointers(8) {}
 
     // Advance from time 0 to time tfinal
-    void run(real tfinal);
+   // void run(real tfinal);
 
     // Call f(Uxy, x, y) at each cell center to set initial conditions
     template <typename F>
@@ -137,7 +137,7 @@ public:
     static constexpr int ng = 3;
     std::vector<iter> pointers;
     const int nx_all,ny_all, nfield;
-    
+    int run(float tfinal);
 private:
        // Number of ghost cells
     
@@ -228,7 +228,7 @@ private:
          int nx, int ny, int ng,
          int nfield, float tfinal, real dx, real dy,
          real cfl);
-    int compute_step(float tfinal);
+    
 
 
 };
@@ -353,7 +353,7 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_deriv1(iter du,const iter u,int ncell)
 {
     for (int i=0; i<ncell; ++i)
-        (*(du+i))=limdiff(*(u+i-1),*(u+i),*(u+i+1));
+        (*(du+i))=Limiter::limdiff(*(u+i-1),*(u+i),*(u+i+1));
 }
 
 template <class Physics, class Limiter>
@@ -361,7 +361,7 @@ void Central2D<Physics, Limiter>::limited_derivk(iter du,const iter u,int ncell,
 {
     assert(stride>0);
     for (int i=0; i<ncell; ++i)
-        (*(du+i))=limdiff(*(u+i-stride),*(u+i),*(u+i+stride));
+        (*(du+i))=Limiter::limdiff(*(u+i-stride),*(u+i),*(u+i+stride));
 }
 
 template <class Physics, class Limiter>
@@ -450,7 +450,7 @@ void Central2D<Physics, Limiter>::central2d_correct(iter v,
                 0.0625f * ( (*(ux+j10)) - (*(ux+j00)) +
                            (*(ux+j11)) - (*(ux+j01)) +
                            (*(uy+j01)) - (*(uy+j00)) +
-                           (*(uy[j11])) - (*(uy+j10)) ) -
+                           (*(uy+j11)) - (*(uy+j10)) ) -
                 dtcdx2  * ( (*(f+j10)) - (*(f+j00)) +
                            (*(f+j11)) - (*(f+j01)) ) -
                 dtcdy2  * ( (*(g+j01)) - (*(g+j00)) +
@@ -550,9 +550,9 @@ int Central2D<Physics, Limiter>::xrun(iter u, iter v,
 }
 
 template <class Physics, class Limiter>
-int Central2D<Physics, Limiter>::compute_step(float tfinal)
+int Central2D<Physics, Limiter>::run(float tfinal)
 {
-    return central2d_xrun(pointers[0], pointers[1], pointers[2], pointers[3],
+    return xrun(pointers[0], pointers[1], pointers[2], pointers[3],
                           pointers[4], pointers[5], pointers[6], pointers[7],
                           nx, ny, ng,
                           nfield,tfinal, dx, dy, cfl);
