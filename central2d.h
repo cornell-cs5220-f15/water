@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
+#include <functional>
 #include <omp.h>
 
 //ldoc on
