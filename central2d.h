@@ -102,10 +102,16 @@ template <class Physics, class Limiter>
 
     Central2D(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
+              int nodomains,      //No of domains of the board
               real cfl = 0.45) :  // Max allowed CFL number
+    nodomains(nodomains),
     nx(nx), ny(ny),
-    nx_all(nx + 2*nghost),
-    ny_all(ny + 2*nghost),
+    domain_nx((int) (ceil((real) nx / nodomains))),
+    domain_ny((int) (ceil((real) ny / nodomains))),
+    nx_all(nodomains * (domain_nx + 2 * nghost)),
+    ny_all(nodomains * (domain_ny + 2 * nghost)),
+    domain_nx_inc_ghost( domain_nx + 2 * nghost),
+    domain_ny_inc_ghost( domain_ny + 2 * nghost),
     dx(w/nx), dy(h/ny),
     cfl(cfl), 
     u_ (nx_all * ny_all),
@@ -145,6 +151,9 @@ private:
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
+    const int nodomains;
+    const int domain_nx, domain_ny;
+    const int domain_nx_inc_ghost, domain_ny_inc_ghost;
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
 
@@ -159,24 +168,27 @@ private:
 
     // Array accessor functions
 
-    int offset(int ix, int iy) const { return iy*nx_all+ix; }
+    //Thread no * total X cells (ghost inc) * total y cells (ghost inc) + iy* total x cells (inc ghost) + ix
+    int offset(int ix, int iy, int tno) const { return tno*domain_nx_inc_ghost*domain_ny_inc_ghost + iy*domain_nx_inc_ghost+ix; }
 
-    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
-    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
-    vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
-    vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
+    vec& u(int ix, int iy, int tno)    { return u_[offset(ix, iy, tno)]; }
+    vec& v(int ix, int iy, int tno)    { return v_[offset(ix, iy, tno)]; }
+    vec& f(int ix, int iy, int tno)    { return f_[offset(ix, iy, tno)]; }
+    vec& g(int ix, int iy, int tno)    { return g_[offset(ix, iy, tno)]; }
 
-    vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
-    vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
-    vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
-    vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
+    vec& ux(int ix, int iy, int tno)   { return ux_[offset(ix, iy, tno)]; }
+    vec& uy(int ix, int iy, int tno)   { return uy_[offset(ix, iy, tno)]; }
+    vec& fx(int ix, int iy, int tno)   { return fx_[offset(ix, iy, tno)]; }
+    vec& gy(int ix, int iy, int tno)   { return gy_[offset(ix, iy, tno)]; }
 
     // Wrapped accessor (periodic BC)
+    //TODO: Need to change this
     int ioffset(int ix, int iy) {
         return offset( (ix+nx-nghost) % nx + nghost,
-         (iy+ny-nghost) % ny + nghost );
+           (iy+ny-nghost) % ny + nghost );
     }
 
+    //TODO: Remove this because this is not required
     vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
 
     // Apply limiter to all components in a vector
@@ -186,7 +198,7 @@ private:
     }
 
     // Stages of the main algorithm
-    void apply_periodic();
+    void apply_periodic(int tno);
     void compute_fg_speeds(real& cx, real& cy);
     void limited_derivs();
     void compute_step(int io, real dt);
@@ -204,7 +216,7 @@ private:
  * cell $(i,j)$ is the subdomain 
  * $[i \Delta x, (i+1) \Delta x] \times [j \Delta y, (j+1) \Delta y]$.
  */
-
+//TODO: Even this can be parallelized
 template <class Physics, class Limiter>
 template <typename F>
  void Central2D<Physics, Limiter>::init(F f)
@@ -232,24 +244,48 @@ template <typename F>
  */
 
 template <class Physics, class Limiter>
- void Central2D<Physics, Limiter>::apply_periodic()
+ void Central2D<Physics, Limiter>::apply_periodic(int tno)
  {
     // Copy data between right and left boundaries
-    for (int iy = 0; iy < ny_all; ++iy)
+    /*for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nghost; ++ix) {
             u(ix,          iy) = uwrap(ix,          iy);
             u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
         }
+    */
 
-    // Copy data between top and bottom boundaries
-        for (int ix = 0; ix < nx_all; ++ix)
-            for (int iy = 0; iy < nghost; ++iy) {
-                u(ix,          iy) = uwrap(ix,          iy);
-                u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
+        int x_limit = (tno % nodomains == nodomains - 1) ? nodomains * domain_nx - nx : 0;
+        int y_limit = (tno / nodomains == nodomains - 1) ? nodomains * domain_ny - ny : 0;
+
+        for (int y = 0; iy < domain_ny_inc_ghost; y++){
+            for (int x = 0; x < nghost; x++){
+                u(x, y, tno) = ghost_cells((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno/nodomains) - nghost + ny + y) % ny);
+            }
+
+            for (int x = nghost + domain_nx - x_limit; x < nghost * 2 + domain_nx; x++){
+                u(x, y, tno) = ghost_cells((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
             }
         }
 
 
+    /*for (int ix = 0; ix < nx_all; ++ix)
+        for (int iy = 0; iy < nghost; ++iy) {
+            u(ix,          iy) = uwrap(ix,          iy);
+            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
+        }
+    }*/
+
+    // Copy data between top and bottom boundari
+    for (int x = 0; x < domain_nx_inc_ghost; x++){
+        for (int y = 0; y < nghost; y++){
+            u(x, y, tno) = ghost_cells((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
+        }
+
+        for (int y = nghost + domain_ny - y_limit; y < nghost * 2 + domain_ny; y++){
+            u(x, y, tno) = ghost_cells((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
+        }
+    }
+}
 /**
  * ### Initial flux and speed computations
  * 
@@ -290,11 +326,11 @@ template <class Physics, class Limiter>
  void Central2D<Physics, Limiter>::limited_derivs()
  {
     int iy, ix;
-    #pragma omp parallel \
-    shared(ux, fx, u, f, uy, gy, g, ny_all, nx_all) \
+    //#pragma omp parallel \
+    shared(this.ux, this.fx, this.u, this.f, this.uy, this.gy, this.g, this.ny_all, this.nx_all) \
     private(ix, iy)
     {
-        #pragma omp for
+        //#pragma omp for
         for (iy = 1; iy < ny_all-1; ++iy) {
             for (ix = 1; ix < nx_all-1; ++ix) {
 
@@ -356,15 +392,15 @@ template <class Physics, class Limiter>
                 for (int m = 0; m < v(ix,iy).size(); ++m) {
                     v(ix,iy)[m] =
                     0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                     u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
+                       u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
                     0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                     ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                     uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                     uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
+                       ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
+                       uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
+                       uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
                     dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                     f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
+                       f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
                     dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                     g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
+                       g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
                 }
             }
 
@@ -451,7 +487,7 @@ void Central2D<Physics, Limiter>::solution_check()
         hu_sum *= cell_area;
         hv_sum *= cell_area;
         printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-         h_sum, hu_sum, hv_sum, hmin, hmax);
+           h_sum, hu_sum, hv_sum, hmin, hmax);
     }
 
 //ldoc off
