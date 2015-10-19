@@ -196,7 +196,27 @@ private:
     void compute_fg_speeds(real& cx, real& cy);
     void limited_derivs();
     void compute_step(int io, real dt);
-
+    void limited_derivs_local(int nx_all,
+                              int ny_all, 
+                              vec& u, 
+                              vec& f, 
+                              vec& g, 
+                              vec& ux, 
+                              vec& uy, 
+                              vec& fx, 
+                              vec& gy);
+    void compute_step_local(int io, 
+                            real dt 
+                            int nx_all, 
+                            int ny_all, 
+                            vec& u, 
+                            vec& f, 
+                            vec& g, 
+                            vec& v,
+                            vec& ux, 
+                            vec& uy, 
+                            vec& fx, 
+                            vec& gy);
 };
 
 
