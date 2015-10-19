@@ -1,0 +1,8 @@
+*.out
+*.png
+*.mp4
+
+shallow
+shallow.o*
+
+r*ah/

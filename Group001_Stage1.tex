@@ -164,7 +164,7 @@ to 2.25 cycles (1.33x speedup).
 
 \section{Parallelization}
 
-We use OpenMP to parallelize our code, and start with a naive parallelization (e.g. parallelizing the for loops in the various subroutines). 
+We use OpenMP to parallelize our code, and start with a naive parallelization (e.g. parallelizing the for loops in the various subroutines).
 
 \subsection{\texttt{Central2D<Shallow2D, MinMod<float>>::limited\_derivs}}
 
@@ -347,11 +347,17 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 %\end{verbatim}
 
 
-%\section{Tuning}
-%
-%\subsection{Ghost Cells}
-%
-%\subsection{Vectorization}
+\section{Tuning}
+
+The tuning step may involve a domain decomposition with per-processor ghost cells and batching of time steps between synchronization, vectorization of the computational kernels, or eliminating redundant computations in the current implementation.
+
+\subsection{Staggered Grids}
+
+Jiang and Tadmor (1998) proposed a high-resolution finite difference scheme for solving hyperbolic PDE systems in two space dimensions. The method is particularly attractive because, unlike many other methods in this space, it does not require that we write any solvers for problems with special initial data, nor even that we compute Jacobians of the flux functions.
+\\
+The Jiang$-$Tadmor scheme works by alternating between a main grid and a staggered grid offset by half a step in each direction.
+\\
+David Bindel currently manages this implicitly: the arrays at even time steps represent cell values on the main grid, and arrays at odd steps represent cell values on the staggered grid. His main \texttt{run} function always takes an even number of time steps to ensure we end up on the primary grid.
 
 
 
@@ -364,11 +370,15 @@ We assemble modules to obtain different methods as follows.
 
 \subsection{Version 1}
 
-We combine 2.1.1 and 2.2.1 to get the method of version 1.
+We combine 2.1.1 and 2.2.1 to get the method of version 1 (parallelized C++).
 
 \subsection{Version 2}
 
-We combine 2.1.2 and 2.2.1 to get the method of version 2.
+We combine 2.1.2 and 2.2.1 to get the method of version 2 (parallelized C++).
+
+\subsection{Version 3}
+
+We borrow the code from David Bindel to get the method of version 3 (tuned C).
 
 
 
@@ -382,14 +392,14 @@ We set up both strong and weak scaling studies, varying the number of threads we
 
 We fix the number of cells per side $nx = 200$ and vary the number of threads $p = 1, \cdots, 8$.
 \\
-From the Figure 1 below, we can see that the speedup is roughly linear in the number of threads, which reaches its maximum 3.2 at 8 threads.
+From the Figure 1 below, we can see that the speedup of version 1 and 2 is roughly linear in the number of threads, which reaches its maximum 3.2 at 8 threads. While the speedup of version 3 is roughly constant in the number of threads, which reaches its maximum 7.2 at 3 threads.
 
 
 \subsection{Weak Scaling Study}
 
-We vary both the number of cells per side $nx = 200 * p$ and the number of threads $p = 1, \cdots, 8$.
+We vary both the number of cells per side $nx = 200 \times p$ and the number of threads $p = 1, \cdots, 8$.
 \\
-From the Figure 2 below, we can see that the speedup is roughly linear in the number of threads at the beginning and then flattens out, which reaches its maximum 2.6 at 5 threads.
+From the Figure 2 below, we can see that the speedup of version 1 and 2 is roughly linear in the number of threads at the beginning, and then flattens out, which reaches its maximum 2.6 at 5 threads. While the speedup of version 3 is roughly linear in the number of threads, which reaches its maximum 6.5 at 2 threads.
 
 
 
@@ -429,11 +439,15 @@ From the Figure 2 below, we can see that the speedup is roughly linear in the nu
 
 \section*{Reference}
 
-(1) David Bindel, Shallow water simulation, Applications of Parallel Computers (CS 5220), Fall 2015.
+(1) D. Bindel, Shallow water simulation, Applications of Parallel Computers (CS 5220), Fall 2015.
 \\
-(2) David Bindel, Optimization and analysis tools, Applications of Parallel Computers (CS 5220), Fall 2015.
+(2) D. Bindel, Optimization and analysis tools, Applications of Parallel Computers (CS 5220), Fall\\ 2015.
 \\
-(3) Blaise Barney, OpenMP, https://computing.llnl.gov/tutorials/openMP.
+(3) D. Bindel, Shallow Water Simulation, https://github.com/dbindel/water, 2015.
+\\
+(4) B. Barney, OpenMP, https://computing.llnl.gov/tutorials/openMP.
+\\
+(5) G. Jiang and E. Tadmor, Nonoscillatory Central Schemes For Multidimensional Hyperbolic\\ Conservation Laws, {\em SIAM Journal on Scientific Computing}, 19(6), 1892$-$1917.
 
 \end{document}
 
