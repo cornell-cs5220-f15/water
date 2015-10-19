@@ -97,12 +97,12 @@ struct Shallow2D {
 			  const iter hv, int ncell) {
     using namespace std;
     real cx2,cy2
-    for (int i = 0; i < ncel; ++i){
-      real hi = h[i];
-      real inv_hi=1/h[i];
-      real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
-      cx2 = fabs(hu[i] * inv_hi) + root_gh;
-      cy2 = fabs(hv[i] * inv_hi) + root_gh;
+      for (int i = 0; i < ncel; ++i,++h,++hu,++hv){
+      real hi = *h;
+      real inv_hi=1/hi;
+      real root_gh = sqrt(g * hi);  // NB: Don't let h go negative!
+      cx2 = fabs((*hu) * inv_hi) + root_gh;
+      cy2 = fabs((*hv) * inv_hi) + root_gh;
       if (cx < cx2) cx=cx2;
       if (cy < cy2) cy=cy2;
     }
