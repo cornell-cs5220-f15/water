@@ -2,8 +2,6 @@
     #include "central2d.h"
 #elif defined _PARALLEL_NODE
     #include "central2d_pnode.h"
-#else
-    #include "central2d.h" // same as default for now
 #endif
 #include "shallow2d.h"
 #include "minmod.h"
@@ -157,8 +155,6 @@ int main(int argc, char** argv)
     Sim sim(width,width, nx,nx);
 #elif defined _PARALLEL_NODE
     Sim sim(width,width, nx,nx, nxblocks,nyblocks, nbatch);
-#else
-    Sim sim(width,width, nx,nx);// default [same as serial for now]
 #endif
     SimViz<Sim> viz(fname.c_str(), sim);
     sim.init(icfun);
