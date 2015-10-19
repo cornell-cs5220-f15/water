@@ -208,9 +208,12 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
+    (k*ny_all+(ng+iy))*nx_all+(ng+ix)
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
-            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            int ind=(ng+iy)*nx_all+(ng+ix)
+            
+            f(pointers[0]+ind, (ix+0.5)*dx, (iy+0.5)*dy, nx_all*ny_all);
 }
 
 /**
@@ -236,7 +239,7 @@ void copy_subgrid(iter dst,
 {
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
-            *(dst+(iy*stride+ix)) = *(src + (iy*stride+ix));=
+            *(dst+(iy*stride+ix)) = *(src + (iy*stride+ix));
 }
 
 template <class Physics, class Limiter>
