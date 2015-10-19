@@ -594,7 +594,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                                             fx_l, 
                                             gy_l);
                     compute_step_local(io, 
-                                       dt 
+                                       dt,
                                        nx_all_local, 
                                        ny_all_local, 
                                        u_l, 
