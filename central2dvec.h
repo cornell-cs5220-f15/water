@@ -101,15 +101,15 @@ public:
     
     Central2D(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
-              int nfiel,    // Max allowed CFL number
+              int nfiel2,    // Max allowed CFL number
               real cfl = 0.45):
     nx(nx), ny(ny),
 	nx_all(2*ng+nx), ny_all(2*ng+ny),
-	nfield(nfield),
+	nfield(nfield2),
     dx(w/nx), dy(h/ny),
 	cfl(cfl),
 	N(nfield * (nx + 2*ng)* (ny + 2*ng)),
-	all(8*N), pointers(8){}
+	all(8*N), pointers(8) {}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -136,23 +136,17 @@ public:
     
 private:
     static constexpr int ng = 3;   // Number of ghost cells
-
+    const int nx_all,ny_all, nfield;
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
     const int N;
     
-    const vec all;            // Solution values
+    std::vector<real> all;            // Solution values
  
     std::vector<iter> pointers;
-    pointers[0] = all.begin();
-    pointers[1] = all.begin() + N;
-    pointers[2] = all.begin() + 2*N;
-    pointers[3] = all.begin() + 3*N;
-    pointers[4] = all.begin() + 4*N;
-    pointers[5] = all.begin() + 5*N;
-    pointers[6] = all.begin() + 6*N;
-    pointers[7] = all.begin() + 7*N;
+
+
     
     
     
@@ -172,8 +166,8 @@ private:
 
     // Wrapped accessor (periodic BC)
     int ioffset(int ix, int iy) {
-        return offset( (ix+nx-nghost) % nx + nghost,
-                       (iy+ny-nghost) % ny + nghost );
+        return offset( (ix+nx-ng) % nx + ng,
+                       (iy+ny-ng) % ny + ng );
     }
 
    // vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
@@ -185,17 +179,59 @@ private:
     }*/
 
     // Stages of the main algorithm
-    void apply_periodic();
+    void apply_periodic(iter u,
+                        int nx, int ny, int ng, int nfield);
     void compute_fg_speeds(real& cx, real& cy);
     void limited_derivs();
     void compute_step(int io, real dt);
+    void copy_subgrid(iter dst, iter src,
+                      int nx, int ny, int stride);
+    void limited_deriv1(iter du,const iter u,int ncell);
+    void limited_derivk(iter du,const iter u,int ncell, int stride);
+    void limited_derivs(iter ux, iter uy,
+                        iter fx, iter gy,
+                        const iter u,
+                        const iter f,
+                        const iter g,
+                        int nx, int ny, int nfield);
+    void central2d_predict(iter v,
+                           const iter u,
+                           const iter fx,
+                           const iter gy,
+                           float dtcdx2, float dtcdy2,
+                           int nx, int ny, int nfield);
+    void central2d_correct(iter v,
+                           const iter u,
+                           const iter ux,
+                           const iter uy,
+                           const iter f,
+                           const iter g,
+                           float dtcdx2, float dtcdy2,
+                           int xlo, int xhi, int ylo, int yhi,
+                           int nx, int ny, int nfield);
+    void compute_step(iter u, iter v,
+                      iter ux, iter uy,
+                      iter f, iter fx,
+                      iter g, iter gy,
+                      int io, int nx, int ny, int ng,
+                      int nfield,
+                      real dt, real dx, real dy);
+    int xrun(iter u, iter v,
+         iter ux, iter uy,
+         iter f, iter fx,
+         iter g, iter gy,
+         int nx, int ny, int ng,
+         int nfield, float tfinal, real dx, real dy,
+         real cfl);
+    int compute_step(float tfinal);
+
 
 };
 
 
 /**
  * ## Initialization
- * 
+ *
  * Before starting the simulation, we need to be able to set the
  * initial conditions.  The `init` function does exactly this by
  * running a callback function at the center of each cell in order
@@ -208,12 +244,19 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
-    (k*ny_all+(ng+iy))*nx_all+(ng+ix)
+    pointers[0] = all.begin();
+    pointers[1] = all.begin() + N;
+    pointers[2] = all.begin() + 2*N;
+    pointers[3] = all.begin() + 3*N;
+    pointers[4] = all.begin() + 4*N;
+    pointers[5] = all.begin() + 5*N;
+    pointers[6] = all.begin() + 6*N;
+    pointers[7] = all.begin() + 7*N;
     for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
-            int ind=(ng+iy)*nx_all+(ng+ix)
-            
+        for (int ix = 0; ix < nx; ++ix){
+            int ind=(ng+iy)*nx_all+(ng+ix);
             f(pointers[0]+ind, (ix+0.5)*dx, (iy+0.5)*dy, nx_all*ny_all);
+        }
 }
 
 /**
@@ -233,7 +276,7 @@ void Central2D<Physics, Limiter>::init(F f)
  * integers `p` and `q`.
  */
 template <class Physics, class Limiter>
-void copy_subgrid(iter dst,
+void Central2D<Physics, Limiter>::copy_subgrid(iter dst,
                   iter src,
                   int nx, int ny, int stride)
 {
@@ -305,7 +348,7 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_deriv1(iter du,const iter u,int ncell)
 {
     for (int i=0; i<ncell; ++i)
-        *(iter+i)=limdiff(*(u+i-1),*(u+i),*(u+i+1));
+        (*(du+i))=limdiff(*(u+i-1),*(u+i),*(u+i+1));
 }
 
 template <class Physics, class Limiter>
@@ -313,7 +356,7 @@ void Central2D<Physics, Limiter>::limited_derivk(iter du,const iter u,int ncell,
 {
     assert(stride>0);
     for (int i=0; i<ncell; ++i)
-        *(iter+i)=limdiff(*(u+i-stride),*(u+i),*(u+i+stride));
+        (*(du+i))=limdiff(*(u+i-stride),*(u+i),*(u+i+stride));
 }
 
 template <class Physics, class Limiter>
@@ -357,7 +400,7 @@ void Central2D<Physics, Limiter>::limited_derivs(iter ux, iter uy,
  * indexing scheme.
  */
 template <class Physics, class Limiter>
-void central2d_predict(iter v,
+void Central2D<Physics, Limiter>::central2d_predict(iter v,
                        const iter u,
                        const iter fx,
                        const iter gy,
@@ -369,13 +412,13 @@ void central2d_predict(iter v,
             for (int ix = 1; ix < nx-1; ++ix) {
                 int offset = (k*ny+iy)*nx+ix;
                 *(v+offset) = *(u+offset) -
-                dtcdx2 * (*(fx+offset])) -
+                dtcdx2 * (*(fx+offset)) -
                 dtcdy2 * (*(gy+offset));
             }
 }
 
 template <class Physics, class Limiter>
-void central2d_correct(iter v,
+void Central2D<Physics, Limiter>::central2d_correct(iter v,
                        const iter u,
                        const iter ux,
                        const iter uy,
@@ -399,14 +442,14 @@ void central2d_correct(iter v,
                 
                 *(v+j00) =
                 0.2500f * ( (*(u+j00)) + (*(u+j01)) + (*(u+j10)) + (*(u+j11)) ) -
-                0.0625f * ( (*(ux+j10)) - (*(uxj00)) +
+                0.0625f * ( (*(ux+j10)) - (*(ux+j00)) +
                            (*(ux+j11)) - (*(ux+j01)) +
                            (*(uy+j01)) - (*(uy+j00)) +
                            (*(uy[j11])) - (*(uy+j10)) ) -
                 dtcdx2  * ( (*(f+j10)) - (*(f+j00)) +
                            (*(f+j11)) - (*(f+j01)) ) -
                 dtcdy2  * ( (*(g+j01)) - (*(g+j00)) +
-                           (*(g+j11])) - (*(g+j10)) );
+                           (*(g+j11)) - (*(g+j10)) );
             }
 }
 
@@ -483,7 +526,7 @@ int Central2D<Physics, Limiter>::xrun(iter u, iter v,
         for (int io = 0; io < 2; ++io) {
             real cx, cy;
             apply_periodic(u,nx,ny,ng,nfield);
-            physics::wave_speed(cx,cy,u,nx_all * ny_all, nx_all * ny_all);
+            Physics::wave_speed(cx,cy,u,nx_all * ny_all, nx_all * ny_all);
             limited_derivs();
             if (io == 0) {
                 dt = cfl / fmax(cx/dx, cy/dy);
@@ -504,7 +547,6 @@ int Central2D<Physics, Limiter>::xrun(iter u, iter v,
 template <class Physics, class Limiter>
 int Central2D<Physics, Limiter>::compute_step(float tfinal)
 {
-    pointers
     return central2d_xrun(pointers[0], pointers[1], pointers[2], pointers[3],
                           pointers[4], pointers[5], pointers[6], pointers[7],
                           nx, ny, ng,
@@ -523,7 +565,7 @@ int Central2D<Physics, Limiter>::compute_step(float tfinal)
  * of water heights).
  */
 
-template <class Physics, class Limiter>
+/*template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
@@ -547,7 +589,7 @@ void Central2D<Physics, Limiter>::solution_check()
     hv_sum *= cell_area;
     printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
            h_sum, hu_sum, hv_sum, hmin, hmax);
-}
+}*/
 
 //ldoc off
 #endif /* CENTRAL2D_H*/
