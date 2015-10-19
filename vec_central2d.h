@@ -249,17 +249,26 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 	__m256 dtdxr = _mm256_broadcast_ss(&dtcdx2);
 	real dtcdy2 = 0.5 * dt / dy;
 	__m256 dtdyr = _mm256_broadcast_ss(&dtcdy2);
+	real c1 = 0.2500;
+	__m256 cr1 = _mm256_broadcast_ss(&c1);
+	real c2 = 0.0625;
+	__m256 cr2 = _mm256_broadcast_ss(&c2);
 
 	real utemp[8] __attribute__((aligned(32)));
+
+	__m256 ur, fxr, gyr;
+	__m256 u00, u10, u01, u11, ux00, ux10, ux01, ux11;
+	__m256 uy00, uy10, uy01, uy11, f00, f01, f10, f11;
+	__m256 g00, g01, g10, g11, vr;
 
 	// Predictor (flux values of f and g at half step)
 	for (int iy = 1; iy < ny_all-1; ++iy)
 	for (int ix = 1; ix < nx_all-1; ix+=2) {
 
 	//load 8 floating point values in the column
-	 __m256 ur = _mm256_load_ps(u(ix,iy));
-	 __m256 fxr = _mm256_load_ps(fx(ix,iy));
-	 __m256 gyr = _mm256_load_ps(gy(ix,iy));
+	ur = _mm256_load_ps(u(ix,iy));
+	fxr = _mm256_load_ps(fx(ix,iy));
+	gyr = _mm256_load_ps(gy(ix,iy));
 
 	fxr = _mm256_mul_ps(fxr, dtdxr);
 	gyr = _mm256_mul_ps(gyr, dtdyr);
@@ -275,20 +284,63 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 
     // Corrector (finish the step)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int m = 0; m < stride; ++m) {
-                v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
-            }
+        for (int ix = nghost-io; ix < nx+nghost-io; ix+=2) {
+ 
+	u00 = _mm256_load_ps(u(ix,iy));
+	u10 = _mm256_load_ps(u(ix+1,iy));
+	u01 = _mm256_load_ps(u(ix,iy+1));
+	u11 = _mm256_load_ps(u(ix+1,iy+1));
+
+	ux00 = _mm256_load_ps(ux(ix,iy));
+	ux10 = _mm256_load_ps(ux(ix+1,iy));
+	ux01 = _mm256_load_ps(ux(ix,iy+1));
+	ux11 = _mm256_load_ps(ux(ix+1,iy+1));
+
+	uy00 = _mm256_load_ps(uy(ix,iy));
+	uy10 = _mm256_load_ps(uy(ix+1,iy));
+	uy01 = _mm256_load_ps(uy(ix,iy+1));
+	uy11 = _mm256_load_ps(uy(ix+1,iy+1));
+
+	f00 = _mm256_load_ps(f(ix,iy));
+	f10 = _mm256_load_ps(f(ix+1,iy));
+	f01 = _mm256_load_ps(f(ix,iy+1));
+	f11 = _mm256_load_ps(f(ix+1,iy+1));
+
+       	g00 = _mm256_load_ps(g(ix,iy));
+	g10 = _mm256_load_ps(g(ix+1,iy));
+	g01 = _mm256_load_ps(g(ix,iy+1));
+	g11 = _mm256_load_ps(g(ix+1,iy+1));
+
+	u00 = _mm256_add_ps(u00, u10);
+	u00 = _mm256_add_ps(u00, u01);
+	u00 = _mm256_add_ps(u00, u11);
+	u00 = _mm256_mul_ps(u00, cr1);
+
+	ux00 = _mm256_sub_ps(ux10, ux00);
+	ux00 = _mm256_add_ps(ux00, ux11);
+	ux00 = _mm256_sub_ps(ux00, ux01);
+	ux00 = _mm256_add_ps(ux00, uy01);
+	ux00 = _mm256_sub_ps(ux00, uy00);
+	ux00 = _mm256_add_ps(ux00, uy11);
+	ux00 = _mm256_sub_ps(ux00, uy10);
+	ux00 = _mm256_mul_ps(ux00, cr2);
+
+	f00 = _mm256_sub_ps(f10, f00);
+	f00 = _mm256_add_ps(f00, f11);
+	f00 = _mm256_sub_ps(f00, f01);
+	f00 = _mm256_mul_ps(f00, dtdxr);
+
+	g00 = _mm256_sub_ps(g01, g00);
+	g00 = _mm256_add_ps(g00, g11);
+	g00 = _mm256_sub_ps(g00, g10);
+	g00 = _mm256_mul_ps(g00, dtdyr);
+
+	vr = _mm256_sub_ps(u00, ux00);
+	vr = _mm256_sub_ps(vr, f00);
+	vr = _mm256_sub_ps(vr, g00);
+
+	_mm256_store_ps(v(ix,iy), vr);
+
         }
 
     // Copy from v storage back to main grid
