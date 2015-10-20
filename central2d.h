@@ -264,14 +264,29 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < ny_all; ++iy)
+    
+    #pragma omp parallel for
+    for(int n = 0; n < ny_all * nx_all; ++n) {
+        int iy = n / nx_all;
+        int ix = n - iy * nx_all;
+        ++iy;
+        ++ix;
+        
+        real cell_cx, cell_cy;
+        Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
+        Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+        cx = max(cx, cell_cx);
+        cy = max(cy, cell_cy);
+    }
+    
+    /*for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
             Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
-        }
+        }*/
     cx_ = cx;
     cy_ = cy;
 }
@@ -343,9 +358,26 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
+    
+    #pragma omp parallel for
+    for(int n = 0; n < (ny_all - 2)*(nx_all - 2); ++n) {
+        
+        int iy = n / (nx_all - 2);
+        int ix = n - iy * (nx_all - 2);
+        ++iy;
+        ++ix;
+        
+        vec uh = u(ix,iy);
+        for (int m = 0; m < uh.size(); ++m) {
+            uh[m] -= dtcdx2 * fx(ix,iy)[m];
+            uh[m] -= dtcdy2 * gy(ix,iy)[m];
+        }
+        Physics::flux(f(ix,iy), g(ix,iy), uh);
+        
+    }
 
     // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
+    /*for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             vec uh = u(ix,iy);
             for (int m = 0; m < uh.size(); ++m) {
@@ -353,7 +385,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
                 uh[m] -= dtcdy2 * gy(ix,iy)[m];
             }
             Physics::flux(f(ix,iy), g(ix,iy), uh);
-        }
+        }*/
 
     // Corrector (finish the step)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
