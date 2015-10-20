@@ -105,14 +105,14 @@ public:
         nx_master(nx), ny_master(ny),
         dx(w/nx_master), dy(h/ny_master),
         cfl(cfl), 
-        u_master (nx_master * ny_master),
-        f_master (nx_master * ny_master),
-        g_master (nx_master * ny_master),
-        ux_master(nx_master * ny_master),
-        uy_master(nx_master * ny_master),
-        fx_master(nx_master * ny_master),
-        gy_master(nx_master * ny_master),
-        v_master (nx_master * ny_master) {}
+        u_master_ (nx_master * ny_master),
+        f_master_ (nx_master * ny_master),
+        g_master_ (nx_master * ny_master),
+        ux_master_(nx_master * ny_master),
+        uy_master_(nx_master * ny_master),
+        fx_master_(nx_master * ny_master),
+        gy_master_(nx_master * ny_master),
+        v_master_ (nx_master * ny_master) {}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -248,14 +248,14 @@ void Central2D<Physics, Limiter>::init(F f)
     nx_all = nx + 2 * numPadding;
     ny_all = ny + 2 * numPadding;
 
-    u_ = std::vector(nx_all * ny_all);
-    v_ = std::vector(nx_all * ny_all);
-    f_ = std::vector(nx_all * ny_all);
-    g_ = std::vector(nx_all * ny_all);
-    ux_ = std::vector(nx_all * ny_all);
-    uy_ = std::vector(nx_all * ny_all);
-    fx_ = std::vector(nx_all * ny_all);
-    gy_ = std::vector(nx_all * ny_all);
+    u_ = std::vector<vec>(nx_all * ny_all);
+    v_ = std::vector<vec>(nx_all * ny_all);
+    f_ = std::vector<vec>(nx_all * ny_all);
+    g_ = std::vector<vec>(nx_all * ny_all);
+    ux_ = std::vector<vec>(nx_all * ny_all);
+    uy_ = std::vector<vec>(nx_all * ny_all);
+    fx_ = std::vector<vec>(nx_all * ny_all);
+    gy_ = std::vector<vec>(nx_all * ny_all);
 }
 
 /**
