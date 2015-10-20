@@ -10,7 +10,7 @@
 # Or create a Makefile.in.xxx of your own!
 #
 
-PLATFORM=icc
+PLATFORM=clang
 include Makefile.in.$(PLATFORM)
 
 # ===
