@@ -1,24 +1,81 @@
 \documentclass{scrartcl}
-\usepackage{dominatrix,cprotect}
+\usepackage{dominatrix,cprotect,listings,xcolor,color}
+
+% Solarized colour scheme for listings
+\definecolor{solarized@base03}{HTML}{002B36}
+\definecolor{solarized@base02}{HTML}{073642}
+\definecolor{solarized@base01}{HTML}{586e75}
+\definecolor{solarized@base00}{HTML}{657b83}
+\definecolor{solarized@base0}{HTML}{839496}
+\definecolor{solarized@base1}{HTML}{93a1a1}
+\definecolor{solarized@base2}{HTML}{EEE8D5}
+\definecolor{solarized@base3}{HTML}{FDF6E3}
+\definecolor{solarized@yellow}{HTML}{B58900}
+\definecolor{solarized@orange}{HTML}{CB4B16}
+\definecolor{solarized@red}{HTML}{DC322F}
+\definecolor{solarized@magenta}{HTML}{D33682}
+\definecolor{solarized@violet}{HTML}{6C71C4}
+\definecolor{solarized@blue}{HTML}{268BD2}
+\definecolor{solarized@cyan}{HTML}{2AA198}
+\definecolor{solarized@green}{HTML}{859900}
+
+% Define C++ syntax highlighting colour scheme
+\lstset{language=C++,
+        basicstyle=\ttfamily,
+        numbers=left,
+        tabsize=2,
+        breaklines=true,
+        escapeinside={@}{@},
+        numberstyle=\ttfamily\color{solarized@base01},
+        keywordstyle=\color{solarized@green},
+        stringstyle=\color{solarized@cyan}\ttfamily,
+        identifierstyle=\color{solarized@blue},
+        commentstyle=\color{solarized@base01},
+        emphstyle=\color{solarized@red},
+        frame=single,
+        rulecolor=\color{solarized@base2},
+        rulesepcolor=\color{solarized@base2},
+        showstringspaces=false
+}
 \begin{document}
-  \section{Profiling}
-    In this section we discuss only the results of the profiling tools that we have used, and any insights we have obtained. A discussion of the changes we have made to the codebase follows in the next section.
-
-    For each of the profiling jobs below, we run \verb|./shallow| with $n = 1000$ and $F = 100$ to collect data over a larger calculation window. We use a standard offering of compiler flags (\verb|-O3, -no-prec-div, -opt-prefetch, -xHost, -ansi-alias, -ipo|).
-    \subsection{VTune}
-    VTune profiling suggests that most of the CPU time incurred by the code is spent in the \verb|limited_derivs| and \verb|compute_step| functions, in that order. The rest of the execution time is distributed across program initialization and system overheads.
-
-    Within \verb|limited_derivs|, the bulk of the time is incurred by the call to the limiter (\verb|Limiter::limdiff|) from within the loops going over each cell. Within \verb|compute_step|, a majority of the time is spent on the correction loops. Beyond that, the next set of bottlenecks in \verb|compute_step| occur in the prediction step loops and copying loops.
+  \begin{framed}
+  CS 5220 Introduction to Parallel Programming \hfill Fall 2015 \\
+  Kenneth Lim (\href{mailto:kl545@cornell.edu}{kl545}), Yalcin Ozhabes (\href{mailto:ao294@cornell.edu}{ao294}), Joshua Cohen (\href{mailto:jbc264@cornell.edu}{jbc264}) \hfill Project 2 \hspace{-3ex}
+  \end{framed}
+    \section{Introduction}
+    For compilation, we use a reasonable set of compiler flags:
+    \begin{verbatim}-O3, -no-prec-div, -opt-prefetch, -xHost, -ansi-alias, -ipo\end{verbatim}
+    to handle the bare-bones of loop optimization, memory allocation/alignment, and architecture specific instructions. Notably, \verb|-fast| failed to work because the compiler encountered problems inlining statically declared functions.
+    \section{Parallelism}
+    \begin{table}[ht!]
+      \centering
+      \begin{tabu}{ll}
+        \toprule
+        Function & CPU Time \\
+        \midrule
+        \texttt{Central2D<Shallow2D, MinMod<float>>::limited\_derivs}   & 1.434 \\
+        \texttt{Central2D<Shallow2D, MinMod<float>>::compute\_step}      & 0.865 \\
+        \texttt{Central2D<Shallow2D, MinMod<float>>::compute\_fg\_speeds} & 0.549 \\
+        \bottomrule
+      \end{tabu}
+      \caption{Excerpt from VTune Profiling Output\label{table:vtune}}
+    \end{table}
+    Intel's VTune Amplifier suggests that most of the CPU time incurred by the code is spent in the \verb|limited_derivs| and \verb|compute_step|, and \verb|compute_fg_speeds| functions, in that order (see~\autoref{table:vtune}). The rest of the execution time is distributed across program initialization and system overheads in significantly smaller quantities. In the interest of targeting the main bottlenecks, we focus primarily on the two named functions.
 
     \begin{figure}[ht!]
-    \begin{verbatim}for (int m = 0; m < du.size(); ++m) {
+    \begin{lstlisting}
+for (int m = 0; m < du.size(); ++m) {
   du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
-} \end{verbatim}
-    \cprotect\caption{Bottleneck code in \verb|limited_derivs|}
+}
+    \end{lstlisting}
+    \cprotect\caption{Bottleneck code in \verb|limited_derivs|\label{fig:limderiv}}
     \end{figure}
 
+    Within \verb|limited_derivs|, the bulk of the time is incurred by the call to the limiter (\verb|Limiter::limdiff|) from within the loops going over each cell (see~\autoref{fig:limderiv}).
+
     \begin{figure}[ht!]
-    \begin{verbatim}for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
+    \begin{lstlisting}
+for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
   for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
     for (int m = 0; m < v(ix,iy).size(); ++m) {
       v(ix,iy)[m] =
@@ -34,18 +91,140 @@
                    g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
     }
   }
-}\end{verbatim}
-    \cprotect\caption{Bottleneck code in \verb|compute_step|}
+}
+    \end{lstlisting}
+    \cprotect\caption{Bottleneck code in \verb|compute_step|\label{fig:computestep}}
     \end{figure}
-    \subsection{Maqao}
-    Maqao's evaluation was not particularly useful. In accordance with the profiling data from VTune, we focus on Maqao's recommendations for \verb|compute_step| and \verb|limited_derivs|. For both cases, Maqao observes that there is no loop vectorization and recommends annotation with \verb|#pragma ivdep|. In addition, its recommendation for eliminating expensive instructions is to compile for the host architecture, which we have already incorporated prior to profiling.
 
-    A useful recommendation was obtained for \verb|compute_step|, where Maqao recommended that single-double precision conversions be avoided by suffixing constants with `f' where double precision is not needed.
-    \subsection{IPO}
-    Intel's Vectorization Report was generated using the compiler flags \verb|-qopt-report=5 -qopt-report-phase=vec|.
-  \section{Optimization}
-    \subsection{Minimizing Precision Conversions}
-    \subsection{Parallelism}
-    \subsection{Vectorization}
+    Within \verb|compute_step|, a majority of the time is spent on the correction loops (see~\autoref{fig:computestep}), followed by the prediction step loops, and finally the copying loops. As a naive sanity check, these numbers corroborate our expectations---\verb|compute_step| performs most of the CPU-bound work, and within \verb|compute_step| itself, the correction loops are performing the largest number of calculations.
+
+    We investigated the use of OpenMP annotations to parallelize the code but were not particularly successful. Profiling multi-threaded code with VTune requires additional diligence, and we generate concurrency reports by running the profiler as such:
+    \begin{verbatim}amplxe-cl -collect concurrency\end{verbatim}
+    with an additional compiler flag \verb|-parallel-source-info=2|. This yields additional information in the report about CPU utilization and thread idling time. For all parallelism cases described below, we aimed to saturate all available cores by setting the number of OMP threads to the maximum available, i.e.:
+    \begin{verbatim}omp_set_num_threads(omp_get_max_threads())\end{verbatim}
+    This absolves us of the need to declare \verb|num_threads| on every OMP pragma annotation. In addition, to ensure that all functions receive the full benefit of thread resources, we declare this as early as possible in \verb|driver.cc|.
+
+    \subsection{Collapsing Loops}
+    Our first approach was a naive ``carpet-bomb'' collapsing of loops in \verb|compute_step| and \verb|limited_derivs|. Most loop pairs in both functions serve the purpose of iterating through a grid (of ghost cells or otherwise), and can be collapsed by annotation as described in~\autoref{fig:collapse}.
+
+    \begin{figure}[ht!]
+    \begin{lstlisting}
+#pragma omp parallel for collapse(2)
+for (...) {
+  for (...) {
+    ...
+  }
+}
+    \end{lstlisting}
+    \caption{Schema of paired for-loops iterating over a grid in parallel\label{fig:collapse}}
+    \end{figure}
+
+    However there are a number of pitfalls with this approach. Firstly, for loop collapsing to be effective, there should ideally be no data dependencies within the innermost loop. In our case, the loops are used to update parent data structures, and it is non-trivial to eliminate the dependencies. Analysis with VTune confirms that while iterations of the loop were indeed being run in parallel, there was very poor CPU utilization and a lot of execution time was lost to communication overhead.
+
+    We also explored the use of reduction annotations in the predictor loop in \verb|compute_step|, believing that it might be a viable candidate because of the pair of substraction operations. Unfortunately, we did not obtain any noteworthy results.
+
+    \subsection{Loop Scheduling}
+    We briefly explored alternative scheduling algorithms in an attempt to increase CPU utilization. Enforcing \verb|schedule(static)| for each parallelized loop improved CPU utilization by a fractional percentage. While this result was consistent, it did not yield significant improvements, and we have omitted it from our current best results. It is possible that we might return to this at a later time.
+
+    \subsection{Master Execution Thread}
+    Our final approach with OpenMP was at a coarser level. Rather than attempting to aggressively parallelize loops within the kernel, we adopt Prof.~Bindel's advice and define a ``master'' execution frame in \verb|run|. This creates a thread pool which we use to handle subregions of the grid. We can thus rewrite \verb|run| as in~\autoref{fig:run}.
+    \begin{figure}[p]
+    \begin{lstlisting}
+#pragma omp master
+{
+  bool done = false;
+  real t = 0;
+
+  while (!done) {
+    real dt;
+    for (int io = 0; io < 2; ++io) {
+      #pragma omp parallel for schedule(auto)
+      {
+        ...
+
+        #pragma omp critical
+        if (io == 0) {
+          dt = cfl / std::max(cx/dx, cy/dy);
+          ...
+        }
+
+        ...
+
+        #pragma omp atomic
+        t += dt;
+      }
+    }
+  }
+}
+    \end{lstlisting}
+    \cprotect\caption{Modified \verb|run| function incorporating a master thread of execution.\label{fig:run}}
+    \end{figure}
+    This sets us up for better design as a whole, as we discuss in the next section.
+
+    \subsection{Coprocessor Offloading}
+    We explored offloading portions of work to the Intel Xeon Phi Coprocessors, but faced difficulty in doing so due to heavy use of C++ templates in the codebase. All functions and variables that are not inlined have to be targeted for compilation on the coprocessor's architecture, and a good implementation has to account for thread affinity (viz. \verb|KMP_AFFINITY|) combinations on both the host and coprocessors.
+
+    However, the prospect of using the coprocessors is tempting for the following reason: in the previous section we described the parallelization of the entire kernel pipeline as a whole, but each instance of the kernel pipeline can be offloaded to a coprocessor. This is ideal because re-targeting the entire \verb|Central2D| class is more straightforward than cherry picking functions from within. We expect to spend a significant amount of time in this area leading up to our final submission.
+
+    \section{Maqao and Single/Double Precision Conversion}
+    Maqao's evaluation was not particularly useful. In accordance with the profiling data from VTune, we focus on Maqao's recommendations for \verb|compute_step| and \verb|limited_derivs|. For both cases, Maqao observes that there is no loop vectorization and recommends annotation with \verb|#pragma ivdep|. This is potentially dangerous without further verification that there are no loop dependencies. In addition, its recommendation for eliminating expensive instructions is to compile for the host architecture, which we have already incorporated prior to profiling.
+
+    A single useful recommendation was obtained for \verb|compute_step|, where Maqao recommended that single-double precision conversions be avoided by suffixing constants with \verb|f| where double precision is not needed. This is applied to the constants 0.2500 and 0.0625 in the correction step.
+    \section{Vectorization}
+    Intel's Vectorization Report was generated using the compiler flags
+    \begin{verbatim}-qopt-report=5 -qopt-report-phase=vec\end{verbatim}
+    and provided more substantial recommendations compared to Maqao. The speedup values we cite subsequently are obtained from this report unless otherwise stated.
+
+    \subsection{Resolving Dependencies}
+    A large part of the work done to aid compiler auto-vectorization involved either modifying the loop structure to eliminate flow/anti/output dependencies, or marking suspicious loops with \verb|#pragma ivdep| to encourage the compiler to consider vectorization.
+
+    For the predictor loop in \verb|compute_step|, we cache \verb|uh|, \verb|fx|, and \verb|gy| outside the innermost loop. This provide a small measure of memory locality, but more importantly eliminates flow dependencies when updating \verb|uh[m]|. Next, we squash the two subtraction operations into a single line so the compiler can detect the common value update pattern and vectorize it accordingly. Were the loops not squashed, the compiler would consider the pair of operations as an output dependency. The updated loop is shown in~\autoref{fig:predictor}.
+
+    \begin{figure}[ht!]
+\begin{lstlisting}
+for (int iy = 1; iy < ny_all-1; ++iy) {
+  for (int ix = 1; ix < nx_all-1; ++ix) {
+    vec uh = u(ix, iy);
+    vec thisFx = fx(ix, iy);
+    vec thisGx = gy(ix, iy);
+
+    for (int m = 0; m < uh.size(); ++m) {
+        uh[m] = uh[m] - dtcdx2 * thisFx[m] - dtcdy2 * thisGx[m];
+    }
+
+    Physics::flux(thisFx, thisGx, uh);
+  }
+}
+    \end{lstlisting}
+    \caption{Vectorization-friendly code for the prediction step.\label{fig:predictor}}
+    \end{figure}
+
+    This results in a 1.56x speedup. Future work here might involve refactoring of the vector extraction functions to minimize single-double precision conversions.
+
+    Similarly, for the correction loop, we extract \verb|v(ix, iy)| to eliminate the output dependency. The updated loop is shown in~\autoref{fig:corrector}.
+
+    \begin{figure}[ht!]
+    \begin{lstlisting}
+for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
+  for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+    vec context = v(ix, iy);
+
+    for (int m = 0; m < context.size(); ++m) {
+      context[m] = ...
+    }
+  }
+}
+    \end{lstlisting}
+    \caption{Vectorization-friendly code for the correction step.\label{fig:corrector}}
+    \end{figure}
+
+    This results in a very modest speedup ($\approx2\%$) because the stride length of the array is still large. Further work here might involve refactoring to decrease the stride length. Prof.~Bindel's attempt is instructive because appears to split the single large computation into two loops, which would add an additional opportunity for vectorization.
+
+    Not all loops were successfully vectorized. The copy step at the end of \verb|compute_step| can be made a candidate for vectorization by annotating with \verb|#pragma ivdep|. However there are no benefits to be gained because the overhead from vectorizing the loop outweighs the speed gains. Similar conclusions were made for the main loops in \verb|apply_periodic| and \verb|compute_fg_speeds|.
+
+  \subsection{Elemental Functions}
+  We attempted to create elemental functions for segments of the code with high utilization that could not be vectorized. The true source of the bottleneck in \verb|limited_derivs| is in fact the \verb|limdiff| function, which is challenging to vectorize as-is because of a flow/anti dependency incurred when updating \verb|du[m]| in place. Instead, we annotate the entire function with \verb|#pragma omp declare simd| and instruct the main loop in \verb|limited_derivs| to execute the function via SIMD. Since there are four inputs to \verb|limdiff|, the compiler successfully optimizes the loop, resulting in a 3.14x speedup.
+
   \section{Ongoing Work}
+  A large part of our efforts is dedicated towards refactoring the kernel to work on appropriately sized subgrids. The calculations for each subgrid will be offloaded to the coprocessors as a bundled kernel evaluation function, and executed in parallel there with the support of vectorized instructions. Due to cluster instability leading up to the deadline, we were unable to generate quantitative timing data for our scaling studies, but expect to give the topic a more thorough treatment in our final submission.
 \end{document}
