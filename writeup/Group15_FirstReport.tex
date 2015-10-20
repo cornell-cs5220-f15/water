@@ -1,0 +1,177 @@
+\documentclass[12pt]{article}
+\linespread{1.45}
+
+\usepackage{amsmath}
+\usepackage{multicol}
+\usepackage{graphicx}
+\usepackage{setspace}
+
+\setlength{\topmargin}{-.5in}
+\setlength{\textheight}{9in}
+\setlength{\oddsidemargin}{.125in}
+\setlength{\textwidth}{6.25in}
+
+
+\begin{document}
+
+%\noindent
+\setlength{\parindent}{24pt}
+
+
+\section*{Project 2 - Shallow Wave Equation}
+Team 15 \--- Amiraj Dhawan, David Eckman, Xiangyu Zhang
+
+\section{Motivation}
+Our objective was to analyze the performance of the shallow wave equation.
+The shallow wave equation models the dynamics of water over time.
+Our implementation featured a square domain with periodic boundary conditions.
+We profiled a serial version and attempted to create a tuned parallelized version.
+
+\section{Profiling}
+We used \emph{amplxe} to profile the serial implementation.
+The results of the amplxe hotspots report showed that the following three functions took the most CPU time:
+
+\bigskip
+\begin{center}
+	\begin{tabular}{c|c}
+		Module & CPU Time (s) \\ \hline
+		\texttt{Central2D<Shallow2D, MinMod <float>>::limited\_derivs} & 1.137 \\
+		\texttt{Central2D<Shallow2D, MinMod<float>>::compute\_step} & 0.550 \\       
+		\texttt{Central2D<Shallow2D, MinMod<float>>::compute\_fg\_speeds} & 0.197 \\  
+	\end{tabular}
+\end{center}
+
+\bigskip
+The function \texttt{limited\_derivs} calculates a limiter version of the derivatives of the fluxes and solution values at each cell, calling the function \texttt{limdiff} four times which in turn calls the function \texttt{xmin} twice.
+The function \texttt{compute\_step} updates the properties of each cell using the physics model and staggered grid scheme.
+The function \texttt{compute\_fg\_speeds} calculates the maximum wave speeds in the $x$ and $y$ directions over the entire domain.
+All three functions require double \texttt{for} loops (in $x$ and $y$) to cover all cells in the domain, which suggests that they are computationally intensive yet may also be easily parallelized if the domain can be divided among threads.
+
+\subsection{Scaling Study}
+To observe how the timings of the three functions scale with respect to the modeling parameters, we recorded their CPU time over different numbers of cells in the domain and numbers of time frames.
+The timings are shown in Figures \ref{fig:Num_Cells} and \ref{fig:Num_Frames}.
+
+\begin{center}
+\begin{figure}[ht]
+\includegraphics[width=15cm]{Num_Cells.png}
+	\caption{CPU time (seconds) vs number of cells per side.}
+	\label{fig:Num_Cells}
+\end{figure}
+\end{center}
+\begin{center}
+\begin{figure}[ht]
+\includegraphics[width=15cm]{Num_Frames.png}
+	\caption{CPU time (seconds) vs number of frames.}
+	\label{fig:Num_Frames}
+\end{figure}
+\end{center}
+
+Figure \ref{fig:Num_Cells} shows a cubic relationship between the number of cells per side of the domain ($n$) and the CPU times, since the time appears to grow by a factor of eight as the dimension is doubled.
+This result matches the observations that the work per time step increases by a factor of $n^2$ while the number of time steps increases by a factor of $n$ giving a total factor of $n^3$.
+Figure \ref{fig:Num_Frames} shows a roughly linear relationship between the number of frames ($F$) and the times.
+
+\section{Serial Tuning}
+%We found a few opportunities to improve the performance of the serial implementation.
+
+\subsection{Max Function}
+From the ICC vectorization reports, we saw that the compiler was unable to vectorize the \texttt{max} functions used throughout \texttt{central2d.h}.
+We therefore replaced the \texttt{max} functions with conditional variable declarations.
+For example, we replaced the lines
+%\begin{center}
+		%\texttt{cx = max(cx, cell\_cx);} \\
+             %\texttt{cy = max(cy, cell\_cy);}
+%\end{center}
+\begin{verbatim}
+cx = max(cx, cell_cx);
+cy = max(cy, cell_cy);
+\end{verbatim}
+in \texttt{central2d.h} with
+%\begin{center}
+		%\texttt{cx = (cell\_cx > cx ? cell\_cx : cx);} \\
+             %\texttt{cy = (cell\_cy > cy ? cell\_cy : cy);}.
+%\end{center}
+\begin{verbatim}
+cx = (cell_cx > cx ? cell_cx : cx);
+cy = (cell_cy > cy ? cell_cy : cy);
+\end{verbatim}
+Because branch prediction is highly successful, the compiler is able streamline how it performs this operation.
+
+\subsection{Vectorization vs Locality}
+We observed that the variables \texttt{u}, \texttt{f}, \texttt{g} containing the water level and fluxes at each cell were stored as an array of structures.
+This arrangement provides good locality because values for a particular cell are stored close to one another in memory.
+However this arrangement has poor vectorization because functions which pass over the entire domain do not have unit stride access patterns.
+We considered storing this data as a structure of arrays so that the structure's elements are arrays of all the relevant data that can be easily be passed over using a double \texttt{for} loop.
+We have not yet made this change in our code.
+
+\section{Parallelization}
+
+\subsection{Domain Decomposition}
+Our main idea for parallelization was to divide the domain into sub-domains for which different threads would be responsible.
+Each sub-domain would be surrounded by layers of ghost cells which would allow each thread to perform several time steps' worth of updates before requiring communication with other threads.
+One issue with this approach, which we have not yet resolved, is that the updates depend on the maximum wave speed over the entire domain.
+Thus it will be difficult for threads to advance time in parallel without knowing this value, or at least a bound on it.
+With a working implementation of this scheme, we would then need to experiment to determine the number of threads and ghost cells that represent the best tradeoff between computation and communication time.
+
+\subsection{Parallelism within functions}
+
+Another approach we are experimenting with centers around the \texttt{run} function because it is called at every time frame.
+The \texttt{run} function is shown below:
+
+{\setstretch{1.0}
+\begin{verbatim}
+template <class Physics, class Limiter>
+ void Central2D<Physics, Limiter>::run(real tfinal)
+ {
+    bool done = false;
+    real t = 0;
+    while (!done) {
+        real dt;
+        for (int io = 0; io < 2; ++io) {
+            real cx, cy;
+            apply_periodic();
+            compute_fg_speeds(cx, cy);
+            limited_derivs();
+            if (io == 0) {
+                dt = cfl / std::max(cx/dx, cy/dy);
+                if (t + 2*dt >= tfinal) {
+                    dt = (tfinal-t)/2;
+                    done = true;
+                }
+            }
+            compute_step(io, dt);
+            t += dt;
+        }
+    }
+}
+\end{verbatim} }
+
+To parallelize the \texttt{run} function, we would declare a parallel environment outside the \texttt{while} loop using \texttt{\#pragma omp parallel} which creates a team of threads.
+Because the \texttt{for} loop over \texttt{io} only makes two passes and the second pass requires data from the first pass, we would not attempt to parallelize this loop.
+
+The \texttt{apply\_periodic} function copies the values from other cells into the ghost cells.
+Because of the dependencies between copying left-right and then copying up-down, we would choose to use \texttt{\#pragma omp for} with implicit barriers for the two sets of double \text{for} loops in the function.
+
+We would again use \texttt{\#pragma omp for} within the \texttt{compute\_fg\_speeds} function, but this time we would use the \texttt{nowait} argument to remove the implicit barrier since the next function (\texttt{limited\_derivs}) does not depend on the output of \texttt{compute\_fg\_speeds}.
+In order to get the overall value of \texttt{cx}, determined by the maximum of the \texttt{cx} values from the double \texttt{for} loop in \texttt{compute\_fg\_speeds}, we would store all of the \texttt{cx} values in an array and then have the master thread calculate the maximum over the array.
+
+We would also use \texttt{\#pragma omp for} with implicit barriers for the double for loop in the function \texttt{limited\_derivs}.
+Next, we would have the master thread calculate the maximum \texttt{cx} and perform the nested \texttt{if} statements in the \texttt{run} function.
+Lastly, we would use \texttt{\#pragma omp for} with implicit barriers throught the function \texttt{compute\_step}.
+
+An issue with this parallelization method is that threads would be writing to the same data structures, although in different locations.
+These operations may not be protected, or if they were, may prove to be very expensive in terms of CPU time.
+
+\section{Tuning}
+We have not yet taken the opportunity to tune the parallel code since we have not yet debugged the domain decomposition scheme.
+Once we get a working parallel implementation, we will be able to set up both weak- and strong-scaling experiments.
+
+\section{Failed Methods and Future Ideas}
+We attempted to use the \texttt{restrict} keyword to further optimize the serial implementation but did not find any opportunities to use it on the pointers in the C++ code.
+We also have yet to look into opportunities to unroll the double \texttt{for} loop sections to help the compile vectorize them.
+Another technique we have not yet implemented is offloading to the Phi boards.
+
+%\section{Summary}
+%
+%\section{References}
+
+\end{document}
