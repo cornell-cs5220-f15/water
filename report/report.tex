@@ -21,9 +21,9 @@
 
 \section{Introduction}
 
-The goal of this project to profile, parallelize and tune a particular structured grid computation: a shallow-water equations solver. 
+The goal of this project to profile, parallelize and tune a particular structured grid computation: a shallow-water equations solver.  \\
 
-The shallow-water equations are a two-dimensional PDE system that describes waves that are very long compared to the water depth. The variables of the PDE system are the water height $h$, and the velocity components $(u,v)$. The governing equations are
+The shallow-water equations are a two-dimensional PDE system that describes waves that are very long compared to the water depth. The variables of the PDE system are the water height $h$, and the velocity components $(u,v)$. The governing equations are \\
 
 $$U_t = F(U)_x + G(U)_y)$$
 where 
@@ -50,7 +50,7 @@ $$
 
 \section{Design Decisions}
 
-The following sections describe the implementation changes from the original code found at \url{https://github.com/cornell-cs5220-f15/water}.
+The following sections describe the implementation changes from the original code found at \url{https://github.com/cornell-cs5220-f15/water}. The current stable solution can be found at \url{https://github.com/sheroze1123/water/tree/vector_parallel} branch. 
 
 \subsection{Memory Layout}
 The original solution a two dimensional vectors of 3-vectors to represent $U_t$, $F(U)_x$, and $G(U)_y$. During each time step, the solution accesses each element in the 2-D grid sequentially. Then, the \texttt{vector<vector<real>>} representation leads to memory accesses that are not local spatially. \\
@@ -79,15 +79,24 @@ In \texttt{compute\_step}, we initialize a team of threads using \texttt{\#pragm
 
 
 \subsection{Domain Decomposition}
+
+Our domain decomposition code suffers from instability. The simulation is stable if the sub-grid is set to be the whole grid plus the layers of ghost cells and also, if the time steps taken are very small: about 10 times smaller than they ought to be. In all other situation we observe some small scale instability which is certainly due to a bug in our implementation. We hope to have this fixed by the final report submission deadline.
+
 \subsubsection{General Setup}
 We decomposed the main grid into equally sized sub-grids, by first copying  each sub-grid into a separate array. Each sub-grid array contains its part of the main grid an outer layer of ghost cells which contain information about the neighboring cells or the cells on the opposite side of the main grid if the sub-domain is close to the boundary of the main grid as we use periodic boundary condition. We then perform some number of time steps on each independent sub-grid and finally synchronize by copying back the sub-grid (without the ghost cells) onto the main grid. 
+
 \subsubsection{Ghost cells}
 
- The width of the layer of ghost cells for each sub-grid is 3t, where t is the number of time steps we wish to advance before synchronizing back onto the main grid. For each sub-grid, we declare a simulation object, and run the simulation essentially in the same manner as we would on the whole grid, except we never apply periodic boundary conditions on the sub-grids. Because of this, at each time step we perform without synchronization, we "loose" 3 layers of ghost cells, in the sense that the computation within this layer is erroneous. 
+The width of the layer of ghost cells for each sub-grid is $3t$, where t is the number of time steps we wish to advance before synchronizing back onto the main grid. For each sub-grid, we declare a simulation object, and run the simulation essentially in the same manner as we would on the whole grid, except we never apply periodic boundary conditions on the sub-grids. Because of this, at each time step we perform without synchronization, we "loose" 3 layers of ghost cells, in the sense that the computation within this layer is erroneous. \\
+
 However, the rest of the grid is not contaminated with error, as information spreads through our simulation only by 3 layers per time step.
 
 \subsubsection{Estimating the wave speed}
-One of the main barrier to using a domain-decomposition parallelization for this simulation is that we need to estimate the wave speed at each time step to be able to estimate a how big of a time step we can perform for the next iteration. Hence to allow each sub-grid to run from time t=0 to time t=tfinal, we would need know in advance the speeds at time t, t+dt1, t+(dt1+dt2)... $t+\sum_{i=1}^{k-1}dti$ which we obviously don't have access to at time t. The problem is that we need to know at least an upper bound on the wave speed at each time step to be able to decide how many time steps it will take to reach tfinal, as the number of time steps needed is directly proportional to the number of ghost cells we need to allocate for each sub-grid at time t. Our solution is to estimate an upper bound on the max wave speed, we set the max wave speed for the next k iterations to a be a multiple r of the speed wave at time t (which we can compute before parallelizing)(win our code, we set r=2). Furthermore, for each sub grid at each time checks independently if wave speed on the subdomain is greater than our bound, if it is the case our program throws an error and stops (but no synchronization to do this check). A better alternative, which we have not yet implemented would be to stop the computation if the wave speed is greater than our bound at time, double k and start the computation all over again from time t.
+The main barrier to in adopting domain decomposition parallelization for this simulation is that we need to estimate the wave speed at each time step to be able to estimate a how big of a time step we can perform for the next iteration. Hence to allow each sub-grid to run from time $t=0$ to time $t=t_{final}$, we would need know in advance the speeds at time $t$, $t + dt_1$, $t + (dt_1+dt_2)$ ... $t+\sum_{i=1}^{k-1}dt_i$. But we obviously do not have access to those speeds at time $t$. \\
+
+The problem is that we need to know at least an upper bound on the wave speed at each time step to be able to decide how many time steps it will take to reach $t_{final}$, as the number of time steps needed is directly proportional to the number of ghost cells we need to allocate for each sub-grid at time $t$. Our solution is to estimate an upper bound on the max wave speed, set the max wave speed for the next $k$ iterations to a be a multiple $r$ of the speed of the wave at time $t$ which we can compute before parallelizing. (in our code, we set $r=2$). \\
+
+Furthermore, for each sub grid at each time checks independently if the wave speed on the subdomain is greater than our bound, if it is the case our program throws an error and stops. This failure check occurs locally to each thread, so there is no need for synchronization. A better alternative, which we have not yet implemented would be to stop the computation if the wave speed is greater than our bound at time, double $k$ and start the computation all over again from time $t$.
 
 
 \section{Analysis}
@@ -96,7 +105,7 @@ One of the main barrier to using a domain-decomposition parallelization for this
 The following time profiles were obtained on a 200x200 grid by advancing 100 frames. 
 
 \subsubsection{Original solution}
-We began the optimization by analyzing the time profiles of the original code. The following table shows the top 4 functions by CPU time. 
+We began the optimization by analyzing the time profiles of the original code. The following table shows the top 4 functions by CPU time. We note that the bottleneck in the original solution lies in \texttt{limited\_derivs} and \texttt{compute\_step}.
 \lstinputlisting[basicstyle=\tiny]{./profiling/original.txt}
 
 \subsubsection{Vectorization}
@@ -107,7 +116,6 @@ Profiling of vectorization shows good improvements in performance, especially in
 For parallelization, we list the functions that take up the most CPU time and their associated OpenMP spin times. Although we see speedups in the parallel code, the profiling shows that we spend a lot of CPU time spinning. This indicates load imbalance issues in our code that we aim to address in the final report. 
 
 \lstinputlisting[basicstyle=\tiny]{./profiling/vector_parallel_small.txt}
-Our domain decomposition code suffers from instability. If the subgrid is set to be the whole grid plus the layers of ghost cells, the code is stable. Also, if the time steps taken are very small: about 10 times smaller than they ought to be, the code is also stable. In all other situation we observe some small scale instability which is certainly due to a bug in our implementation. We hope to have this fixed by the final report submission deadline
 
 \subsection{Scaling Study} \label{sec:speedup}
 
@@ -119,7 +127,7 @@ Using a 500x500 grid and 100 frames, we observe the speedup with respect to the 
 	\mathrm{s} = \dfrac{t_{parallel}}{t_{serial}}
 \end{equation}
 
-The observed best performance occurs when the number of threads are $\approx10$. Increasing the number of threads further results in plateauing in speedup which can be attributed to limits of parallelization. The plateau is lower than the observed maximum speedup. We believe that this is due to thread scheduling overhead. 
+The observed best performance occurs when the number of threads are $\approx10$. Increasing the number of threads further results in plateauing in speedup which can be attributed to extra threads not being employed due to limited parallelization. The plateau is lower than the observed maximum speedup. We believe that this is due to thread scheduling overhead. Note that the original solution has a speedup < 1 in the following plot. 
 
 \begin{figure}[H]
     \includegraphics[width=0.9\textwidth]{./strong_scaling/strong_scaling.png}
