@@ -448,16 +448,16 @@ void Central2D<Physics, Limiter>::central2d_correct(real*  v,
                 int j01 = j00+nx;
                 int j11 = j00+nx+1;
                 
-                *(v+j00) =
-                0.2500f * ( (*(u+j00)) + (*(u+j01)) + (*(u+j10)) + (*(u+j11)) ) -
-                0.0625f * ( (*(ux+j10)) - (*(ux+j00)) +
-                           (*(ux+j11)) - (*(ux+j01)) +
-                           (*(uy+j01)) - (*(uy+j00)) +
-                           (*(uy+j11)) - (*(uy+j10)) ) -
-                dtcdx2  * ( (*(f+j10)) - (*(f+j00)) +
-                           (*(f+j11)) - (*(f+j01)) ) -
-                dtcdy2  * ( (*(g+j01)) - (*(g+j00)) +
-                           (*(g+j11)) - (*(g+j10)) );
+                v[j00] =
+                0.2500f * ( u[j00] + u[j01] + u[j10] + u[j11] ) -
+                0.0625f * ( ux[j10] - ux[j00] +
+                           ux[j11] - ux[j01] +
+                           uy[j01] - uy[j00] +
+                           uy[j11] - uy[j10] ) -
+                dtcdx2  * ( f[j10] - f[j00] +
+                           f[j11] - f[j01] ) -
+                dtcdy2  * ( g[j01] - g[j00] +
+                           g[j11] - g[j10] );
             }
 }
 
