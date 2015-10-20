@@ -59,9 +59,11 @@
 
 template <class real>
 struct MinMod {
+    __declspec(target(mic))
     static constexpr real theta = 2.0;
 
     // Branch-free computation of minmod of two numbers
+    __declspec(target(mic))
     static real xmin(real a, real b) {
         using namespace std;
         return ((copysign((real) 0.5, a) +
@@ -70,6 +72,7 @@ struct MinMod {
     }
 
     // Limited combined slope estimate
+    __declspec(target(mic))
     static real limdiff(real um, real u0, real up) {
         real du1 = u0-um;         // Difference to left
         real du2 = up-u0;         // Difference to right
