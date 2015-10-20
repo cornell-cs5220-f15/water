@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
-#include <functional>
 #include <omp.h>
 
 //ldoc on
@@ -103,19 +102,17 @@ public:
     Central2D(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
               real cfl = 0.45) :  // Max allowed CFL number
-        nx(nx), ny(ny),
-        nx_all(nx + 2*nghost),
-        ny_all(ny + 2*nghost),
-        dx(w/nx), dy(h/ny),
+        nx_master(nx), ny_master(ny),
+        dx(w/nx_master), dy(h/ny_master),
         cfl(cfl), 
-        u_ (nx_all * ny_all),
-        f_ (nx_all * ny_all),
-        g_ (nx_all * ny_all),
-        ux_(nx_all * ny_all),
-        uy_(nx_all * ny_all),
-        fx_(nx_all * ny_all),
-        gy_(nx_all * ny_all),
-        v_ (nx_all * ny_all) {}
+        u_master (nx_master * ny_master),
+        f_master (nx_master * ny_master),
+        g_master (nx_master * ny_master),
+        ux_master(nx_master * ny_master),
+        uy_master(nx_master * ny_master),
+        fx_master(nx_master * ny_master),
+        gy_master(nx_master * ny_master),
+        v_master (nx_master * ny_master) {}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -126,10 +123,6 @@ public:
 
     // Diagnostics
     void solution_check();
-
-    // Array size accessors
-    int xsize() const { return nx; }
-    int ysize() const { return ny; }
     
     // Read / write elements of simulation state
     vec&       operator()(int i, int j) {
@@ -139,14 +132,30 @@ public:
     const vec& operator()(int i, int j) const {
         return u_[offset(i+nghost,j+nghost)];
     }
-    
-private:
-    static constexpr int nghost = 3;   // Number of ghost cells
 
-    const int nx, ny;          // Number of (non-ghost) cells in x/y
-    const int nx_all, ny_all;  // Total cells in x/y (including ghost)
+private:
+    static constexpr int nghost = 3;   // minimum padding
+    static constexpr int numProcs = 1; //Must be a square number
+    static constexpr int stepsPerParallelBlock = 1;
+
+    const int nx_master, ny_master;          // Number of (non-ghost) cells in x/y
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
+
+    int nx, ny;
+    int nx_all, ny_all;
+    int numPadding;
+
+
+    std::vector<vec> u_master_;            // Solution values
+    std::vector<vec> f_master_;            // Fluxes in x
+    std::vector<vec> g_master_;            // Fluxes in y
+    std::vector<vec> ux_master_;           // x differences of u
+    std::vector<vec> uy_master_;           // y differences of u
+    std::vector<vec> fx_master_;           // x differences of f
+    std::vector<vec> gy_master_;           // y differences of g
+    std::vector<vec> v_master_;            // Solution values at next step
+
 
     std::vector<vec> u_;            // Solution values
     std::vector<vec> f_;            // Fluxes in x
@@ -158,7 +167,36 @@ private:
     std::vector<vec> v_;            // Solution values at next step
 
     // Array accessor functions
+    // Master Arrays
+    int offset_master(int ix, int iy) const { return iy*nx_master+ix; }
 
+    vec& u_master(int ix, int iy)    { return u_master_[offset_master(ix,iy)]; }
+    vec& v_master(int ix, int iy)    { return v_master_[offset_master(ix,iy)]; }
+    vec& f_master(int ix, int iy)    { return f_master_[offset_master(ix,iy)]; }
+    vec& g_master(int ix, int iy)    { return g_master_[offset_master(ix,iy)]; }
+
+    vec& ux_master(int ix, int iy)   { return ux_master_[offset_master(ix,iy)]; }
+    vec& uy_master(int ix, int iy)   { return uy_master_[offset_master(ix,iy)]; }
+    vec& fx_master(int ix, int iy)   { return fx_master_[offset_master(ix,iy)]; }
+    vec& gy_master(int ix, int iy)   { return gy_master_[offset_master(ix,iy)]; }
+
+    // Wrapped accessor (periodic BC)
+    int ioffset_master(int ix, int iy) {
+        return offset( (ix+nx_master) % nx_master,
+                       (iy+ny_master) % ny_master );
+    }
+
+    vec& u_masterwrap(int ix, int iy)  { return u_master_[ioffset_master(ix,iy)]; }
+    vec& v_masterwrap(int ix, int iy)    { return v_master_[ioffset_master(ix,iy)]; }
+    vec& f_masterwrap(int ix, int iy)    { return f_master_[ioffset_master(ix,iy)]; }
+    vec& g_masterwrap(int ix, int iy)    { return g_master_[ioffset_master(ix,iy)]; }
+
+    vec& ux_masterwrap(int ix, int iy)   { return ux_master_[ioffset_master(ix,iy)]; }
+    vec& uy_masterwrap(int ix, int iy)   { return uy_master_[ioffset_master(ix,iy)]; }
+    vec& fx_masterwrap(int ix, int iy)   { return fx_master_[ioffset_master(ix,iy)]; }
+    vec& gy_masterwrap(int ix, int iy)   { return gy_master_[ioffset_master(ix,iy)]; }
+
+    // Local Arrays
     int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
     vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
@@ -171,56 +209,17 @@ private:
     vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
     vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
 
-    // Wrapped accessor (periodic BC)
-    int ioffset(int ix, int iy) {
-        return offset( (ix+nx-nghost) % nx + nghost,
-                       (iy+ny-nghost) % ny + nghost );
-    }
-
-    vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
-    vec& vwrap(int ix, int iy)    { return v_[ioffset(ix,iy)]; }
-    vec& fwrap(int ix, int iy)    { return f_[ioffset(ix,iy)]; }
-    vec& gwrap(int ix, int iy)    { return g_[ioffset(ix,iy)]; }
-
-    vec& uxwrap(int ix, int iy)   { return ux_[ioffset(ix,iy)]; }
-    vec& uywrap(int ix, int iy)   { return uy_[ioffset(ix,iy)]; }
-    vec& fxwrap(int ix, int iy)   { return fx_[ioffset(ix,iy)]; }
-    vec& gywrap(int ix, int iy)   { return gy_[ioffset(ix,iy)]; }
-
-    // Apply limiter to all components in a vector
+ 	// Apply limiter to all components in a vector
     static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
         for (int m = 0; m < du.size(); ++m)
             du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
     }
 
     // Stages of the main algorithm
-    void apply_periodic();
     void compute_fg_speeds(real& cx, real& cy);
     void limited_derivs();
     void compute_step(int io, real dt);
-    void limited_derivs_local(int nx_all,
-                              int ny_all, 
-                              std::function<vec(int, int)> u, 
-                              std::function<vec(int, int)> f, 
-                              std::function<vec(int, int)> g, 
-                              std::function<vec(int, int)> ux, 
-                              std::function<vec(int, int)> uy, 
-                              std::function<vec(int, int)> fx, 
-                              std::function<vec(int, int)> gy);
-    void compute_step_local(int io, 
-                            real dt, 
-                            int nx_all, 
-                            int ny_all, 
-                            std::function<vec(int, int)> u, 
-                            std::function<vec(int, int)> f, 
-                            std::function<vec(int, int)> g, 
-                            std::function<vec(int, int)> v,
-                            std::function<vec(int, int)> ux, 
-                            std::function<vec(int, int)> uy, 
-                            std::function<vec(int, int)> fx, 
-                            std::function<vec(int, int)> gy);
 };
-
 
 /**
  * ## Initialization
@@ -237,46 +236,27 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
-    for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
-            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+	//Set Up u_master
+    for (int iy = 0; iy < ny_master; ++iy)
+        for (int ix = 0; ix < nx_master; ++ix)
+            f(u_master(ix,iy), (ix+0.5)*dx, (iy+0.5)*dy);
+
+    //Set Up local data
+    numPadding = nghost + (stepsPerParallelBlock * 2);
+    nx = floor(nx_master / sqrt(numProcs)) + 1;
+    ny = floor(ny_master / sqrt(numProcs)) + 1;
+    nx_all = nx + 2 * numPadding;
+    ny_all = ny + 2 * numPadding;
+
+    u_ = std::vector(nx_all * ny_all);
+    v_ = std::vector(nx_all * ny_all);
+    f_ = std::vector(nx_all * ny_all);
+    g_ = std::vector(nx_all * ny_all);
+    ux_ = std::vector(nx_all * ny_all);
+    uy_ = std::vector(nx_all * ny_all);
+    fx_ = std::vector(nx_all * ny_all);
+    gy_ = std::vector(nx_all * ny_all);
 }
-
-/**
- * ## Time stepper implementation
- * 
- * ### Boundary conditions
- * 
- * In finite volume methods, boundary conditions are typically applied by
- * setting appropriate values in ghost cells.  For our framework, we will
- * apply periodic boundary conditions; that is, waves that exit one side
- * of the domain will enter from the other side.
- * 
- * We apply the conditions by assuming that the cells with coordinates
- * `nghost <= ix <= nx+nghost` and `nghost <= iy <= ny+nghost` are
- * "canonical", and setting the values for all other cells `(ix,iy)`
- * to the corresponding canonical values `(ix+p*nx,iy+q*ny)` for some
- * integers `p` and `q`.
- */
-
-template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::apply_periodic()
-{
-    // Copy data between right and left boundaries
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nghost; ++ix) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
-        }
-
-    // Copy data between top and bottom boundaries
-    for (int ix = 0; ix < nx_all; ++ix)
-        for (int iy = 0; iy < nghost; ++iy) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
-        }
-}
-
 
 /**
  * ### Initial flux and speed computations
@@ -294,11 +274,11 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
+    for (int iy = 0; iy < ny_master; ++iy)
+        for (int ix = 0; ix < nx_master; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+            Physics::flux(f_master(ix,iy), g_master(ix,iy), u_master(ix,iy));
+            Physics::wave_speed(cell_cx, cell_cy, u_master(ix,iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
@@ -329,31 +309,6 @@ void Central2D<Physics, Limiter>::limited_derivs()
             limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
         }
 }
-
-template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::limited_derivs_local(int nx_all, 
-                                                       int ny_all, 
-                                                       std::function<vec(int, int)> u, 
-                                                       std::function<vec(int, int)> f, 
-                                                       std::function<vec(int, int)> g, 
-                                                       std::function<vec(int, int)> ux, 
-                                                       std::function<vec(int, int)> uy, 
-                                                       std::function<vec(int, int)> fx, 
-                                                       std::function<vec(int, int)> gy)
-{
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-
-            // x derivs
-            limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-            limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
-
-            // y derivs
-            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
-        }
-}
-
 
 /**
  * ### Advancing a time step
@@ -395,60 +350,6 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int m = 0; m < v(ix,iy).size(); ++m) {
-                v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
-            }
-        }
-
-    // Copy from v storage back to main grid
-    for (int j = nghost; j < ny+nghost; ++j){
-        for (int i = nghost; i < nx+nghost; ++i){
-            u(i,j) = v(i-io,j-io);
-        }
-    }
-}
-
-template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_step_local(int io, 
-                                                     real dt, 
-                                                     int nx_all, 
-                                                     int ny_all, 
-                                                     std::function<vec(int, int)> u, 
-                                                     std::function<vec(int, int)> f, 
-                                                     std::function<vec(int, int)> g, 
-                                                     std::function<vec(int, int)> v,
-                                                     std::function<vec(int, int)> ux, 
-                                                     std::function<vec(int, int)> uy, 
-                                                     std::function<vec(int, int)> fx, 
-                                                     std::function<vec(int, int)> gy)
-{
-    real dtcdx2 = 0.5 * dt / dx;
-    real dtcdy2 = 0.5 * dt / dy;
-
-    // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec uh = u(ix,iy);
-            for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * fx(ix,iy)[m];
-                uh[m] -= dtcdy2 * gy(ix,iy)[m];
-            }
-            Physics::flux(f(ix,iy), g(ix,iy), uh);
-        }
-
-    // Corrector (finish the step)
     for (int iy = 1-io; iy < ny_all-io; ++iy)
         for (int ix = 1-io; ix < nx_all-io; ++ix) {
             for (int m = 0; m < v(ix,iy).size(); ++m) {
@@ -474,6 +375,8 @@ void Central2D<Physics, Limiter>::compute_step_local(int io,
     }
 }
 
+
+
 /**
  * ### Advance time
  * 
@@ -491,18 +394,12 @@ void Central2D<Physics, Limiter>::compute_step_local(int io,
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
-    int numProcs = 1;
-    int sqrtProcs = std::sqrt(numProcs);
-    real stepsPerParallelBlock = 1;
-    int block_size_x = std::floor(nx / sqrtProcs);
-    int block_size_y = std::floor(ny / sqrtProcs);
     bool done = false;
     real t = 0;
     while (!done) {
-        int numPadding = nghost + 2*stepsPerParallelBlock;
+    	//determine dt before parallel section
         real dt;
         real cx, cy;
-        apply_periodic();
         compute_fg_speeds(cx, cy);
         dt = cfl / std::max(cx/dx, cy/dy);
         if (t + 2*stepsPerParallelBlock*dt > tfinal) {
@@ -514,67 +411,25 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         {
             //start by establishing the block for this processor
             int rank = omp_get_thread_num();
-            int coord_x = std::floor(rank / sqrtProcs); //unique coord for every proc
-            int coord_y = std::floor(rank % sqrtProcs);
-            int b_x = coord_x * block_size_x;
-            int b_y = coord_y * block_size_y;
-            int width = block_size_x;
-            int height = block_size_y;
-            if (coord_x == sqrtProcs - 1) {
-                width = nx - b_x;
-            }
-            
-            if (coord_y == sqrtProcs - 1) {
-                height = ny - b_y;
-            }
-
-            int nx_local, ny_local;          // Number of (non-ghost) cells in x/y
-            nx_local = width;
-            ny_local = height;
-            // Total cells in x/y (including ghost)
-            const int nx_all_local = width + (2*numPadding);
-            const int ny_all_local = height + (2* numPadding);
-            //now the block has been established and the relevant section of the main
-            //block of memory is a square with width nx_all_local and height ny_all_local
-
-            //copy the relevant section into local memory
-            const std::vector<vec> u_local (nx_all_local * ny_all_local);            // Solution values
-            const std::vector<vec> f_local (nx_all_local * ny_all_local);            // Fluxes in x
-            const std::vector<vec> g_local (nx_all_local * ny_all_local);            // Fluxes in y
-            const std::vector<vec> ux_local (nx_all_local * ny_all_local);           // x differences of u
-            const std::vector<vec> uy_local (nx_all_local * ny_all_local);           // y differences of u
-            const std::vector<vec> fx_local (nx_all_local * ny_all_local);           // x differences of f
-            const std::vector<vec> gy_local (nx_all_local * ny_all_local);           // y differences of g
-            const std::vector<vec> v_local (nx_all_local * ny_all_local);            // Solution values at next step
-
-            // Array accessor functions
-
-            const std::function<int(int, int)> offset_local = [nx_all_local](int ix, int iy) { return iy*nx_all_local+ix; };
-
-            std::function<vec(int, int)> u_l = [&, offset_local, u_local](int ix, int iy)    { return u_local[offset_local(ix,iy)]; };
-            std::function<vec(int, int)> v_l = [&, offset_local, v_local](int ix, int iy)    { return v_local[offset_local(ix,iy)]; };
-            std::function<vec(int, int)> f_l = [&, offset_local, f_local](int ix, int iy)    { return f_local[offset_local(ix,iy)]; };
-            std::function<vec(int, int)> g_l = [&, offset_local, g_local](int ix, int iy)    { return g_local[offset_local(ix,iy)]; };
-
-            std::function<vec(int, int)> ux_l = [&, offset_local, ux_local](int ix, int iy)   { return ux_local[offset_local(ix,iy)]; };
-            std::function<vec(int, int)> uy_l = [&, offset_local, uy_local](int ix, int iy)   { return uy_local[offset_local(ix,iy)]; };
-            std::function<vec(int, int)> fx_l = [&, offset_local, fx_local](int ix, int iy)   { return fx_local[offset_local(ix,iy)]; };
-            std::function<vec(int, int)> gy_l = [&, offset_local, gy_local](int ix, int iy)   { return gy_local[offset_local(ix,iy)]; };
+            int coord_x = std::floor(rank / sqrt(numProcs)); //unique coord for every proc
+            int coord_y = std::floor(rank % sqrt(numProcs));
+            int b_x = coord_x * nx;
+            int b_y = coord_y * ny;
 
             int xStart = b_x - numPadding;
             int yStart = b_y - numPadding;
             //setup
-            for(int i = 0; i<nx_all_local; i++){
-                for(int j = 0; j<ny_all_local; j++){
-                    u_l(i, j) = uwrap(i + xStart, j+yStart);
-                    v_l(i, j) = vwrap(i + xStart, j+yStart);
-                    f_l(i, j) = fwrap(i + xStart, j+yStart);
-                    g_l(i, j) = gwrap(i + xStart, j+yStart);
+            for(int i = 0; i<nx_all; i++){
+                for(int j = 0; j<ny_all; j++){
+                    u(i, j) = u_masterwrap(i + xStart, j+yStart);
+                    v(i, j) = v_masterwrap(i + xStart, j+yStart);
+                    f(i, j) = f_masterwrap(i + xStart, j+yStart);
+                    g(i, j) = g_masterwrap(i + xStart, j+yStart);
 
-                    ux_l(i, j) = uxwrap(i + xStart, j+yStart);
-                    uy_l(i, j) = uywrap(i + xStart, j+yStart);
-                    fx_l(i, j) = fxwrap(i + xStart, j+yStart);
-                    gy_l(i, j) = gywrap(i + xStart, j+yStart);
+                    ux(i, j) = ux_masterwrap(i + xStart, j+yStart);
+                    uy(i, j) = uy_masterwrap(i + xStart, j+yStart);
+                    fx(i, j) = fx_masterwrap(i + xStart, j+yStart);
+                    gy(i, j) = gy_masterwrap(i + xStart, j+yStart);
 
                 }    
             }
@@ -585,42 +440,23 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             for(int step = 0; step < stepsPerParallelBlock; step++) {
                 for(int io = 0; io < 2; io++) {
-                    limited_derivs_local(nx_all_local, 
-                                            ny_all_local, 
-                                            u_l, 
-                                            f_l, 
-                                            g_l, 
-                                            ux_l, 
-                                            uy_l, 
-                                            fx_l, 
-                                            gy_l);
-                    compute_step_local(io, 
-                                       dt,
-                                       nx_all_local, 
-                                       ny_all_local, 
-                                       u_l, 
-                                       f_l, 
-                                       g_l, 
-                                       v_l,
-                                       ux_l, 
-                                       uy_l, 
-                                       fx_l, 
-                                       gy_l);
+                    limited_derivs();
+                    compute_step(io, dt);
                 }
             }
 
             //merging
-            for(int i=0; i<nx_local; i++) {
-                for(int j=0; j<ny_local; j++) {
-                    u(i+b_x, j+b_y) = u_l(i, j);
-                    v(i+b_x, j+b_y) = v_l(i, j);
-                    f(i+b_x, j+b_y) = f_l(i, j);
-                    g(i+b_x, j+b_y) = g_l(i, j);
+            for(int i=0; i<nx; i++) {
+                for(int j=0; j<ny; j++) {
+                    u_master(i+b_x, j+b_y) = u(i, j);
+                    v_master(i+b_x, j+b_y) = v(i, j);
+                    f_master(i+b_x, j+b_y) = f(i, j);
+                    g_master(i+b_x, j+b_y) = g(i, j);
 
-                    ux(i+b_x, j+b_y) = ux_l(i, j);
-                    uy(i+b_x, j+b_y) = uy_l(i, j);
-                    fx(i+b_x, j+b_y) = fx_l(i, j);
-                    gy(i+b_x, j+b_y) = gy_l(i, j);
+                    ux_master(i+b_x, j+b_y) = ux(i, j);
+                    uy_master(i+b_x, j+b_y) = uy(i, j);
+                    fx_master(i+b_x, j+b_y) = fx(i, j);
+                    gy_master(i+b_x, j+b_y) = gy(i, j);
                 }
             }
         }
@@ -648,11 +484,11 @@ void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u(nghost,nghost)[0];
+    real hmin = u_master(0,0)[0];
     real hmax = hmin;
-    for (int j = nghost; j < ny+nghost; ++j)
-        for (int i = nghost; i < nx+nghost; ++i) {
-            vec& uij = u(i,j);
+    for (int j = 0; j < ny_master; ++j)
+        for (int i = 0; i < nx_master; ++i) {
+            vec& uij = u_master(i,j);
             real h = uij[0];
             h_sum += h;
             hu_sum += uij[1];
