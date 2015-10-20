@@ -125,21 +125,21 @@ public:
     void solution_check();
 
     // Array size accessors
-    int xsize() const { return nx; }
-    int ysize() const { return ny; }
+    int xsize() const { return nx_master; }
+    int ysize() const { return ny_master; }
     
     // Read / write elements of simulation state
     vec&       operator()(int i, int j) {
-        return u_[offset(i+nghost,j+nghost)];
+        return u_master_[offset(i,j)];
     }
     
     const vec& operator()(int i, int j) const {
-        return u_[offset(i+nghost,j+nghost)];
+        return u_master_[offset(i,j)];
     }
 
 private:
     static constexpr int nghost = 3;   // minimum padding
-    static constexpr int numProcs = 1; //Must be a square number
+    static constexpr int numProcs = 16; //Must be a square number
     static constexpr int stepsPerParallelBlock = 1;
 
     const int nx_master, ny_master;          // Number of (non-ghost) cells in x/y
@@ -159,16 +159,6 @@ private:
     std::vector<vec> fx_master_;           // x differences of f
     std::vector<vec> gy_master_;           // y differences of g
     std::vector<vec> v_master_;            // Solution values at next step
-
-
-    std::vector<vec> u_;            // Solution values
-    std::vector<vec> f_;            // Fluxes in x
-    std::vector<vec> g_;            // Fluxes in y
-    std::vector<vec> ux_;           // x differences of u
-    std::vector<vec> uy_;           // y differences of u
-    std::vector<vec> fx_;           // x differences of f
-    std::vector<vec> gy_;           // y differences of g
-    std::vector<vec> v_;            // Solution values at next step
 
     // Array accessor functions
     // Master Arrays
@@ -203,15 +193,7 @@ private:
     // Local Arrays
     int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
-    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
-    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
-    vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
-    vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
-
-    vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
-    vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
-    vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
-    vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
+    vec& _(std::vector<vec> a, int ix, int iy) { return a[offset(ix, iy)]; }
 
  	// Apply limiter to all components in a vector
     static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
@@ -221,8 +203,23 @@ private:
 
     // Stages of the main algorithm
     void compute_fg_speeds(real& cx, real& cy);
-    void limited_derivs();
-    void compute_step(int io, real dt);
+    void limited_derivs(std::vector<vec> u, 
+						 std::vector<vec> f, 
+						 std::vector<vec> g, 
+						 std::vector<vec> ux, 
+						 std::vector<vec> uy, 
+						 std::vector<vec> fx, 
+						 std::vector<vec> gy);
+    void compute_step(int io, 
+					   real dt,
+					   std::vector<vec> u, 
+					   std::vector<vec> f, 
+					   std::vector<vec> g, 
+					   std::vector<vec> v,
+					   std::vector<vec> ux, 
+					   std::vector<vec> uy, 
+					   std::vector<vec> fx, 
+					   std::vector<vec> gy);
 };
 
 /**
@@ -251,15 +248,6 @@ void Central2D<Physics, Limiter>::init(F f)
     ny = floor(ny_master / sqrt(numProcs)) + 1;
     nx_all = nx + 2 * numPadding;
     ny_all = ny + 2 * numPadding;
-
-    u_ = std::vector<vec>(nx_all * ny_all);
-    v_ = std::vector<vec>(nx_all * ny_all);
-    f_ = std::vector<vec>(nx_all * ny_all);
-    g_ = std::vector<vec>(nx_all * ny_all);
-    ux_ = std::vector<vec>(nx_all * ny_all);
-    uy_ = std::vector<vec>(nx_all * ny_all);
-    fx_ = std::vector<vec>(nx_all * ny_all);
-    gy_ = std::vector<vec>(nx_all * ny_all);
 }
 
 /**
@@ -299,18 +287,24 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::limited_derivs()
+void Central2D<Physics, Limiter>::limited_derivs(std::vector<vec> u, 
+												 std::vector<vec> f, 
+												 std::vector<vec> g, 
+												 std::vector<vec> ux, 
+												 std::vector<vec> uy, 
+												 std::vector<vec> fx, 
+												 std::vector<vec> gy)
 {
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
 
             // x derivs
-            limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-            limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
+            limdiff( _(ux, ix,iy), _(u, ix-1,iy), _(u, ix,iy), _(u, ix+1,iy) );
+            limdiff( _(fx, ix,iy), _(f, ix-1,iy), _(f, ix,iy), _(f, ix+1,iy) );
 
             // y derivs
-            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
+            limdiff( _(uy, ix,iy), _(u, ix,iy-1), _(u, ix,iy), _(u, ix,iy+1) );
+            limdiff( _(gy, ix,iy), _(g, ix,iy-1), _(g, ix,iy), _(g, ix,iy+1) );
         }
 }
 
@@ -337,7 +331,16 @@ void Central2D<Physics, Limiter>::limited_derivs()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_step(int io, real dt)
+void Central2D<Physics, Limiter>::compute_step(int io, 
+											   real dt,
+											   std::vector<vec> u, 
+											   std::vector<vec> f, 
+											   std::vector<vec> g, 
+											   std::vector<vec> v,
+											   std::vector<vec> ux, 
+											   std::vector<vec> uy, 
+											   std::vector<vec> fx, 
+											   std::vector<vec> gy)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
@@ -345,36 +348,36 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     // Predictor (flux values of f and g at half step)
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec uh = u(ix,iy);
+            vec uh = _(u, ix,iy);
             for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * fx(ix,iy)[m];
-                uh[m] -= dtcdy2 * gy(ix,iy)[m];
+                uh[m] -= dtcdx2 * _(fx, ix,iy)[m];
+                uh[m] -= dtcdy2 * _(gy, ix,iy)[m];
             }
-            Physics::flux(f(ix,iy), g(ix,iy), uh);
+            Physics::flux(_(f, ix,iy), _(g, ix,iy), uh);
         }
 
     // Corrector (finish the step)
     for (int iy = 1-io; iy < ny_all-io; ++iy)
         for (int ix = 1-io; ix < nx_all-io; ++ix) {
-            for (int m = 0; m < v(ix,iy).size(); ++m) {
-                v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
+            for (int m = 0; m < _(v, ix,iy).size(); ++m) {
+                _(v, ix,iy)[m] =
+                    0.2500 * ( _(u, ix,  iy)[m] + _(u, ix+1,iy  )[m] +
+                               _(u, ix,iy+1)[m] + _(u, ix+1,iy+1)[m] ) -
+                    0.0625 * ( _(ux, ix+1,iy  )[m] - _(ux, ix,iy  )[m] +
+                               _(ux, ix+1,iy+1)[m] - _(ux, ix,iy+1)[m] +
+                               _(uy, ix,  iy+1)[m] - _(uy, ix,  iy)[m] +
+                               _(uy, ix+1,iy+1)[m] - _(uy, ix+1,iy)[m] ) -
+                    dtcdx2 * ( _(f, ix+1,iy  )[m] - _(f, ix,iy  )[m] +
+                               _(f, ix+1,iy+1)[m] - _(f, ix,iy+1)[m] ) -
+                    dtcdy2 * ( _(g, ix,  iy+1)[m] - _(g, ix,  iy)[m] +
+                               _(g, ix+1,iy+1)[m] - _(g, ix+1,iy)[m] );
             }
         }
 
     // Copy from v storage back to main grid
     for (int j = 0; j < ny_all; ++j){
         for (int i = 0; i < nx_all; ++i){
-            u(i,j) = v(i-io,j-io);
+            _(u, i,j) = _(v, i-io,j-io);
         }
     }
 }
@@ -410,8 +413,10 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             dt = (tfinal-t)/(2*stepsPerParallelBlock);
             done = true;
         }
+        printf("-\n  Running Time: %g of %g \n",
+           (t+ 2*dt), tfinal);
 
-        #pragma omp parallel num_threads(numProcs) 
+        #pragma omp parallel num_threads(numProcs) default(shared)
         {
             //start by establishing the block for this processor
             int rank = omp_get_thread_num();
@@ -422,18 +427,27 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             int xStart = b_x - numPadding;
             int yStart = b_y - numPadding;
+
+            std::vector<vec> u = std::vector<vec>(nx_all * ny_all);
+		    std::vector<vec> v = std::vector<vec>(nx_all * ny_all);
+		    std::vector<vec> f = std::vector<vec>(nx_all * ny_all);
+		    std::vector<vec> g = std::vector<vec>(nx_all * ny_all);
+		    std::vector<vec> ux = std::vector<vec>(nx_all * ny_all);
+		    std::vector<vec> uy = std::vector<vec>(nx_all * ny_all);
+		    std::vector<vec> fx = std::vector<vec>(nx_all * ny_all);
+		    std::vector<vec> gy = std::vector<vec>(nx_all * ny_all);
             //setup
             for(int i = 0; i<nx_all; i++){
                 for(int j = 0; j<ny_all; j++){
-                    u(i, j) = u_masterwrap(i + xStart, j+yStart);
-                    v(i, j) = v_masterwrap(i + xStart, j+yStart);
-                    f(i, j) = f_masterwrap(i + xStart, j+yStart);
-                    g(i, j) = g_masterwrap(i + xStart, j+yStart);
+                    _(u, i, j) = u_masterwrap(i + xStart, j+yStart);
+                    _(v, i, j) = v_masterwrap(i + xStart, j+yStart);
+                    _(f, i, j) = f_masterwrap(i + xStart, j+yStart);
+                    _(g, i, j) = g_masterwrap(i + xStart, j+yStart);
 
-                    ux(i, j) = ux_masterwrap(i + xStart, j+yStart);
-                    uy(i, j) = uy_masterwrap(i + xStart, j+yStart);
-                    fx(i, j) = fx_masterwrap(i + xStart, j+yStart);
-                    gy(i, j) = gy_masterwrap(i + xStart, j+yStart);
+                    _(ux, i, j) = ux_masterwrap(i + xStart, j+yStart);
+                    _(uy, i, j) = uy_masterwrap(i + xStart, j+yStart);
+                    _(fx, i, j) = fx_masterwrap(i + xStart, j+yStart);
+                    _(gy, i, j) = gy_masterwrap(i + xStart, j+yStart);
 
                 }    
             }
@@ -444,23 +458,23 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 
             for(int step = 0; step < stepsPerParallelBlock; step++) {
                 for(int io = 0; io < 2; io++) {
-                    limited_derivs();
-                    compute_step(io, dt);
+                    limited_derivs(u, f, g, ux, uy, fx, gy);
+                    compute_step(io, dt, u, f, g, v, ux, uy, fx, gy);
                 }
             }
 
             //merging
             for(int i=0; i<nx; i++) {
                 for(int j=0; j<ny; j++) {
-                    u_master(i+b_x, j+b_y) = u(i, j);
-                    v_master(i+b_x, j+b_y) = v(i, j);
-                    f_master(i+b_x, j+b_y) = f(i, j);
-                    g_master(i+b_x, j+b_y) = g(i, j);
+                    u_masterwrap(i+b_x, j+b_y) = _(u, i, j);
+                    v_masterwrap(i+b_x, j+b_y) = _(v, i, j);
+                    f_masterwrap(i+b_x, j+b_y) = _(f, i, j);
+                    g_masterwrap(i+b_x, j+b_y) = _(g, i, j);
 
-                    ux_master(i+b_x, j+b_y) = ux(i, j);
-                    uy_master(i+b_x, j+b_y) = uy(i, j);
-                    fx_master(i+b_x, j+b_y) = fx(i, j);
-                    gy_master(i+b_x, j+b_y) = gy(i, j);
+                    ux_masterwrap(i+b_x, j+b_y) = _(ux, i, j);
+                    uy_masterwrap(i+b_x, j+b_y) = _(uy, i, j);
+                    fx_masterwrap(i+b_x, j+b_y) = _(fx, i, j);
+                    gy_masterwrap(i+b_x, j+b_y) = _(gy, i, j);
                 }
             }
         }
