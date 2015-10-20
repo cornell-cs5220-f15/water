@@ -241,7 +241,7 @@ We believe by virtue of the fact that it gives the right simulation that we are 
 \end{lstlisting}
 }
 
-it turns out that memory aligned allocators (in general) greatly conflict with other locations in the code that were previously vectorized.  So although we were able to get some interesting vectorization results from the above, we may switch over to C-style arrays in the near future.  The chaos of the above code, in particular the newly vectorized loop, do not seem worth the trade-off of how ugly / difficult to follow it is.
+\noindent it turns out that memory aligned allocators (in general) greatly conflict with other locations in the code that were previously vectorized.  So although we were able to get some interesting vectorization results from the above, we may switch over to C-style arrays in the near future.  The chaos of the above code, in particular the newly vectorized loop, do not seem worth the trade-off of how ugly / difficult to follow it is.
 
 We may also explore other allocators e.g. using Eigen's aligned allocator, but generally do not see the benefit as we have probably spent more time trying to utilize these vectors through arcane trickery than we would have to just rewrite it based off of say \texttt{float *u} and use a memory aligned malloc.  Time will tell whether we decide to keep these or not.
 
