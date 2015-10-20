@@ -10,7 +10,7 @@
 #include <omp.h>
 #endif
 
-#include "central2d.h"
+#include "central2dBaseClass.h"
 #include "shallow2d.h"
 #include "minmod.h"
 #include "meshio.h"
