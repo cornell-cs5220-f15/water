@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
+#include <omp.h>
 
 //ldoc on
 /**
@@ -287,9 +288,10 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
+    int iy,ix;
+    #pragma omp parallel for private (ix)
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-
             // x derivs
             limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
             limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
@@ -328,8 +330,10 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
+    int iy,ix,m,i,j;
 
     // Predictor (flux values of f and g at half step)
+    #pragma omp parallel for private (ix,m)
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             vec uh = u(ix,iy);
@@ -340,25 +344,165 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
             Physics::flux(f(ix,iy), g(ix,iy), uh);
         }
 
+
     // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int m = 0; m < v(ix,iy).size(); ++m) {
-                v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
-            }
+    int loop_start = nghost-io;
+    int loop_end_x = nx+nghost-io;
+    int loop_end_y = ny+nghost-io;
+    #pragma omp parallel for private (ix,m)
+    for (int iy = loop_start; iy < loop_end_y; ++iy)
+        for (int ix = loop_start; ix < loop_end_x; ++ix) {
+                // cache all the things!
+                // vec &u00 = u(ix, iy);
+                // vec &u10 = u(ix+1, iy);
+                // vec &u01 = u(ix, iy+1);
+                // vec &u11 = u(ix+1, iy+1);
+
+                // vec &ux00 = ux(ix, iy);
+                // vec &ux10 = ux(ix+1, iy);
+                // vec &ux01 = ux(ix, iy+1);
+                // vec &ux11 = ux(ix+1, iy+1);
+
+                // vec &uy00 = uy(ix, iy);
+                // vec &uy10 = uy(ix+1, iy);
+                // vec &uy01 = uy(ix, iy+1);
+                // vec &uy11 = uy(ix+1, iy+1);
+
+                // vec &f00 = f(ix, iy);
+                // vec &f10 = f(ix+1, iy);
+                // vec &f01 = f(ix, iy+1);
+                // vec &f11 = f(ix+1, iy+1);
+
+                // vec &g00 = g(ix, iy);
+                // vec &g10 = g(ix+1, iy);
+                // vec &g01 = g(ix, iy+1);
+                // vec &g11 = g(ix+1, iy+1);
+
+                // // Perform relevant additions
+                // real u00_10_0 = u00[0] + u10[0];
+                // real u01_11_0 = u01[0] + u11[0];
+                // real ux10_00_0 = ux10[0] - ux00[0];
+                // real ux11_01_0 = ux11[0] - ux01[0];
+                // real uy01_00_0 = uy01[0] - uy00[0];
+                // real uy11_10_0 = uy11[0] - uy10[0];
+                // real f10_00_0 = f10[0] - f00[0];
+                // real f11_01_0 = f11[0] - f01[0];
+                // real g01_00_0 = g01[0] - g00[0];
+                // real g11_10_0 = g11[0] - g10[0];
+
+                // u00_10_0 += u01_11_0;
+                // ux10_00_0 += ux11_01_0;
+                // uy01_00_0 += uy11_10_0;
+                // f10_00_0 += f11_01_0;
+                // g01_00_0 += g11_10_0;
+
+                // real u00_10_1 = u00[1] + u10[1];
+                // real u01_11_1 = u01[1] + u11[1];
+                // real ux10_00_1 = ux10[1] - ux00[1];
+                // real ux11_01_1 = ux11[1] - ux01[1];
+                // real uy01_00_1 = uy01[1] - uy00[1];
+                // real uy11_10_1 = uy11[1] - uy10[1];
+                // real f10_00_1 = f10[1] - f00[1];
+                // real f11_01_1 = f11[1] - f01[1];
+                // real g01_00_1 = g01[1] - g00[1];
+                // real g11_10_1 = g11[1] - g10[1];
+
+                // u00_10_1 += u01_11_1;
+                // ux10_00_1 += ux11_01_1;
+                // uy01_00_1 += uy11_10_1;
+                // f10_00_1 += f11_01_1;
+                // g01_00_1 += g11_10_1;
+
+                // real u00_10_2 = u00[2] + u10[2];
+                // real u01_11_2 = u01[2] + u11[2];
+                // real ux10_00_2 = ux10[2] - ux00[2];
+                // real ux11_01_2 = ux11[2] - ux01[2];
+                // real uy01_00_2 = uy01[2] - uy00[2];
+                // real uy11_10_2 = uy11[2] - uy10[2];
+                // real f10_00_2 = f10[2] - f00[2];
+                // real f11_01_2 = f11[2] - f01[2];
+                // real g01_00_2 = g01[2] - g00[2];
+                // real g11_10_2 = g11[2] - g10[2];
+
+                // u00_10_2 += u01_11_2;
+                // ux10_00_2 += ux11_01_2;
+                // uy01_00_2 += uy11_10_2;
+                // f10_00_2 += f11_01_2;
+                // g01_00_2 += g11_10_2;
+
+                // ux10_00_0 += -0.9375 * ux10_00_0;
+                // ux10_00_1 += -0.9375 * ux10_00_1;
+                // ux10_00_2 += -0.9375 * ux10_00_2;
+
+                // // 0.25 * sum of all u terms.
+                // u00_10_0 += -0.75 * u00_10_0;
+                // u00_10_1 += -0.75 * u00_10_1;
+                // u00_10_2 += -0.75 * u00_10_2;
+
+                // // sum up uxs and uys
+                // ux10_00_0 += 0.0625 * uy01_00_0;
+                // ux10_00_1 += 0.0625 * uy01_00_1;
+                // ux10_00_2 += 0.0625 *uy01_00_2;
+
+                // // sum us and fs
+                // u00_10_0 += -dtcdx2 * f10_00_0;
+                // u00_10_1 += -dtcdx2 * f10_00_1;
+                // u00_10_2 += -dtcdx2 * f10_00_2;
+
+                // // sum uxs and gs
+                // ux10_00_0 += -dtcdy2 * g01_00_0;
+                // ux10_00_1 += -dtcdy2 * g01_00_1;
+                // ux10_00_2 += -dtcdy2 * g01_00_2;
+
+                // // sum what's left.
+                // u00_10_0 += ux10_00_0;
+                // u00_10_1 += ux10_00_1;
+                // u00_10_2 += ux10_00_2;
+
+                // vec &v00 = v(ix, iy);
+                // v(ix, iy)[0] = u00_10_0;
+                // v(ix, iy)[1] = u00_10_1;
+                // v(ix, iy)[2] = u00_10_2;
+
+
+                v(ix,iy)[0] =
+                    0.2500 * ( u(ix,  iy)[0] + u(ix+1,iy  )[0] +
+                               u(ix,iy+1)[0] + u(ix+1,iy+1)[0] ) -
+                    0.0625 * ( ux(ix+1,iy  )[0] - ux(ix,iy  )[0] +
+                               ux(ix+1,iy+1)[0] - ux(ix,iy+1)[0] +
+                               uy(ix,  iy+1)[0] - uy(ix,  iy)[0] +
+                               uy(ix+1,iy+1)[0] - uy(ix+1,iy)[0] ) -
+                    dtcdx2 * ( f(ix+1,iy  )[0] - f(ix,iy  )[0] +
+                               f(ix+1,iy+1)[0] - f(ix,iy+1)[0] ) -
+                    dtcdy2 * ( g(ix,  iy+1)[0] - g(ix,  iy)[0] +
+                               g(ix+1,iy+1)[0] - g(ix+1,iy)[0] );
+                v(ix,iy)[1] =
+                    0.2500 * ( u(ix,  iy)[1] + u(ix+1,iy  )[1] +
+                               u(ix,iy+1)[1] + u(ix+1,iy+1)[1] ) -
+                    0.0625 * ( ux(ix+1,iy  )[1] - ux(ix,iy  )[1] +
+                               ux(ix+1,iy+1)[1] - ux(ix,iy+1)[1] +
+                               uy(ix,  iy+1)[1] - uy(ix,  iy)[1] +
+                               uy(ix+1,iy+1)[1] - uy(ix+1,iy)[1] ) -
+                    dtcdx2 * ( f(ix+1,iy  )[1] - f(ix,iy  )[1] +
+                               f(ix+1,iy+1)[1] - f(ix,iy+1)[1] ) -
+                    dtcdy2 * ( g(ix,  iy+1)[1] - g(ix,  iy)[1] +
+                               g(ix+1,iy+1)[1] - g(ix+1,iy)[1] );
+
+                v(ix,iy)[2] =
+                    0.2500 * ( u(ix,  iy)[2] + u(ix+1,iy  )[2] +
+                               u(ix,iy+1)[2] + u(ix+1,iy+1)[2] ) -
+                    0.0625 * ( ux(ix+1,iy  )[2] - ux(ix,iy  )[2] +
+                               ux(ix+1,iy+1)[2] - ux(ix,iy+1)[2] +
+                               uy(ix,  iy+1)[2] - uy(ix,  iy)[2] +
+                               uy(ix+1,iy+1)[2] - uy(ix+1,iy)[2] ) -
+                    dtcdx2 * ( f(ix+1,iy  )[2] - f(ix,iy  )[2] +
+                               f(ix+1,iy+1)[2] - f(ix,iy+1)[2] ) -
+                    dtcdy2 * ( g(ix,  iy+1)[2] - g(ix,  iy)[2] +
+                               g(ix+1,iy+1)[2] - g(ix+1,iy)[2] );
         }
 
     // Copy from v storage back to main grid
+    #pragma omp parallel for private (i)
     for (int j = nghost; j < ny+nghost; ++j){
         for (int i = nghost; i < nx+nghost; ++i){
             u(i,j) = v(i-io,j-io);
