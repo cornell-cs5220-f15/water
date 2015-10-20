@@ -1,12 +1,14 @@
 #ifndef CENTRAL2D_H
 #define CENTRAL2D_H
 
+#pragma offload_attribute(push,target(mic))
 #include <cstdio>
 #include <cmath>
 #include <cassert>
 #include <vector>
 #include <memory>
 #include <omp.h>
+#pragma offload_attribute(pop)
 
 //ldoc on
 /**
@@ -156,6 +158,9 @@ private:
         uy_(nx * ny),
         fx_(nx * ny),
         gy_(nx * ny) {}
+
+      __declspec(target(mic))
+      ~LocalState() {}
 
       // Array accessor functions
       __declspec(target(mic)) vec& u(int ix, int iy)  { return u_[offset(ix,iy)]; }

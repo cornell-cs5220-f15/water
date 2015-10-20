@@ -1,8 +1,10 @@
 #ifndef SHALLOW2D_H
 #define SHALLOW2D_H
 
+#pragma offload_attribute(push,target(mic))
 #include <cmath>
 #include <array>
+#pragma offload_attribute(pop)
 
 //ldoc on
 /**
