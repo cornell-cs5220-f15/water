@@ -1,4 +1,4 @@
-#include "central2d.h"
+#include "central2dwrapper.h"
 #include "shallow2d.h"
 #include "minmod.h"
 #include "meshio.h"
@@ -30,7 +30,8 @@
  * limiter:
  */
 
-typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
+//Actually, we'll use the wrapper, and let it create Central2D instances
+typedef Central2DWrapper< Shallow2D, MinMod<Shallow2D::real> > Sim;
 
 /**
  * ## Initial states

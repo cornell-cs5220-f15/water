@@ -1,0 +1,8 @@
+Running simulation with n = 200
+Running simulation with n = 400
+Running simulation with n = 600
+Running simulation with n = 800
+Running simulation with n = 1000
+Running simulation with n = 1200
+Running simulation with n = 1400
+=>> PBS: job killed: walltime 1811 exceeded limit 1800
