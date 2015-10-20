@@ -2,4 +2,4 @@
 
 #Arg 1: Initial condition, Arg 2: size
 
-qsub -v ARGS="$1 $2" -l nodes=1:ppn=24 lshallowp.pbs
+qsub -v ARGS="$1 $2 $3" -l nodes=1:ppn=24 lshallowp.pbs
