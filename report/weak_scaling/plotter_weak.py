@@ -35,9 +35,9 @@ for i in range(len(t)):
     t[i] = t_f/t[i]
 
 plt.plot(threads, t)
-plt.xlim([1,25])
+plt.xlim([1,10])
 plt.xlabel("Number of OMP threads")
 plt.ylabel("Speedup over the serial implementation")
-plt.savefig('weak_scaling.png', dpi=1000)
+plt.savefig('weak_scaling.png', dpi=300)
 plt.clf()
 plt.cla()
