@@ -1,8 +1,10 @@
 #ifndef SHALLOW2D_H
 #define SHALLOW2D_H
 
+#pragma offload_attribute(push,target(mic))
 #include <cmath>
 #include <array>
+#pragma offload_attribute(pop)
 
 //ldoc on
 /**
@@ -62,12 +64,14 @@ struct Shallow2D {
 
     // Type parameters for solver
     typedef float real;
-    typedef std::array<real,3> vec;
+    typedef std::array<real,4> vec;
 
     // Gravitational force (compile time constant)
+    __declspec(target(mic))
     static constexpr real g = 9.8;
 
     // Compute shallow water fluxes F(U), G(U)
+    __declspec(target(mic))
     static void flux(vec& FU, vec& GU, const vec& U) {
         real h = U[0], hu = U[1], hv = U[2];
 

@@ -22,6 +22,9 @@ shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
 shallow-pnode: driver.cc central2d_pnode.h shallow2d.h minmod.h meshio.h
 	$(CXX) $(CXXFLAGS) -D_PARALLEL_NODE -o $@ $<
 
+shallow-pdevice: driver.cc central2d_pdevice.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -D_PARALLEL_DEVICE -o $@ $<
+
 .PHONY: run big
 run: dam_break.gif
 

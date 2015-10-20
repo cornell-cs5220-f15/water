@@ -2,6 +2,8 @@
     #include "central2d.h"
 #elif defined _PARALLEL_NODE
     #include "central2d_pnode.h"
+#elif defined _PARALLEL_DEVICE
+    #include "central2d_pdevice.h"
 #endif
 #include "shallow2d.h"
 #include "minmod.h"
@@ -93,6 +95,9 @@ void wave(Sim::vec& u, double x, double y)
 
 int main(int argc, char** argv)
 {
+#if defined _PARALLEL_DEVICE
+    #pragma offload_transfer target(mic:0)
+#endif
     std::string fname = "waves.out";
     std::string ic = "dam_break";
     int    nx       = 200;
@@ -153,7 +158,7 @@ int main(int argc, char** argv)
 
 #if defined _SERIAL
     Sim sim(width,width, nx,nx);
-#elif defined _PARALLEL_NODE
+#elif defined _PARALLEL_NODE || _PARALLEL_DEVICE
     Sim sim(width,width, nx,nx, nxblocks,nyblocks, nbatch);
 #endif
     SimViz<Sim> viz(fname.c_str(), sim);
