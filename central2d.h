@@ -416,7 +416,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             //start by establishing the block for this processor
             int rank = omp_get_thread_num();
             int coord_x = std::floor(rank / sqrt(numProcs)); //unique coord for every proc
-            int coord_y = std::floor(rank % round(sqrt(numProcs)));
+            int coord_y = std::floor(rank % (int)round(sqrt(numProcs)));
             int b_x = coord_x * nx;
             int b_y = coord_y * ny;
 
