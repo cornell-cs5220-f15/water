@@ -10,3 +10,4 @@ Domain decomposition
 
 Small kernel
     matmul-esque blocking to make a very well tuned kernel. Helps with parallelism and cache coherence.
+    We can make the block size fixed AND aligned. (Takes care of two separate vec report complaints)
