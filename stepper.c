@@ -19,7 +19,7 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
                             int nfield, flux_t flux, speed_t speed,
                             float cfl, int b)
 {
-    int ng = 3*b; //TODO: check if this is right
+    int ng = 4*b; //TODO: check if this is right
 
     central2d_t* sim = (central2d_t*) _mm_malloc(sizeof(central2d_t), 64);
     sim->nx = nx;
@@ -480,17 +480,21 @@ int central2d_xrun(float* restrict u, float* restrict v,
         }
 
         //copy memory to each subdomain
-        #pragma omp parallel for
-        for (int i = 0; i < p; i++) {
-            int offset_x;
-            int offset_y;
-            offsets(&offset_x, &offset_y, i, p, sim);
-            copy_to_block(offset_x, offset_y, blocks[i], sim);
-        }
+        // #pragma omp parallel for
+        // for (int i = 0; i < p; i++) {
+        //     int offset_x;
+        //     int offset_y;
+        //     offsets(&offset_x, &offset_y, i, p, sim);
+        //     copy_to_block(offset_x, offset_y, blocks[i], sim);
+        // }
 
         // run each subdomain for b*2 steps
         #pragma omp parallel for
         for (int proc = 0; proc < p; proc++) {
+            int offset_x;
+            int offset_y;
+            offsets(&offset_x, &offset_y, proc, p, sim);
+            copy_to_block(offset_x, offset_y, blocks[proc], sim);
             for(int i = 0; i < rounds; i++) {
                 central2d_step(blocks[proc]->u, blocks[proc]->v, blocks[proc]->scratch, blocks[proc]->f, blocks[proc]->g,
                                0, blocks[proc]->nx, blocks[proc]->ny, blocks[proc]->ng,
