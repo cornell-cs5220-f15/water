@@ -7,3 +7,6 @@ Memory trimming after vectorization
 
 Domain decomposition
     Use the same time step for few steps because the max speed may not vary by too much. Synchronize later and check.
+
+Small kernel
+    matmul-esque blocking to make a very well tuned kernel. Helps with parallelism and cache coherence.
