@@ -441,7 +441,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
 			for(int j = 0; j<NBATCH/2;++j){
 				
 				central2d_step_i(ublock[curthread], vblock[curthread], sblock[curthread], fblock[curthread], gblock[curthread],
-							   0, nx, blocksize, ng,
+							   0, nx+2*(NBATCH-1-j*2), blocksize+2*(NBATCH-1-j*2), 1+j*2,
 							   nfield, flux, speed,
 							   dt, dx, dy, curthread);
 				
@@ -449,11 +449,11 @@ int central2d_xrun(float* restrict u, float* restrict v,
 				
 				//central2d_periodic(u, nx, ny, ng, nfield);
 				central2d_step_i(ublock[curthread], vblock[curthread], sblock[curthread], fblock[curthread], gblock[curthread],
-							   1, nx, blocksize, ng,
+							   1, nx+2*(NBATCH-2-j*2), blocksize+2*(NBATCH-2-j*2), 2+j*2,
 							   nfield, flux, speed,
 							   dt, dx, dy, curthread);
 			}
-			
+			/*
 			if(curthread==0){
 				for(int k = 0;k<nfield;++k){
 					memcpy(u+k*nx_all*ny_all,ublock[curthread]+k*nx_all*(2*NBATCH+blocksize),(nx_all*NBATCH)* sizeof(float));
@@ -470,7 +470,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
 					memcpy(g+k*nx_all*ny_all+(nx_all*(ny_all-ng)),gblock[curthread]+k*nx_all*(2*NBATCH+blocksize)+(nx_all*(NBATCH+blocksize)),(nx_all*NBATCH)* sizeof(float));
 				}
 			}
-			#pragma omp critical
+			//#pragma omp critical
+			*/
 			{
 				for(int k = 0;k<nfield;++k){
 					memcpy(u+k*nx_all*ny_all+(nx_all*(ng+blocksize*curthread)),(ublock[curthread]+k*nx_all*(2*NBATCH+blocksize)+NBATCH*nx_all),(nx_all*(blocksize))* sizeof(float));
@@ -481,10 +482,6 @@ int central2d_xrun(float* restrict u, float* restrict v,
 			}
 
 			#pragma omp barrier
-			if(curthread==0){
-				printf("done %d %d\n",nstep,0+done);
-				fflush(stdout);
-			}
 		
 		}
 		t =t+NBATCH*dt;
