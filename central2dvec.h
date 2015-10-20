@@ -584,9 +584,9 @@ void Central2D<Physics, Limiter>::solution_check()
     for (int j = 0; j < ny; ++j)
         for (int i = 0; i < nx; ++i) {
             real h=*(pointers[0]+(ng+j)*nx_all+(ng+i));
-            h_sum+=h;
             hu_sum+=*(pointers[0]+(ny_all+(ng+j))*nx_all+(ng+i));
             hv_sum+=*(pointers[0]+(2*ny_all+(ng+j))*nx_all+(ng+i));
+            h_sum+=h;
             hmax=fmax(h,hmax);
             hmin=fmin(h,hmin);
         }
@@ -594,8 +594,6 @@ void Central2D<Physics, Limiter>::solution_check()
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
-    printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-           h_sum, hu_sum, hv_sum, hmin, hmax);
     assert(hmin >0 );
 }
 

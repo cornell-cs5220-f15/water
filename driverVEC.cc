@@ -144,16 +144,13 @@ int main(int argc, char** argv)
     sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
-    for (int i = 0; i < frames; ++i) {
-#ifdef _OPENMP
-        double t0 = omp_get_wtime();
+    double t0 = omp_get_wtime();
+    double t = 0;
+    for (int i = 0; i < frames; ++i) {        
         sim.run(ftime);
-        double t1 = omp_get_wtime();
-        printf("Time: %e\n", t1-t0);
-#else
-        sim.run(ftime);
-#endif
+        t = omp_get_wtime() - t0;
         sim.solution_check();
         viz.write_frame();
     }
+    printf("%d,%g\n",nx,t);
 }

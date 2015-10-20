@@ -16,6 +16,8 @@ include Makefile.in.$(PLATFORM)
 # ===
 # Main driver and sample run
 
+shallow-orig: driver.cc central2d.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -o $@ $<
 
 shallow: driverVEC.cc central2dvec.h shallow2dvec.h minmodvec.h meshiovec.h
 	$(CXX) $(CXXFLAGS) -o $@ $<
