@@ -75,22 +75,27 @@ The following time profiles were obtained on a 200x200 grid by advancing 100 fra
 We began the optimization by analyzing the time profiles of the original code. The following table shows the top 4 functions by CPU time. 
 \lstinputlisting[basicstyle=\tiny]{./profiling/original.txt}
 
-\subsubsection{Memory Layout Update}
-
 \subsubsection{Vectorization}
 Profiling of vectorization shows good improvements in performance, especially in the \texttt{limited\_derivs} and \texttt{compute\_fg\_speeds} functions, but a reduction in performance in the \texttt{compute\_step} function. The repetition of \texttt{limdiff\_x} and \texttt{limdiff\_y} is due to separation of components and axes in \texttt{limited\_derivs}. 
 \lstinputlisting[basicstyle=\tiny]{./profiling/vectorization.txt}
 
 \subsubsection{Parallelization}
+For parallelization, we list the functions that take up the most CPU time and their associated OpenMP spin times. Although we see speedups in the parallel code, the profiling shows that we spend a lot of CPU time spinning. This indicates load imbalance issues in our code that we aim to address in the final report. 
 
-\subsubsection{Domain Decomposition}
+\lstinputlisting[basicstyle=\tiny]{./profiling/vector_parallel_small.txt}
 
 
 \subsection{Scaling Study} \label{sec:speedup}
 
 
 \subsubsection{Strong Scaling Study}
-Using a 500x500 grid and 100 frames, we observe the speedup with respect to the number of threads in our parallel implementation.
+Using a 500x500 grid and 100 frames, we observe the speedup with respect to the number of threads in our parallel implementation. Here, speedup $s$ is defined to be,  
+
+\begin{equation}
+	\mathrm{s} = \dfrac{t_{parallel}}{t_{serial}}
+\end{equation}
+
+The observed best performance occurs when the number of threads are $\approx10$. Increasing the number of threads further results in plateauing in speedup which can be attributed to limits of parallelization. The plateau is lower than the observed maximum speedup. We believe that this is due to thread scheduling overhead. 
 
 \begin{figure}[H]
     \includegraphics[width=0.9\textwidth]{./strong_scaling/strong_scaling.png}
@@ -101,8 +106,10 @@ Using a 500x500 grid and 100 frames, we observe the speedup with respect to the 
 
 \subsubsection{Weak Scaling Study}
 
-We vary the threads but keep the problem size/thread constant.
-\begin{figure}[H]
+We vary the threads but keep the problem size per thread constant. In figure~\ref{fig:weak_scaling}, each thread ideally computes a sub-problem equivalent to advancing a 300 x 300 grid by 100 frames. We 
+plot the speedup observed while increasing the number of threads and the problem size such that work done per thread is approximately equal. We observe a exponential decrease in speedup. We believe that this can be attributed to load imbalance between threads and thread scheduling overhead. 
+
+ \begin{figure}[H]
     \includegraphics[width=0.9\textwidth]{./weak_scaling/weak_scaling.png}
     \caption{Speedup as a function of the number of threads}
     \label{fig:weak_scaling}
