@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
+#include <omp.h>
 
 //ldoc on
 /**
@@ -113,14 +114,27 @@ public:
         uy_(nx_all * ny_all),
         fx_(nx_all * ny_all),
         gy_(nx_all * ny_all),
-        v_ (nx_all * ny_all) {}
+        v_ (nx_all * ny_all),
+		curtime(0) {}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
 
+	// Advance the simulation by one timestep pair from its current time,
+	// returning true if time has now reached tfinal and false otherwise.
+	bool take_timestep_pair(real tfinal);
+
     // Call f(Uxy, x, y) at each cell center to set initial conditions
     template <typename F>
     void init(F f);
+
+	// Initializes cells by copying a block of cells from larger_u
+	void init_as_subdomain(const std::vector<vec>& larger_u, 
+			const int x_start, const int y_start);
+
+	// Copy cells to the larger domain that this simulator is a subdomain of
+	void copy_results_out(std::vector<vec>& larger_v, 
+			const int x_start, const int y_start);
 
     // Diagnostics
     void solution_check();
@@ -139,12 +153,13 @@ public:
     }
     
 private:
-    static constexpr int nghost = 3;   // Number of ghost cells
+    static constexpr int nghost = 4;   // Number of ghost cells
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
+	real curtime; 			   // Current time in the simulation state
 
     std::vector<vec> u_;            // Solution values
     std::vector<vec> f_;            // Fluxes in x
@@ -157,17 +172,17 @@ private:
 
     // Array accessor functions
 
-    inline int offset(int ix, int iy) const { return iy*nx_all+ix; }
+    int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
-    inline vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
-    inline vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
-    inline vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
-    inline vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
+    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
+    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
+    vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
+    vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
 
-    inline vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
-    inline vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
-    inline vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
-    inline vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
+    vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
+    vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
+    vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
+    vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
 
     // Wrapped accessor (periodic BC)
     int ioffset(int ix, int iy) {
@@ -211,6 +226,30 @@ void Central2D<Physics, Limiter>::init(F f)
         for (int ix = 0; ix < nx; ++ix)
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
 }
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::init_as_subdomain(const std::vector<vec>& larger_u, 
+			const int x_start, const int y_start)
+{
+	for (int y = 0; y < ny_all; ++y) {
+		for (int x = 0; x < nx_all; ++x) {
+			//Copy starting at x_start and y_start, but include neighboring cells as ghosts
+			u(x,y) = larger_u[offset(x + x_start - nghost, y + y_start - nghost)];
+		}
+	}
+}
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::copy_results_out(std::vector<vec>& larger_v, 
+			const int x_start, const int y_start)
+{
+	for (int y = 0; y < ny; ++y) {
+		for (int x = 0; x < nx; ++x) {
+			larger_v[offset(x + x_start, y + y_start)] = u(x+nghost,y+nghost);
+		}
+	}
+}
+
 
 /**
  * ## Time stepper implementation
@@ -265,7 +304,6 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     real cx = 1.0e-15;
     real cy = 1.0e-15;
     for (int iy = 0; iy < ny_all; ++iy)
-        #pragma ivdep
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
@@ -286,26 +324,19 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
  */
 
 template <class Physics, class Limiter>
-#pragma omp declare simd
 void Central2D<Physics, Limiter>::limited_derivs()
 {
-    for (int iy = 1; iy < ny_all-1; ++iy ) {
-        //#pragma ivdep
-        //#pragma vector always
+    for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
 
             // x derivs
             limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
             limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
-        //}
-        //#pragma ivdep
-        //for (int ix = 1; ix < nx_all-1; ++ix) {
 
             // y derivs
             limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
             limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
         }
-    }
 }
 
 
@@ -332,7 +363,6 @@ void Central2D<Physics, Limiter>::limited_derivs()
  */
 
 template <class Physics, class Limiter>
-#pragma omp declare simd
 void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 {
     real dtcdx2 = 0.5 * dt / dx;
@@ -340,7 +370,6 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 
     // Predictor (flux values of f and g at half step)
     for (int iy = 1; iy < ny_all-1; ++iy)
-        #pragma ivdep
         for (int ix = 1; ix < nx_all-1; ++ix) {
             vec uh = u(ix,iy);
             for (int m = 0; m < uh.size(); ++m) {
@@ -351,10 +380,10 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            //#pragma ivdep
-            //#pragma vector always 
+	// On an even step, write from nghost-2 to ny+nghost+2 (because it's the first in the batch)
+	// On an odd step, write from nghost-1 to ny+nghost-1
+    for (int iy = nghost-2+io; iy < ny+nghost+2-(3*io); ++iy)
+        for (int ix = nghost-2+io; ix < nx+nghost+2-(3*io); ++ix) {
             for (int m = 0; m < v(ix,iy).size(); ++m) {
                 v(ix,iy)[m] =
                     0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
@@ -371,15 +400,50 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-    for (int j = nghost; j < ny+nghost; ++j){
-        //#pragma ivdep
-        for (int i = nghost; i < nx+nghost; ++i){
+	// On an even step, write from nghost-2 to ny+nghost+2 (because it's the first in the batch)
+	// On an odd step, write from nghost to ny+nghost
+	const int bo = (io == 0 ? 2 : 0);
+    for (int j = nghost-bo; j < ny+nghost+bo; ++j){
+        for (int i = nghost-bo; i < nx+nghost+bo; ++i){
             u(i,j) = v(i-io,j-io);
         }
     }
 }
 
 
+template <class Physics, class Limiter>
+bool Central2D<Physics, Limiter>::take_timestep_pair(real tfinal) {
+        real dt;
+        real cx, cy;
+		bool done = false;
+		//Even step
+		compute_fg_speeds(cx, cy);
+		limited_derivs();
+		dt = cfl / std::max(cx/dx, cy/dy);
+		if (curtime + 2*dt >= tfinal) {
+			dt = (tfinal-curtime)/2;
+			done = true;
+		}
+		compute_step(0, dt);
+		curtime += dt;
+		//Odd step - don't need to do apply_periodic yet if there are enough ghost cells
+		compute_fg_speeds(cx, cy);
+		limited_derivs();
+		compute_step(1, dt);
+		curtime += dt;
+		return done;
+}
+
+//template <class Physics, class Limiter>
+//void Central2D<Physics, Limiter>::run(real tfinal)
+//{
+//	bool done = false;
+//	curtime = 0;
+//	while(!done) {
+//		apply_periodic();
+//		done = take_timestep_pair(tfinal);
+//	}
+//}
 /**
  * ### Advance time
  * 
@@ -398,24 +462,76 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
     bool done = false;
-    real t = 0;
-    while (!done) {
-        real dt;
-        for (int io = 0; io < 2; ++io) {
-            real cx, cy;
-            apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
-            if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
-                }
-            }
-            compute_step(io, dt);
-            t += dt;
-        }
+	//Stupidly, OpenMP won't allow you to share member variables
+	Central2D<Physics, Limiter>* parent = this;
+	#pragma omp parallel shared(parent,done) 
+	{
+		const int nthreads = omp_get_num_threads();
+		//Now that we know how many threads there are, split the board into
+		//approximately that many blocks. It would be nice if we could nicely 
+		//factor nthreads into two dimensions instead of just taking the square
+		//root and rounding down, but that's beyond the scope of my math knowledge.
+		const int blocksperside = (int) std::sqrt(nthreads);
+		const int bwidth = nx / blocksperside;
+		const int bheight = ny / blocksperside;
+		const int nblocksx = nx / bwidth + (nx % bwidth ? 1 : 0);
+		const int nblocksy = ny / bheight + (ny % bheight ? 1 : 0);
+		//Number of blocks each processor actually gets, since we rounded up the number of blocks
+		const int blockspp = (nblocksx * nblocksy) / nthreads;
+		const bool one_extra = (nblocksx * nblocksy) % nthreads != 0;
+		//Use a Central2D instance for each block; the last thread may get one extra block
+		std::vector<Central2D<Physics, Limiter>> blockSims;
+		const int my_numblocks = blockspp + 
+			(omp_get_thread_num() == omp_get_num_threads() && one_extra ? 1 : 0);
+		for(int b = 0; b < my_numblocks; b++) {
+			//Blocks are counted in row-major order across the grid
+			const int blocknum = omp_get_thread_num() * blockspp + b;
+			const int blockrow = blocknum / nblocksx;
+			const int blockcol = blocknum % nblocksx;
+			//Acutal width and height of this block, accounting for rectangluar ones at the ends
+			//note that the block will start at (x,y) = (blockcol * bwidth, blockrow * bheight)
+			const int blockwidth = (blockcol * bwidth + bwidth > nx ? nx - blockcol * bwidth : bwidth);
+			const int blockheight = (blockrow * bheight + bheight > ny ? ny - blockrow * bheight : bheight);
+			//Construct a new Central2D instance for this block. (This initializes curtime to 0 for that instance)
+			blockSims.push_back(Central2D<Physics, Limiter>(dx*nx, dy*ny, blockwidth, blockheight, cfl));
+		}
+		while (!done) {
+			#pragma omp single 
+			{
+				apply_periodic();
+			}
+			
+			bool local_done = false;
+			//Hopefully this loop only runs once or twice at each thread
+			for(int b = 0; b < my_numblocks; b++) {
+				const int blocknum = omp_get_thread_num() * blockspp + b;
+				const int blockrow = blocknum / nblocksx;
+				const int blockcol = blocknum % nblocksx;
+				//Copy this block's data in from u_, but start the pointers after ghost cells
+				blockSims[b].init_as_subdomain(parent->u_, 
+						nghost + blockcol * bwidth, nghost + blockrow * bheight);
+				//Advance two timesteps locally
+				const bool block_done = blockSims[b].take_timestep_pair(tfinal);
+				//Copy the results back out to v_, so it can happen concurrently with reads from u_
+				blockSims[b].copy_results_out(parent->v_, 
+						nghost + blockcol * bwidth, nghost + blockrow * bheight);
+				local_done = local_done || block_done;
+			}
+			//If a thread discovers the simulation is finished, it should change the global flag
+			if (local_done) {
+				done = true;
+				#pragma omp flush(done)
+			}
+			//Wait for all threads to finish writing out results, then have one
+			//thread swap v and u
+			#pragma omp barrier
+			#pragma omp single
+			{
+				std::vector<vec> temp = parent->u_;
+				parent->u_ = parent->v_;
+				parent->v_ = temp;
+			}
+		}
     }
 }
 
@@ -459,3 +575,4 @@ void Central2D<Physics, Limiter>::solution_check()
 
 //ldoc off
 #endif /* CENTRAL2D_H*/
+
