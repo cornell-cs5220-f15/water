@@ -7,7 +7,10 @@
 #include <stdbool.h>
 #include <omp.h>
 #define NBATCH 6 //2*k
-#define NUMPARA 10 // we should let NUMPARA devide by nx
+#define NUMPARA npara // we should let NUMPARA devide by nx
+
+extern int npara;
+
 //ldoc on
 /**
  * ## Implementation

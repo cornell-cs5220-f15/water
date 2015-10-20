@@ -14,6 +14,9 @@
 #include <assert.h>
 #include <stdio.h>
 
+extern int npara;
+int npara;
+
 //ldoc on
 /**
  * # Driver code
@@ -210,12 +213,14 @@ int run_sim(lua_State* L)
     int nx = lget_int(L, "nx", 200);
     int ny = lget_int(L, "ny", nx);
     int frames = lget_int(L, "frames", 50);
+    npara  = lget_int(L, "nthreads", 10);
     const char* fname = lget_string(L, "out", "sim.out");
 
     central2d_t* sim = central2d_init(w,h, nx,ny,
                                       3, shallow2d_flux, shallow2d_speed, cfl);
     lua_init_sim(L,sim);
     printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
+    printf("Number of threads: %d\n", npara);
     FILE* viz = viz_open(fname, sim);
     solution_check(sim);
     viz_frame(viz, sim);
