@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <omp.h>
-#define NBATCH 6 //2*k
+#define NBATCH 12 //2*k
 #define NUMPARA npara // we should let NUMPARA devide by nx
 
 extern int npara;
