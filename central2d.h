@@ -139,7 +139,7 @@ public:
         return u_[offset(i+nghost,j+nghost)];
     }
 
-private:
+protected:
     static constexpr int nghost = 3;   // Number of ghost cells
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
@@ -147,6 +147,7 @@ private:
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
 
+private:
     std::vector<vec> u_;            // Solution values
     std::vector<vec> f_;            // Fluxes in x
     std::vector<vec> g_;            // Fluxes in y
@@ -161,6 +162,7 @@ private:
     // #pragma omp declare simd
     int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
+protected:
     // #pragma omp declare simd
     vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
 
