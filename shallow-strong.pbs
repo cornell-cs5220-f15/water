@@ -7,7 +7,7 @@
 
 module load cs5220
 cd $PBS_O_WORKDIR
-for N in `seq 200 10 1000`
+for N in `seq 200 10 500`
 do
 ./shallow -i dam_break -o dam_break.out -n $N
 done

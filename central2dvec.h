@@ -415,6 +415,7 @@ void Central2D<Physics, Limiter>::central2d_predict(iter v,
                        float dtcdx2, float dtcdy2,
                        int nx, int ny, int nfield)
 {
+    #pragma omp parallel for collapse(3)
     for (int k = 0; k < nfield; ++k)
         for (int iy = 1; iy < ny-1; ++iy)
             for (int ix = 1; ix < nx-1; ++ix) {
