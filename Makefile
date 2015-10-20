@@ -19,6 +19,9 @@ include Makefile.in.$(PLATFORM)
 shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
+shallow-ref: driver.cc central2dRef.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
 .PHONY: run big
 run: dam_break.gif
 
@@ -38,6 +41,9 @@ maqao: shallow
 scan-build:
 	( module load llvm-analyzer ; \
 	  scan-build -v --use-analyzer=/share/apps/llvm-3.7.0/bin/clang make )
+
+concurrency:
+	amplxe-cl -R hotspots -report-output hotspots/concurrency.csv -format csv -csv-delimiter comma
 
 # ===
 # Generate visualizations (animated GIF or MP4)

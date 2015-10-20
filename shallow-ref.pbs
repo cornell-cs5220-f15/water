@@ -1,0 +1,10 @@
+#!/bin/sh -l
+
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=0:30:00
+#PBS -N shallow-ref
+#PBS -j oe
+
+module load cs5220
+cd $PBS_O_WORKDIR
+./shallow-ref -i dam_break -o dam_break.out

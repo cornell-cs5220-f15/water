@@ -1,6 +1,6 @@
 CXX=icpc
 CXXFLAGS=-std=c++14 -pedantic -Wall -Werror -g
-ANALYSIS=-qopt-report=5 -qopt-report-phase=all -parallel-source-info=2
+ANALYSIS=-qopt-report=5 -qopt-report-phase=vec -parallel-source-info=2
 OPTFLAGS=-O3 -no-prec-div -opt-prefetch -xHost -ansi-alias -openmp -ipo
 
 CXXFLAGS+=$(OPTFLAGS) $(ANALYSIS)
