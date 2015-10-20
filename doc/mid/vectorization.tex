@@ -47,7 +47,7 @@ represents solution vectors as \cppvec{}s of \cpparr{}s which are not amenable
 to vectorization. Second, the vectorization report mentions the dependencies
 involve \ttt{\_M\_elems}: a rather cryptic name which is, from what we can
 gather, the name of a function internal to the implementation of \cppvec{} or
-\cpparr{}. This is entirely by the use of vectors and arrays.
+\cpparr{}. This is caused entirely by the use of vectors and arrays.
 
 We solved both these problems in our vectorized simulator implemented by
 \ttt{central2d\_vec.h} and \ttt{shallow2d\_vec.h}. Our vectorized simulator

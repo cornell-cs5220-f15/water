@@ -1,7 +1,7 @@
 \section{Timing}\label{sec:timing}
 \subsection{Profiling}
-In order to find the bottleneck of the code, we first profiled timing of each
-steps using Intel’s VTune Amplifier. See \figref{amplxe-command}.
+In order to find the bottlenecks of our simulators, we first profiled our code
+using Intel's VTune Amplifier, as shown in \figref{amplxe-command}.
 
 \begin{figure}[h]
 \footnotesize
@@ -19,10 +19,10 @@ amplxe-cl -report hotspots -source-object function="Central2D
 
 \subsection{Initial Profile Result}
 
-From \figref{initial-profile-result}, we could figure out
-\ttt{limited\_derivs}, \ttt{compute\_step}, and \ttt{compute\_fg\_sppeds} take
-longest time (See \ttt{profile.sh} code). Among these results,
-\ttt{limited\_derivs} function definitely was the worst bottleneck.
+From \figref{initial-profile-result}, we concluded that \ttt{limited\_derivs},
+\ttt{compute\_step}, and \ttt{compute\_fg\_speeds} take the longest time (see
+\ttt{profile.sh} for more information). Among these results, the
+\ttt{limited\_derivs} function was the worst bottleneck.
 
 \begin{figure}[h]
 \footnotesize
@@ -47,9 +47,16 @@ operator[]                   shallow         0.001s
 \end{figure}
 
 \subsection{Initial Timing Result}
-We made simple script to generate timing plots (See plotter.sh code). Here, x-axis indicates the number of cells per side. We swept this from 100 to 500. Y-axis shows the number of cells per side per average time, which means cell per seconds. We divided timing by the cube of $nx$. Also, another graph simply shows that $Seconds$ vs. $nx$.
+To visualize our simulator performance, we wrote a simple script to generate
+timing plots (see \ttt{plotter.sh} code). The x-axis of the plots indicates the
+number of cells per side of a simulator grid, $nx$. We swept $nx$ from 100 to
+500. The y-axis shows the number of simulated cells per second. To compute the
+number of simulated cells per second, we scaled the total execution
+proportionally to $nx^{-3}$. Our script also generates plots that simply show
+the total execution time vs. $nx$.
 
-Initial timing result can be found at Figure ~\ref{fig:initial_timing_result1} and Figure ~\ref{fig:initial_timing_result2} .
+Initial timing result can be found at \figref{initial_timing_result1}
+and \figref{initial_timing_result2} .
 
 \begin{figure}[h]
     \centering
