@@ -22,6 +22,204 @@ The following optimizations are explored in this section:
 \subsection{Vectorizing with AVX Extensions}
 \label{sec-tune-vectorizing}
 
+\noindent Vectorizing with AVX Extensions can fall under two general categories:
+
+\begin{enumerate}[1.]
+    \item Having the compiler auto-vectorize your code for you, and
+    \item Writing your own vectorized kernels for use as subroutines.
+\end{enumerate}
+
+Both approaches have benefits and detriments.  For example, when using the compiler to vectorize your code you save yourself the pain of having to reason about which register has what data, what SSE/AVX function callbacks wrap the appropriate instruction level code, etc.  This provides great convenience, but does come at a cost.  The compiler is only as smart as you let it be, and if you arrange your code improperly, you may not only slow down your program but you may very well yield the wrong result by accident.  Writing your own vectorized code, on the other hand, can be quite difficult to get right.  Often times it may be best to take a mixed approach, where you examine the instructions the compiler generated for a given code segment and determine whether or not you can refine this approach further.
+
+\subsubsection{Auto-vectorization Using ICC}
+\label{sec-tune-vectorizing-auto-vectorizing}
+
+As discussed previously, you can use the \texttt{amplxe} tool to help with profiling, as well as use the intel compiler to generate an \texttt{optrpt} file describing what was / was not vectorized, how effective it was if vectorization occurred, and why vectorization did not occur if that were the case.  On the note of when vectorization does not occur, we would like to mention a couple of things:
+
+\begin{enumerate}[1.]
+    \item Not all loops are created equal
+
+    That is not every loop can be vectorized, either because its length cannot be known at compile-time, or because the data elements being accessed cannot be made to execute in parallel.
+
+    \item Understanding the codes in the \texttt{.optrpt} file can help you rearrange your code so that it is vectorized (recalling from 1 that not all of this is possible).
+
+    We found the following presentation extremely useful in rearranging loop statements:\\\\ \centerline{https://engineering.purdue.edu/~milind/ece573/2011spring/lecture-14.pdf}
+
+    \item Introducing compile-time constants / \texttt{constexpr} members of a class can go a long way in assisting the compiler understand what can / cannot be vectorized.
+
+    \item Taking great care to enforce memory alignment as well as declare said alignment to the compiler will also enable it to vectorize even more.
+\end{enumerate}
+
+We leave items 1 and 2 as an exercise for the reader ;)  For item 3, we must first acknowledge that the purpose of the data type \texttt{std::array} is largely just for compilation hints, and we can wield this to our advantage.  In the original implementation of \texttt{Shallow2d.h}, we had that
+
+{\tiny
+\begin{lstlisting}
+    // Type parameters for solver
+    typedef float real;
+    typedef std::array<real,3> vec;
+\end{lstlisting}
+}
+
+were the primary solver types used throughout the program.  The issue, though, is that regardless of us declaring with \texttt{<real,3>}, with high probability (given the architectures we are compiling on) this will get padded to 16 bytes regardless.  The issue with this padding though, is that it is not guaranteed to be a \texttt{float} and treating it as such can potentially give problems.  Recognizing this, we can modify this definition to be:
+
+{\tiny
+\begin{lstlisting}
+    // Type parameters for solver
+    #define VEC_DIM 4 // change this and we all die...
+    typedef float real;
+    #ifdef __INTEL_COMPILER
+        typedef __declspec(align(16)) std::array<real, VEC_DIM> vec;
+    #else // GCC
+        typedef __attribute__ ((aligned(16))) std::array<real, VEC_DIM> vec;
+    #endif
+
+    // allow loop unrolling over `vec`
+    static constexpr int vec_size  = VEC_DIM;
+    static constexpr int VEC_ALIGN = 16;
+\end{lstlisting}
+}
+
+Woah.  Ugly.  But necessary.  What this does is ensure that we will have 4 floats per type vec, and depending on the compiler you are using also declares the alignment of this type.  This stage may not be necessary.  We also define two \texttt{static constexpr} members to allow us to use say \texttt{Physics::vec\_size} as a compile time constant to allow us to unroll loops / \texttt{\_\_assume\_aligned} on memory.  For example, the original computation of the corrector step in \texttt{Central2d.h} was:
+{\tiny
+\begin{lstlisting}
+    // Corrector (finish the step)
+    for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
+        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+            for (int m = 0; m < v(ix,iy).size(); ++m) {
+                v(ix,iy)[m] =
+                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
+                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
+                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
+                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
+                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
+                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
+                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
+                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
+                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
+                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
+            }
+        }
+    }
+\end{lstlisting}
+}
+Though extremely verbose, we can now use these new additions to write a new loop:
+
+{\tiny
+\begin{lstlisting}
+    // Corrector (finish the step)
+    for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
+        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+            /* Nomenclature:
+             *     u_x0_y0 <- u(ix  , iy  )
+             *     u_x1_y0 <- u(ix+1, iy  )
+             *     u_x0_y1 <- u(ix  , iy+1)
+             *     u_x1_y1 <- u(ix+1, iy+1)
+             */
+            // The final result
+            real *v_ix_iy = v(ix, iy).data();       __assume_aligned(v_ix_iy, Physics::VEC_ALIGN);
+
+            // grab u
+            real *u_x1_y0 = u(ix+1, iy  ).data();   __assume_aligned(u_x1_y0, Physics::VEC_ALIGN);
+            real *u_x0_y0 = u(ix  , iy  ).data();   __assume_aligned(u_x0_y0, Physics::VEC_ALIGN);
+            real *u_x0_y1 = u(ix  , iy+1).data();   __assume_aligned(u_x0_y1, Physics::VEC_ALIGN);
+            real *u_x1_y1 = u(ix+1, iy+1).data();   __assume_aligned(u_x1_y1, Physics::VEC_ALIGN);
+
+            // grab ux
+            real *ux_x0_y0 = ux(ix  , iy  ).data(); __assume_aligned(ux_x0_y0, Physics::VEC_ALIGN);
+            real *ux_x1_y0 = ux(ix+1, iy  ).data(); __assume_aligned(ux_x1_y0, Physics::VEC_ALIGN);
+            real *ux_x0_y1 = ux(ix  , iy+1).data(); __assume_aligned(ux_x0_y1, Physics::VEC_ALIGN);
+            real *ux_x1_y1 = ux(ix+1, iy+1).data(); __assume_aligned(ux_x1_y1, Physics::VEC_ALIGN);
+
+            // grab uy
+            real *uy_x0_y0 = uy(ix  , iy  ).data(); __assume_aligned(uy_x0_y0, Physics::VEC_ALIGN);
+            real *uy_x1_y0 = uy(ix+1, iy  ).data(); __assume_aligned(uy_x1_y0, Physics::VEC_ALIGN);
+            real *uy_x0_y1 = uy(ix  , iy+1).data(); __assume_aligned(uy_x0_y1, Physics::VEC_ALIGN);
+            real *uy_x1_y1 = uy(ix+1, iy+1).data(); __assume_aligned(uy_x1_y1, Physics::VEC_ALIGN);
+
+            // grab f
+            real *f_x0_y0 = f(ix  , iy  ).data();   __assume_aligned(f_x0_y0, Physics::VEC_ALIGN);
+            real *f_x1_y0 = f(ix+1, iy  ).data();   __assume_aligned(f_x1_y0, Physics::VEC_ALIGN);
+            real *f_x0_y1 = f(ix  , iy+1).data();   __assume_aligned(f_x0_y1, Physics::VEC_ALIGN);
+            real *f_x1_y1 = f(ix+1, iy+1).data();   __assume_aligned(f_x1_y1, Physics::VEC_ALIGN);
+
+            // grab g
+            real *g_x0_y0 = g(ix  , iy  ).data();   __assume_aligned(g_x0_y0, Physics::VEC_ALIGN);
+            real *g_x1_y0 = g(ix+1, iy  ).data();   __assume_aligned(g_x1_y0, Physics::VEC_ALIGN);
+            real *g_x0_y1 = g(ix  , iy+1).data();   __assume_aligned(g_x0_y1, Physics::VEC_ALIGN);
+            real *g_x1_y1 = g(ix+1, iy+1).data();   __assume_aligned(g_x1_y1, Physics::VEC_ALIGN);
+
+            #pragma simd
+            for(int m = 0; m < Physics::vec_size; ++m) {
+                v_ix_iy[m] =
+                    0.2500f * ( u_x0_y0[m]  + u_x1_y0[m]    +
+                                u_x0_y1[m]  + u_x1_y1[m]  ) -
+                    0.0625f * ( ux_x1_y0[m] - ux_x0_y0[m]   +
+                                ux_x1_y1[m] - ux_x0_y1[m]   +
+                                uy_x0_y1[m] - uy_x0_y0[m]   +
+                                uy_x1_y1[m] - uy_x1_y0[m] ) -
+                    dtcdx2  * ( f_x1_y0[m]  - f_x0_y0[m]    +
+                                f_x1_y1[m]  - f_x0_y1[m]  ) -
+                    dtcdy2  * ( g_x0_y1[m]  - g_x0_y0[m]    +
+                                g_x1_y1[m]  - g_x1_y0[m]  );                    
+            }
+        }
+    }
+\end{lstlisting}
+}
+
+The reasoning is that these traits now enable the intel compiler to do what it does best: vectorize like there ain't no tomorrow:
+
+{\tiny
+\begin{lstlisting}
+LOOP BEGIN at central2d.h(368,5)
+remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at central2d.h(369,9)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at central2d.h(410,13)
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15388: vectorization support: reference F32 has aligned access   [ central2d.h(411,17) ]
+         remark #15427: loop was completely unrolled
+         remark #15417: vectorization support: number of FP up converts: single precision to double precision 4   [ central2d.h(411,17) ]
+         remark #15418: vectorization support: number of FP down converts: double precision to single precision 1   [ central2d.h(411,17) ]
+         remark #15301: SIMD LOOP WAS VECTORIZED
+         remark #15448: unmasked aligned unit stride loads: 20 
+         remark #15449: unmasked aligned unit stride stores: 1 
+         remark #15475: --- begin vector loop cost summary ---
+         remark #15476: scalar loop cost: 96 
+         remark #15477: vector loop cost: 13.500 
+         remark #15478: estimated potential speedup: 6.850 
+         remark #15479: lightweight vector operations: 54 
+         remark #15487: type converts: 5 
+         remark #15488: --- end vector loop cost summary ---
+      LOOP END
+   LOOP END
+LOOP END
+\end{lstlisting}
+}
+
+The last stage in this phase, which we are uncertain if it is working correclty, is to create a custom allocator fot \texttt{std::vector}.  Unfortunately there is no standardized 
+
 \subsection{Eliminating Redundant Computation}
 \label{sec-tune-eliminating}
 
