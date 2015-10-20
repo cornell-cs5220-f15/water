@@ -143,16 +143,22 @@ int main(int argc, char** argv)
     sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
+	double timesum = 0;
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
         sim.run(ftime);
         double t1 = omp_get_wtime();
         printf("Time: %e\n", t1-t0);
+		timesum += (t1-t0);
 #else
         sim.run(ftime);
 #endif
         sim.solution_check();
         viz.write_frame();
     }
+	printf("Average frame time:\n");
+	double ave = timesum / frames;
+	printf("%e", ave);
 }
+
