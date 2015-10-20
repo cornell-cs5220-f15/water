@@ -1,0 +1,16 @@
+Function                                                                                                           Module        CPU Time  Spin Time  Overhead Time
+-----------------------------------------------------------------------------------------------------------------  ------------  --------  ---------  -------------
+Central2D<Shallow2D, MinMod<float>>::limited_derivs                                                                shallow         1.364s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_step                                                                  shallow         0.642s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_fg_speeds                                                             shallow         0.232s         0s             0s
+_IO_fwrite                                                                                                         libc-2.12.so    0.015s         0s             0s
+_IO_file_xsputn                                                                                                    libc-2.12.so    0.011s         0s             0s
+[Outside any known module]                                                                                         [Unknown]       0.010s         0s             0s
+SimViz<Central2D<Shallow2D, MinMod<float>>>::write_frame                                                           shallow         0.006s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::solution_check                                                                shallow         0.004s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.003s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::offset                                                                        shallow         0.002s         0s             0s
+hack_digit.15675                                                                                                   libc-2.12.so    0.002s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::offset                                                                        shallow         0.001s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::run                                                                           shallow         0.001s         0s             0s
+dam_break                                                                                                          shallow         0.001s         0s             0s

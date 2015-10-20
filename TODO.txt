@@ -1,0 +1,11 @@
+Improve vectorization
+Offload data
+Better parallelization
+Domain decomposition with per-processor ghost cells
+Elimination of redundant computations
+
+REPORT
+
+Strong and weak scaling studies
+Profiling studies
+Speedup studies
