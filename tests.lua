@@ -2,17 +2,20 @@
 -- Basic tests
 -- Arg 1: Test to run, Arg 2: Test dimension
 nx = tonumber(args[2]) or 200
+nthreads = tonumber(args[3]) or 10
 
 pond = {
   init = function(x,y) return 1, 0, 0 end,
   out = "pond.out",
-  nx = nx
+  nx = nx,
+  nthreads=nthreads	
 }
 
 river = {
   init = function(x,y) return 1, 1, 0 end,
   out = "river.out",
-  nx = nx
+  nx = nx,
+  nthreads=nthreads		
 }
 
 dam = {
@@ -24,7 +27,8 @@ dam = {
     end
   end,
   out = "dam_break.out",
-  nx = nx
+  nx = nx,
+  nthreads=nthreads	
 }
 
 wave = {
@@ -33,7 +37,8 @@ wave = {
   end,
   out = "wave.out",
   frames = 100,
-  nx = nx
+  nx = nx,
+  nthreads=nthreads	
 }
 
 simulate(_G[args[1]])
