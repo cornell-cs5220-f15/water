@@ -55,6 +55,16 @@ In \texttt{compute\_step}, we initialize a team of threads using \texttt{\#pragm
 
 
 \subsection{Domain Decomposition}
+\subsubsection{General Setup}
+We decomposed the main grid into equally sized sub-grids, by first copying  each sub-grid into a separate array. Each sub-grid array contains its part of the main grid an outer layer of ghost cells which contain information about the neighboring cells or the cells on the opposite side of the main grid if the sub-domain is close to the boundary of the main grid as we use periodic boundary condition. We then perform some number of time steps on each independent sub-grid and finally synchronize by copying back the sub-grid (without the ghost cells) onto the main grid. 
+\subsubsection{Ghost cells}
+
+ The width of the layer of ghost cells for each sub-grid is 3t, where t is the number of time steps we wish to advance before synchronizing back onto the main grid. For each sub-grid, we declare a simulation object, and run the simulation essentially in the same manner as we would on the whole grid, except we never apply periodic boundary conditions on the sub-grids. Because of this, at each time step we perform without synchronization, we "loose" 3 layers of ghost cells, in the sense that the computation within this layer is erroneous. 
+However, the rest of the grid is not contaminated with error, as information spreads through our simulation only by 3 layers per time step.
+
+\subsubsection{Estimating the wave speed}
+One of the main barrier to using a domain-decomposition parallelization for this simulation is that we need to estimate the wave speed at each time step to be able to estimate a how big of a time step we can perform for the next iteration. Hence to allow each sub-grid to run from time t=0 to time t=tfinal, we would need know in advance the speeds at time t, t+dt1, t+(dt1+dt2)... $t+sum_{i=1}^{k-1}dti$ which we obviously don't have access to at time t. The problem is that we need to know at least an upper bound on the wave speed at each time step to be able to decide how many time steps it will take to reach tfinal, as the number of time steps needed is directly proportional to the number of ghost cells we need to allocate for each sub-grid at time t. Our solution is to estimate an upper bound on the max wave speed, we set the max wave speed for the next k iterations to a be a multiple r of the speed wave at time t (which we can compute before parallelizing)(win our code, we set r=2). Furthermore, for each sub grid at each time checks independently if wave speed on the subdomain is greater than , our program throws an error and stops (but no synchronization to do this check). A better alternative, which we have not yet implemented would be to stop the computation if dtj is lower than k*dt1, double k and start the computation all over again from time t.
+
 
 \section{Analysis}
 \subsection{Profiling} \label{sec:prof}
