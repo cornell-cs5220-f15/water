@@ -458,7 +458,6 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    int nfield, flux_t flux, speed_t speed,
                    float tfinal, float dx, float dy, float cfl,
                    int p,
-                   central2d_t** blocks,
                    central2d_t* sim,
                    int b
                 )
@@ -471,21 +470,24 @@ int central2d_xrun(float* restrict u, float* restrict v,
     float cxy[2];
     int rounds = b;
     float dt;
+    int side = (int)sqrt(p);
 
     omp_set_dynamic(0);
     omp_set_num_threads(p);
-    # pragma omp parallel {
-        int proc = omp_get_thread_num();
+    #pragma omp parallel 
+    {
         central2d_t* block = (central2d_t*) malloc(sizeof(central2d_t*));
         block = central2d_init(sim->nx*sim->dx/side, sim->ny*sim->dy/side,
                    sim->nx/side, sim->ny/side, sim->nfield,
                    sim->flux, sim->speed, sim->cfl, b);
-        int offset_x;
+        int proc = omp_get_thread_num();
+	int offset_x;
         int offset_y;
         offsets(&offset_x, &offset_y, proc, p, sim);
         
         while (!done) {
-            #pragma omp single {
+            #pragma omp single 
+	    {
                 cxy[0] = 1.0e-15f;
                 cxy[1] = 1.0e-15f;
                 central2d_periodic(u, nx, ny, ng, nfield);
@@ -519,7 +521,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
             // copy memory to global sim
             copy_to_global(offset_x, offset_y, block, sim);
-            #pragma omp single nowait {
+            #pragma omp single nowait 
+	    {
                 t += 2*rounds*dt;
                 nstep += 2*rounds;
             }
@@ -542,5 +545,5 @@ int central2d_run(central2d_t* sim, float tfinal, int p, int b)
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl, p, blocks, sim, b);
+                          tfinal, sim->dx, sim->dy, sim->cfl, p, sim, b);
 }
