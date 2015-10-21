@@ -1,6 +1,6 @@
 import os, re, csv
 
-with open('result.csv', 'w') as out:
+with open('results.csv', 'w') as out:
     writer = csv.writer(out, delimiter=',')
     writer.writerow(['n', 'p', 'b', 'time'])
     for fname in os.listdir(os.getcwd()):
