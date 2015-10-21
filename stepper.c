@@ -481,13 +481,13 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    sim->nx/side, sim->ny/side, sim->nfield,
                    sim->flux, sim->speed, sim->cfl, b);
         int proc = omp_get_thread_num();
-	int offset_x;
+	    int offset_x;
         int offset_y;
         offsets(&offset_x, &offset_y, proc, p, sim);
         
         while (!done) {
             #pragma omp single 
-	    {
+	        {
                 cxy[0] = 1.0e-15f;
                 cxy[1] = 1.0e-15f;
                 central2d_periodic(u, nx, ny, ng, nfield);
@@ -521,8 +521,10 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
             // copy memory to global sim
             copy_to_global(offset_x, offset_y, block, sim);
-            #pragma omp single nowait 
-	    {
+            #pragma omp barrier
+
+            #pragma omp single 
+	        {
                 t += 2*rounds*dt;
                 nstep += 2*rounds;
             }
