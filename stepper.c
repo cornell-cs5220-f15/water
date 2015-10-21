@@ -520,8 +520,9 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
 
             // copy memory to global sim
-            copy_to_global(offset_x, offset_y, block, sim);
             #pragma omp barrier
+            copy_to_global(offset_x, offset_y, block, sim);
+            
 
             #pragma omp single 
 	        {
