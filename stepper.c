@@ -356,15 +356,15 @@ void central2d_step(float* restrict u, float* restrict v,
         flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
     }
 
-    central2d_correct(v, scratch, u, f, g, dtcdx2, dtcdy2,
-                      ng-io, nx+ng-io,
-                      ng-io, ny+ng-io,
+    central2d_correct(v+io*(nx_all+1), scratch, u, f, g, dtcdx2, dtcdy2,
+                      1, nx_all,
+                      1, ny_all,
                       nx_all, ny_all, nfield);
 
     // Copy from v storage back to main grid
-    memcpy(u+(ng   )*nx_all+ng,
-           v+(ng-io)*nx_all+ng-io,
-           (nfield*ny_all-ng) * nx_all * sizeof(float));
+    memcpy(u,
+           v,
+           (nfield*ny_all) * nx_all * sizeof(float));
 }
 
 
@@ -473,7 +473,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
         speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
         float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
         int rounds = b;
-        dt = dt * 0.9; // TODO: Figure out backoff
+        // dt = dt * 0.9; // TODO: Figure out backoff
         if (t + 2*rounds*dt >= tfinal) {
             dt = (tfinal-t)/(2*rounds);
             done = true;
