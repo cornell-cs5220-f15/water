@@ -1,0 +1,11 @@
+CC=gcc
+CFLAGS=-std=c99 -g
+
+# If you're using gcc, these are good flags to try
+OPTFLAGS=-O3 -march=native -fopenmp
+
+CFLAGS+=$(OPTFLAGS)
+PYTHON=python
+
+LUA_CFLAGS=-I/share/apps/utils/include
+LUA_LIBS=-L/share/apps/utils/lib -llua
