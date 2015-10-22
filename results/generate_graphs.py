@@ -19,3 +19,16 @@ for i, n in enumerate(N):
     plt.plot(x,y, colors[i], label=str(n))
 plt.legend(loc=4)
 plt.savefig('strong.pdf')
+plt.close()
+
+# weak scaling
+for i, n in enumerate(N):
+    pts = results[(results['n']/np.sqrt(results['p']))==n]
+    print n
+    print pts
+    pts.sort(order=['n'])
+    x = pts['p']
+    y = baseline_y[i] / pts['time']
+    plt.plot(x,y, colors[i], label=str(n))
+plt.legend(loc=4)
+plt.savefig('weak.pdf')
