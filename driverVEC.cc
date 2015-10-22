@@ -96,10 +96,10 @@ int main(int argc, char** argv)
     double width = 2.0;
     double ftime = 0.01;
     int    frames = 50;
-    
+    int    threads = 4;
     int c;
     extern char* optarg;
-    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
+    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:t:")) != -1) {
         switch (c) {
         case 'h':
             fprintf(stderr,
@@ -110,9 +110,10 @@ int main(int argc, char** argv)
                     "\t-n: number of cells per side (%d)\n"
                     "\t-w: domain width in cells (%g)\n"
                     "\t-f: time between frames (%g)\n"
-                    "\t-F: number of frames (%d)\n",
+                    "\t-F: number of frames (%d)\n"
+                    "\t-t: number of threads (%d)\n",
                     argv[0], ic.c_str(), fname.c_str(), 
-                    nx, width, ftime, frames);
+                    nx, width, ftime, frames, threads);
             return -1;
         case 'i':  ic     = optarg;          break;
         case 'o':  fname  = optarg;          break;
@@ -120,6 +121,7 @@ int main(int argc, char** argv)
         case 'w':  width  = atof(optarg);    break;
         case 'f':  ftime  = atof(optarg);    break;
         case 'F':  frames = atoi(optarg);    break;
+        case 't':  threads = atoi(optarg);   break;
         default:
             fprintf(stderr, "Unknown option (-%c)\n", c);
             return -1;
@@ -144,16 +146,15 @@ int main(int argc, char** argv)
     sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
-    for (int i = 0; i < frames; ++i) {
-#ifdef _OPENMP
-        double t0 = omp_get_wtime();
+    double t0 = omp_get_wtime();
+    double t = 0;
+    omp_set_dynamic(0);
+    omp_set_num_threads(threads);
+    for (int i = 0; i < frames; ++i) {        
         sim.run(ftime);
-        double t1 = omp_get_wtime();
-        printf("Time: %e\n", t1-t0);
-#else
-        sim.run(ftime);
-#endif
+        t = omp_get_wtime() - t0;
         sim.solution_check();
         viz.write_frame();
     }
+    printf("%d,%d,%g\n",threads,nx,t);
 }

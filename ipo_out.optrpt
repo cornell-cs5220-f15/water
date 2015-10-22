@@ -1,0 +1,350 @@
+
+Begin optimization report for: main(int, char **)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at meshiovec.h(59,37) inlined into driverVEC.cc(148,9)
+   remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+
+   LOOP BEGIN at meshiovec.h(60,41) inlined into driverVEC.cc(148,9)
+      remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+   LOOP END
+LOOP END
+
+LOOP BEGIN at driverVEC.cc(153,5)
+   remark #15520: loop was not vectorized: loop with early exits cannot be vectorized unless it meets search loop idiom criteria
+
+   LOOP BEGIN at meshiovec.h(59,37) inlined into driverVEC.cc(157,13)
+      remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+
+      LOOP BEGIN at meshiovec.h(60,41) inlined into driverVEC.cc(157,13)
+         remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+      LOOP END
+   LOOP END
+LOOP END
+
+
+Non-optimizable loops:
+
+
+LOOP BEGIN at driverVEC.cc(102,5)
+   remark #15341: loop was not vectorized: nonstandard loop is not a vectorization candidate
+LOOP END
+===========================================================================
+
+Begin optimization report for: Central2D<Shallow2D, MinMod<Shallow2D::real>>::xrun(Central2D<Shallow2D, MinMod<Shallow2D::real>> *, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, int, int, int, int, float, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at central2dvec.h(533,5)
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at central2dvec.h(535,9)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at shallow2dvec.h(103,5) inlined into central2dvec.h(539,13)
+      <Peeled>
+      LOOP END
+
+      LOOP BEGIN at shallow2dvec.h(103,5) inlined into central2dvec.h(539,13)
+         remark #15389: vectorization support: reference _M_current has unaligned access   [ shallow2dvec.h(104,19) ]
+         remark #15389: vectorization support: reference _M_current has unaligned access   [ shallow2dvec.h(107,9) ]
+         remark #15389: vectorization support: reference _M_current has unaligned access   [ shallow2dvec.h(108,9) ]
+         remark #15381: vectorization support: unaligned access used inside loop body
+         remark #15300: LOOP WAS VECTORIZED
+         remark #15442: entire loop may be executed in remainder
+         remark #15450: unmasked unaligned unit stride loads: 3 
+         remark #15475: --- begin vector loop cost summary ---
+         remark #15476: scalar loop cost: 112 
+         remark #15477: vector loop cost: 14.250 
+         remark #15478: estimated potential speedup: 6.080 
+         remark #15479: lightweight vector operations: 52 
+         remark #15488: --- end vector loop cost summary ---
+      LOOP END
+
+      LOOP BEGIN at shallow2dvec.h(103,5) inlined into central2dvec.h(539,13)
+      <Remainder>
+      LOOP END
+   LOOP END
+LOOP END
+===========================================================================
+
+Begin optimization report for: Central2D<Shallow2D, MinMod<Shallow2D::real>>::apply_periodic(Central2D<Shallow2D, MinMod<Shallow2D::real>> *, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, int, int, int, int)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at central2dvec.h(309,5)
+   remark #15382: vectorization support: call to function ?1memcpy cannot be vectorized   [ central2dvec.h(293,13) ]
+   remark #15382: vectorization support: call to function ?1memcpy cannot be vectorized   [ central2dvec.h(293,13) ]
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 293 and _M_current line 293
+   remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 293 and _M_current line 293
+
+   LOOP BEGIN at central2dvec.h(291,5) inlined into central2dvec.h(312,9)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 293 and _M_current line 293
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 293 and _M_current line 293
+
+      LOOP BEGIN at central2dvec.h(292,9) inlined into central2dvec.h(312,9)
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+         remark #15346: vector dependence: assumed FLOW dependence between _M_current line 293 and _M_current line 293
+         remark #15346: vector dependence: assumed ANTI dependence between _M_current line 293 and _M_current line 293
+      LOOP END
+   LOOP END
+
+   LOOP BEGIN at central2dvec.h(291,5) inlined into central2dvec.h(313,9)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 293 and _M_current line 293
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 293 and _M_current line 293
+
+      LOOP BEGIN at central2dvec.h(292,9) inlined into central2dvec.h(313,9)
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+         remark #15346: vector dependence: assumed FLOW dependence between _M_current line 293 and _M_current line 293
+         remark #15346: vector dependence: assumed ANTI dependence between _M_current line 293 and _M_current line 293
+      LOOP END
+   LOOP END
+
+   LOOP BEGIN at central2dvec.h(291,5) inlined into central2dvec.h(314,9)
+      remark #15382: vectorization support: call to function ?1memcpy cannot be vectorized   [ central2dvec.h(293,13) ]
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between _M_current line 292 and _M_current line 293
+      remark #15346: vector dependence: assumed FLOW dependence between _M_current line 293 and _M_current line 292
+
+      LOOP BEGIN at central2dvec.h(292,9) inlined into central2dvec.h(314,9)
+         remark #15398: loop was not vectorized: loop was transformed to memset or memcpy
+
+         LOOP BEGIN at central2dvec.h(292,9) inlined into central2dvec.h(314,9)
+         <Multiversioned v2>
+            remark #15304: loop was not vectorized: non-vectorizable loop instance from multiversioning
+         LOOP END
+
+         LOOP BEGIN at central2dvec.h(292,9) inlined into central2dvec.h(314,9)
+         <Remainder, Multiversioned v2>
+         LOOP END
+      LOOP END
+   LOOP END
+
+   LOOP BEGIN at central2dvec.h(291,5) inlined into central2dvec.h(315,9)
+      remark #15382: vectorization support: call to function ?1memcpy cannot be vectorized   [ central2dvec.h(293,13) ]
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between _M_current line 292 and _M_current line 293
+      remark #15346: vector dependence: assumed FLOW dependence between _M_current line 293 and _M_current line 292
+
+      LOOP BEGIN at central2dvec.h(292,9) inlined into central2dvec.h(315,9)
+         remark #15398: loop was not vectorized: loop was transformed to memset or memcpy
+
+         LOOP BEGIN at central2dvec.h(292,9) inlined into central2dvec.h(315,9)
+         <Multiversioned v2>
+            remark #15304: loop was not vectorized: non-vectorizable loop instance from multiversioning
+         LOOP END
+
+         LOOP BEGIN at central2dvec.h(292,9) inlined into central2dvec.h(315,9)
+         <Remainder, Multiversioned v2>
+         LOOP END
+      LOOP END
+   LOOP END
+LOOP END
+===========================================================================
+
+Begin optimization report for: Central2D<Shallow2D, MinMod<Shallow2D::real>>::limited_derivs(Central2D<Shallow2D, MinMod<Shallow2D::real>> *, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, int, int, int)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at central2dvec.h(379,9)
+   remark #15541: outer loop was not auto-vectorized: consider using SIMD directive
+
+   LOOP BEGIN at central2dvec.h(358,5) inlined into central2dvec.h(382,13)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between _M_current line 74 and _M_current line 359
+      remark #15346: vector dependence: assumed FLOW dependence between _M_current line 359 and _M_current line 74
+   LOOP END
+
+   LOOP BEGIN at central2dvec.h(358,5) inlined into central2dvec.h(383,13)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between _M_current line 74 and _M_current line 359
+      remark #15346: vector dependence: assumed FLOW dependence between _M_current line 359 and _M_current line 74
+   LOOP END
+
+   LOOP BEGIN at central2dvec.h(366,5) inlined into central2dvec.h(384,13)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between _M_current line 74 and _M_current line 367
+      remark #15346: vector dependence: assumed FLOW dependence between _M_current line 367 and _M_current line 74
+   LOOP END
+
+   LOOP BEGIN at central2dvec.h(366,5) inlined into central2dvec.h(384,13)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between _M_current line 74 and _M_current line 367
+      remark #15346: vector dependence: assumed FLOW dependence between _M_current line 367 and _M_current line 74
+   LOOP END
+
+   LOOP BEGIN at central2dvec.h(366,5) inlined into central2dvec.h(385,13)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between _M_current line 74 and _M_current line 367
+      remark #15346: vector dependence: assumed FLOW dependence between _M_current line 367 and _M_current line 74
+   LOOP END
+LOOP END
+
+
+Non-optimizable loops:
+
+
+LOOP BEGIN at central2dvec.h(378,5)
+   remark #15341: loop was not vectorized: nonstandard loop is not a vectorization candidate
+LOOP END
+===========================================================================
+
+Begin optimization report for: Central2D<Shallow2D, MinMod<Shallow2D::real>>::compute_step(Central2D<Shallow2D, MinMod<Shallow2D::real>> *, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, int, int, int, int, int, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at central2dvec.h(486,5)
+   remark #15382: vectorization support: call to function Shallow2D::vflux(Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, int) cannot be vectorized   [ shallow2dvec.h(92,5) ]
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between U5f line 729 and U5f line 92
+   remark #15346: vector dependence: assumed ANTI dependence between _M_current line 92 and _M_current line 729
+LOOP END
+
+LOOP BEGIN at central2dvec.h(497,5)
+   remark #15527: loop was not vectorized: function call to __builtin_memmove(void *, const void *, unsigned long) cannot be vectorized   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(378,6) ]
+LOOP END
+
+LOOP BEGIN at central2dvec.h(419,5) inlined into central2dvec.h(483,5)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between _M_current line 423 and _M_current line 423
+   remark #15346: vector dependence: assumed ANTI dependence between _M_current line 423 and _M_current line 423
+LOOP END
+
+LOOP BEGIN at central2dvec.h(419,5) inlined into central2dvec.h(483,5)
+   remark #15399: vectorization support: unroll factor set to 2
+   remark #15300: LOOP WAS VECTORIZED
+   remark #15475: --- begin vector loop cost summary ---
+   remark #15476: scalar loop cost: 29 
+   remark #15477: vector loop cost: 13.120 
+   remark #15478: estimated potential speedup: 2.170 
+   remark #15479: lightweight vector operations: 4 
+   remark #15481: heavy-overhead vector operations: 1 
+   remark #15482: vectorized math library calls: 1 
+   remark #15488: --- end vector loop cost summary ---
+LOOP END
+
+LOOP BEGIN at central2dvec.h(419,5) inlined into central2dvec.h(483,5)
+<Remainder>
+LOOP END
+===========================================================================
+
+Begin optimization report for: Shallow2D::vflux(Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, Shallow2D::iter, int)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at shallow2dvec.h(79,5)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed ANTI dependence between _M_current line 80 and _M_current line 85
+   remark #15346: vector dependence: assumed FLOW dependence between _M_current line 85 and _M_current line 80
+LOOP END
+===========================================================================
+
+Begin optimization report for: Central2D<Shallow2D, MinMod<Shallow2D::real>>::central2d_correct(Central2D<Shallow2D, MinMod<Shallow2D::real>> *, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, float, float, int, int, int, int, int, int, int)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at central2dvec.h(443,5)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 452 and _M_current line 452
+   remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 452 and _M_current line 452
+
+   LOOP BEGIN at central2dvec.h(444,9)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 452 and _M_current line 452
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_current line 452 and _M_current line 452
+
+      LOOP BEGIN at central2dvec.h(445,13)
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+         remark #15346: vector dependence: assumed FLOW dependence between _M_current line 452 and _M_current line 452
+         remark #15346: vector dependence: assumed ANTI dependence between _M_current line 452 and _M_current line 452
+      LOOP END
+   LOOP END
+LOOP END
+===========================================================================
+
+Begin optimization report for: Central2D<Shallow2D, MinMod<Shallow2D::real>>::solution_check(Central2D<Shallow2D, MinMod<Shallow2D::real>> *)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at central2dvec.h(585,5)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed ANTI dependence between hmin line 1361 and hmin line 1361
+   remark #15346: vector dependence: assumed FLOW dependence between hmin line 1361 and hmin line 1361
+   remark #15346: vector dependence: assumed ANTI dependence between hmin line 1361 and hmin line 1361
+
+   LOOP BEGIN at central2dvec.h(586,9)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between hmin line 1361 and hmin line 1361
+      remark #15346: vector dependence: assumed FLOW dependence between hmin line 1361 and hmin line 1361
+      remark #15346: vector dependence: assumed ANTI dependence between hmin line 1361 and hmin line 1361
+   LOOP END
+LOOP END
+===========================================================================
+
+Begin optimization report for: Central2D<Shallow2D, MinMod<Shallow2D::real>>::Central2D(Central2D<Shallow2D, MinMod<Shallow2D::real>> *, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real, int, int, int, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_construct.h(75,7) inlined into central2dvec.h(113,21)
+   remark #15389: vectorization support: reference __cur has unaligned access
+   remark #15381: vectorization support: unaligned access used inside loop body
+   remark #15427: loop was completely unrolled
+   remark #15399: vectorization support: unroll factor set to 2
+   remark #15300: LOOP WAS VECTORIZED
+   remark #15457: masked unaligned unit stride stores: 1 
+   remark #15475: --- begin vector loop cost summary ---
+   remark #15476: scalar loop cost: 10 
+   remark #15477: vector loop cost: 3.000 
+   remark #15478: estimated potential speedup: 2.750 
+   remark #15479: lightweight vector operations: 9 
+   remark #15488: --- end vector loop cost summary ---
+LOOP END
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(760,7) inlined into central2dvec.h(113,8)
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(760,7) inlined into central2dvec.h(113,8)
+      remark #15389: vectorization support: reference __first has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(762,3) ]
+      remark #15381: vectorization support: unaligned access used inside loop body
+      remark #15300: LOOP WAS VECTORIZED
+      remark #15451: unmasked unaligned unit stride stores: 1 
+      remark #15475: --- begin vector loop cost summary ---
+      remark #15476: scalar loop cost: 3 
+      remark #15477: vector loop cost: 0.620 
+      remark #15478: estimated potential speedup: 4.000 
+      remark #15479: lightweight vector operations: 3 
+      remark #15488: --- end vector loop cost summary ---
+   LOOP END
+
+   LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(760,7) inlined into central2dvec.h(113,8)
+   <Remainder>
+   LOOP END
+LOOP END
+===========================================================================
+
+Begin optimization report for: Central2D<Shallow2D, MinMod<Shallow2D::real>>::init<void (*)(Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, double, double, int)>(Central2D<Shallow2D, MinMod<Shallow2D::real>> *, void (*)(Central2D<Shallow2D, MinMod<Shallow2D::real>>::iter, double, double, int))
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at central2dvec.h(263,5)
+   remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+
+   LOOP BEGIN at central2dvec.h(264,9)
+      remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+   LOOP END
+LOOP END
+===========================================================================

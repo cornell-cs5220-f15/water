@@ -440,8 +440,6 @@ void Central2D<Physics, Limiter>::solution_check()
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
-    printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-           h_sum, hu_sum, hv_sum, hmin, hmax);
 }
 
 //ldoc off

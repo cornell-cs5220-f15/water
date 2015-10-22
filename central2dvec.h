@@ -415,6 +415,7 @@ void Central2D<Physics, Limiter>::central2d_predict(iter v,
                        float dtcdx2, float dtcdy2,
                        int nx, int ny, int nfield)
 {
+    #pragma omp parallel for collapse(3)
     for (int k = 0; k < nfield; ++k)
         for (int iy = 1; iy < ny-1; ++iy)
             for (int ix = 1; ix < nx-1; ++ix) {
@@ -584,9 +585,9 @@ void Central2D<Physics, Limiter>::solution_check()
     for (int j = 0; j < ny; ++j)
         for (int i = 0; i < nx; ++i) {
             real h=*(pointers[0]+(ng+j)*nx_all+(ng+i));
-            h_sum+=h;
             hu_sum+=*(pointers[0]+(ny_all+(ng+j))*nx_all+(ng+i));
             hv_sum+=*(pointers[0]+(2*ny_all+(ng+j))*nx_all+(ng+i));
+            h_sum+=h;
             hmax=fmax(h,hmax);
             hmin=fmin(h,hmin);
         }
@@ -594,8 +595,6 @@ void Central2D<Physics, Limiter>::solution_check()
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
-    printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-           h_sum, hu_sum, hv_sum, hmin, hmax);
     assert(hmin >0 );
 }
 

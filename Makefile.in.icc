@@ -3,7 +3,8 @@ CXXFLAGS=-std=c++14 -g -openmp
 
 # If you're using icc, these are good flags to try
 OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo \
-	-qopt-report=5 -qopt-report-phase=vec
+	-qopt-report=5 -qopt-report-phase=vec \
+    -unroll-aggressive -fp-model fast
 
 CXXFLAGS+=$(OPTFLAGS)
 PYTHON=python
