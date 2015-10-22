@@ -1,0 +1,16 @@
+Function                                                                                                           Module        CPU Time  Spin Time  Overhead Time
+-----------------------------------------------------------------------------------------------------------------  ------------  --------  ---------  -------------
+Central2D<Shallow2D, MinMod<float>>::limited_derivs                                                                shallow         1.323s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_step                                                                  shallow         0.683s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_fg_speeds                                                             shallow         0.236s         0s             0s
+_IO_fwrite                                                                                                         libc-2.12.so    0.019s         0s             0s
+_IO_file_xsputn                                                                                                    libc-2.12.so    0.018s         0s             0s
+[Outside any known module]                                                                                         [Unknown]       0.010s         0s             0s
+SimViz<Central2D<Shallow2D, MinMod<float>>>::write_frame                                                           shallow         0.006s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::run                                                                           shallow         0.005s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::Central2D                                                                     shallow         0.002s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::solution_check                                                                shallow         0.001s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::solution_check                                                                shallow         0.001s         0s             0s
+do_lookup_x                                                                                                        ld-2.12.so      0.001s         0s             0s
+memset                                                                                                             ld-2.12.so      0.001s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.001s         0s             0s
