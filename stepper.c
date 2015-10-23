@@ -520,6 +520,8 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
     int nstep = 0;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
+    int block_nx_all = nx/side + 2*ng;
+    int block_ny_all = ny/side + 2*ng;
     bool done = false;
     float t = 0;
     float small_number = 1.0e-15f;
@@ -540,6 +542,7 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
         int offset_y;
         float local_cxy[2];
         offsets(&offset_x, &offset_y, proc, p, nx, ny);
+
 
         while (!done) {
             // #pragma omp single
@@ -566,10 +569,10 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
             //Calculate speed for each block
             local_cxy[0] = small_number;
             local_cxy[1] = small_number;
-            shallow2d_speed(local_cxy, block->u, block->nx_all*block->ny_all, block->nx_all*block->ny_all);
+            shallow2d_speed(local_cxy, block->u, block_nx_all*block_ny_all, block_nx_all*block_ny_all);
 
             // Find maximum speed over all blocks
-            #pragma omp atomic update
+            #pragma omp critical
             {
                 global_cxy[0] = fmaxf(global_cxy[0], local_cxy[0]);
                 global_cxy[1] = fmaxf(global_cxy[1], local_cxy[1]);
