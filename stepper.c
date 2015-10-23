@@ -522,7 +522,8 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
     int ny_all = ny + 2*ng;
     bool done = false;
     float t = 0;
-    float cxy[2];
+    float small_number = 1.0e-15f;
+    float global_cxy[2] = {small_number, small_number};
     int rounds = b;
     float dt;
     int side = (int)sqrt(p);
@@ -537,26 +538,55 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
         int proc = omp_get_thread_num();
         int offset_x;
         int offset_y;
+        float local_cxy[2];
         offsets(&offset_x, &offset_y, proc, p, nx, ny);
 
         while (!done) {
+            // #pragma omp single
+            // {
+            //     cxy[0] = 1.0e-15f;
+            //     cxy[1] = 1.0e-15f;
+            //     central2d_periodic(u, nx, ny, ng, nfield);
+            //     shallow2d_speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
+            //     dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
+            //     // dt = dt * 0.9; // TODO: Figure out backoff
+
+            //     if (t + 2*rounds*dt >= tfinal) {
+            //         dt = (tfinal-t)/(2*rounds);
+            //         done = true;
+            //     }
+            // }
             #pragma omp single
             {
-                cxy[0] = 1.0e-15f;
-                cxy[1] = 1.0e-15f;
-                central2d_periodic(u, nx, ny, ng, nfield);
-                shallow2d_speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
-                dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-                // dt = dt * 0.9; // TODO: Figure out backoff
+                central2d_periodic(u,nx,ny,ng,nfield);
+            }
+            //copy memory to each subdomain
+            copy_to_block(offset_x, offset_y, block, u, nx, ny, ng, nfield);
 
+            //Calculate speed for each block
+            local_cxy[0] = small_number;
+            local_cxy[1] = small_number;
+            shallow2d_speed(local_cxy, block->u, block->nx_all*block->ny_all, block->nx_all*block->ny_all);
+
+            // Find maximum speed over all blocks
+            #pragma omp atomic update
+            {
+                global_cxy[0] = fmaxf(global_cxy[0], local_cxy[0]);
+                global_cxy[1] = fmaxf(global_cxy[1], local_cxy[1]);
+            }
+
+
+
+            #pragma omp single
+            {
+                dt = cfl / fmaxf(global_cxy[0]/dx, global_cxy[1]/dy);
                 if (t + 2*rounds*dt >= tfinal) {
                     dt = (tfinal-t)/(2*rounds);
                     done = true;
                 }
             }
 
-            //copy memory to each subdomain
-            copy_to_block(offset_x, offset_y, block, u, nx, ny, ng, nfield);
+            
 
             // run each subdomain for b*2 steps
             for(int i = 0; i < rounds; i++) {
