@@ -9,11 +9,6 @@
 #include <immintrin.h>
 #include <omp.h>
 
-#define ALLOC alloc_if(1)
-#define FREE free_if(1)
-#define RETAIN free_if(0)
-#define REUSE alloc_if(0)
-
 //ldoc on
 /**
  * ## Implementation
@@ -22,7 +17,7 @@
  */
 
 central2d_t* __attribute__((target(mic))) central2d_init(float w, float h, int nx, int ny,
-                            int nfield, flux_t flux, speed_t speed,
+                            int nfield,
                             float cfl, int b)
 {
     int ng = 4*b;
@@ -34,8 +29,6 @@ central2d_t* __attribute__((target(mic))) central2d_init(float w, float h, int n
     sim->nfield = nfield;
     sim->dx = w/nx;
     sim->dy = h/ny;
-    sim->flux = flux;
-    sim->speed = speed;
     sim->cfl = cfl;
 
     int nx_all = nx + 2*ng;
@@ -411,7 +404,7 @@ void __attribute__((target(mic))) central2d_step(float* restrict u, float* restr
                     float* restrict f,
                     float* restrict g,
                     int io, int nx, int ny, int ng,
-                    int nfield, flux_t flux, speed_t speed,
+                    int nfield,
                     float dt, float dx, float dy)
 {
     int nx_all = nx + 2*ng;
@@ -457,14 +450,8 @@ void __attribute__((target(mic))) copy_to_block(int offset_x, int offset_y, cent
         for (int iy = 0; iy < ny_all_block; ++iy) {
             // #pragma vector aligned
             for(int ix = 0; ix < nx_all_block; ++ix) {
-                block->u[central2d_offset_absolute(nx, ny, ng, k, ix, iy)] =
+                block->u[central2d_offset_absolute(block->nx, block->ny, block->ng, k, ix, iy)] =
                             u[central2d_offset_absolute(nx, ny, ng, k, ix+offset_x, iy+offset_y)];
-                // block->g[central2d_offset_absolute(block, k, ix, iy)] =
-                //             sim->g[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
-                // block->f[central2d_offset_absolute(block, k, ix, iy)] =
-                //             sim->f[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
-                // block->v[central2d_offset_absolute(block, k, ix, iy)] =
-                //             sim->v[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
             }
         }
     }
@@ -481,13 +468,7 @@ void __attribute__((target(mic))) copy_to_global(int offset_x, int offset_y, cen
             // #pragma vector aligned
             for(int ix = 0; ix < nx_block; ++ix) {
                 u[central2d_offset(nx, ny, ng, k, ix+offset_x, iy+offset_y)] =
-                        block->u[central2d_offset(nx, ny, ng, k, ix, iy)];
-                // block->g[central2d_offset_absolute(block, k, ix, iy)] =
-                //             sim->g[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
-                // block->f[central2d_offset_absolute(block, k, ix, iy)] =
-                //             sim->f[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
-                // block->v[central2d_offset_absolute(block, k, ix, iy)] =
-                //             sim->v[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
+                        block->u[central2d_offset(block->nx, block->ny, block->ng, k, ix, iy)];
             }
         }
     }
@@ -531,18 +512,11 @@ void __attribute__((target(mic))) offsets(int* offset_x, int* offset_y, int p_nu
  * at the end lives on the main grid instead of the staggered grid.
  */
 
-static
-int central2d_xrun(float* restrict u, float* restrict v,
-                   float* restrict scratch,
-                   float* restrict f,
-                   float* restrict g,
+int __attribute__((target(mic))) central2d_xrun(float* restrict u,
                    int nx, int ny, int ng,
-                   int nfield, flux_t flux, speed_t speed,
+                   int nfield,
                    float tfinal, float dx, float dy, float cfl,
-                   int p,
-                   int b
-                )
-{
+                   int p, int b) {
     int nstep = 0;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
@@ -552,34 +526,15 @@ int central2d_xrun(float* restrict u, float* restrict v,
     int rounds = b;
     float dt;
     int side = (int)sqrt(p);
-    printf("%d\n",nstep);
-    #pragma offload target(mic)
-    {
-        omp_set_dynamic(0);
-        omp_set_num_threads(p);
-        // central2d_t** blocks = malloc(sizeof(central2d_t*)*p);
-        // #pragma omp parallel for
-        // for(int i = 0; i < p; i++) {
-        //     central2d_t* block = (central2d_t*) malloc(sizeof(central2d_t*));
-        //     block = central2d_init(nx*dx/side, ny*dy/side,
-        //            nx/side, ny/side, nfield,
-        //            flux, speed, cfl, b);
-        //     blocks[i] = block;
-        // }
-    }
-    #pragma offload target(mic) inout(u : length(nx_all*ny_all*nfield)) \
-    inout(t, nstep) \
-    in(nx, ny, ng, nfield, tfinal, dx, dy, cfl, p, b, nx_all, ny_all, done, cxy, rounds, dt, side)
-    #pragma omp parallel \
-    shared(nstep, t, nx, ny, ng, nfield, tfinal, dx, dy, cfl, p, b, nx_all, ny_all, done, cxy, rounds, dt, side)
+    omp_set_dynamic(0);
+    omp_set_num_threads(p);
+    #pragma omp parallel
     {
         central2d_t* block = (central2d_t*) malloc(sizeof(central2d_t*));
         block = central2d_init(nx*dx/side, ny*dy/side,
                    nx/side, ny/side, nfield,
-                   flux, speed, cfl, b);
+                   cfl, b);
         int proc = omp_get_thread_num();
-        printf("%d\n",nstep);
-        printf("%d\n",proc);
         int offset_x;
         int offset_y;
         offsets(&offset_x, &offset_y, proc, p, nx, ny);
@@ -607,11 +562,11 @@ int central2d_xrun(float* restrict u, float* restrict v,
             for(int i = 0; i < rounds; i++) {
                 central2d_step(block->u, block->v, block->scratch, block->f, block->g,
                                0, block->nx, block->ny, block->ng,
-                               block->nfield, block->flux, block->speed,
+                               block->nfield,
                                dt, block->dx, block->dy);
                 central2d_step(block->u, block->v, block->scratch, block->f, block->g,
                                1, block->nx, block->ny, block->ng,
-                               block->nfield, block->flux, block->speed,
+                               block->nfield,
                                dt, block->dx, block->dy);
             }
 
@@ -630,19 +585,32 @@ int central2d_xrun(float* restrict u, float* restrict v,
     return nstep;
 }
 
-
-int central2d_run(central2d_t* sim, float tfinal, int p, int b)
+int central2d_run(float* restrict u,
+                   int nx, int ny, int ng,
+                   int nfield,
+                   float tfinal, float dx, float dy, float cfl,
+                   int p,
+                   int b
+                )
 {
-    // int side = (int) sqrt(p);
-    // central2d_t** blocks = (central2d_t**) malloc(sizeof(central2d_t*)*p);
-    // for(int i = 0; i < p; i++) {
-    //     blocks[i] = central2d_init(sim->nx*sim->dx/side, sim->ny*sim->dy/side,
-    //                    sim->nx/side, sim->ny/side, sim->nfield,
-    //                    sim->flux, sim->speed, sim->cfl, b);
-    // }
-    return central2d_xrun(sim->u, sim->v, sim->scratch,
-                          sim->f, sim->g,
-                          sim->nx, sim->ny, sim->ng,
-                          sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl, p, b);
+    // #pragma offload target(mic)
+    // printf("%d\n", omp_get_num_threads());
+    int nstep = 0;
+    int mic = 1;
+    if (mic == 1) {
+        // printf("%d\n", mic);
+        int nx_all = nx + 2*ng;
+        int ny_all = ny + 2*ng;
+        #pragma offload target(mic) inout(u : length(nx_all*ny_all*nfield)) \
+        inout(nstep) \
+        in(nx, ny, ng, nfield, tfinal, dx, dy, cfl, p, b)
+        {
+            nstep = central2d_xrun(u, nx, ny, ng, nfield, tfinal, dx, dy, cfl, p, b);
+        }
+    }
+    else {
+        nstep = central2d_xrun(u, nx, ny, ng, nfield, tfinal, dx, dy, cfl, p, b);
+    }
+
+    return nstep;
 }
