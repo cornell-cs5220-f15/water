@@ -552,43 +552,53 @@ int central2d_xrun(float* restrict u, float* restrict v,
     int rounds = b;
     float dt;
     int side = (int)sqrt(p);
-
-    omp_set_dynamic(0);
-    omp_set_num_threads(p);
-    #pragma offload target(mic) in(u : length(nx_all*ny_all*nfield))
-    #pragma omp parallel
+    printf("%d\n",nstep);
+    #pragma offload target(mic)
     {
-        printf("%d\n",t);
+        omp_set_dynamic(0);
+        omp_set_num_threads(p);
+        // central2d_t** blocks = malloc(sizeof(central2d_t*)*p);
+        // #pragma omp parallel for
+        // for(int i = 0; i < p; i++) {
+        //     central2d_t* block = (central2d_t*) malloc(sizeof(central2d_t*));
+        //     block = central2d_init(nx*dx/side, ny*dy/side,
+        //            nx/side, ny/side, nfield,
+        //            flux, speed, cfl, b);
+        //     blocks[i] = block;
+        // }
+    }
+    #pragma offload target(mic) inout(u : length(nx_all*ny_all*nfield)) \
+    inout(t, nstep) \
+    in(nx, ny, ng, nfield, tfinal, dx, dy, cfl, p, b, nx_all, ny_all, done, cxy, rounds, dt, side)
+    #pragma omp parallel \
+    shared(nstep, t, nx, ny, ng, nfield, tfinal, dx, dy, cfl, p, b, nx_all, ny_all, done, cxy, rounds, dt, side)
+    {
         central2d_t* block = (central2d_t*) malloc(sizeof(central2d_t*));
         block = central2d_init(nx*dx/side, ny*dy/side,
                    nx/side, ny/side, nfield,
                    flux, speed, cfl, b);
         int proc = omp_get_thread_num();
-    int offset_x;
+        printf("%d\n",nstep);
+        printf("%d\n",proc);
+        int offset_x;
         int offset_y;
         offsets(&offset_x, &offset_y, proc, p, nx, ny);
 
-        // for(int i = 0; i < nx_all*ny_all*nfield; ++i) {
-        //     printf("%0.02f\n",u[i]);
-        // }
-
         while (!done) {
-            // #pragma omp single
-            // {
+            #pragma omp single
+            {
                 cxy[0] = 1.0e-15f;
                 cxy[1] = 1.0e-15f;
                 central2d_periodic(u, nx, ny, ng, nfield);
                 shallow2d_speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
                 dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-                // dt = 0.011;
-                // int rounds = b;
                 // dt = dt * 0.9; // TODO: Figure out backoff
 
                 if (t + 2*rounds*dt >= tfinal) {
                     dt = (tfinal-t)/(2*rounds);
                     done = true;
                 }
-            // }
+            }
 
             //copy memory to each subdomain
             copy_to_block(offset_x, offset_y, block, u, nx, ny, ng, nfield);
@@ -610,12 +620,12 @@ int central2d_xrun(float* restrict u, float* restrict v,
             // copy memory to global sim
             copy_to_global(offset_x, offset_y, block, u, nx, ny, ng, nfield);
 
-        //     #pragma omp single
-        // {
+            #pragma omp single
+            {
                 t += 2*rounds*dt;
                 nstep += 2*rounds;
             }
-        // }
+        }
     }
     return nstep;
 }

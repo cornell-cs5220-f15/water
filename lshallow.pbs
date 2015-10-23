@@ -7,4 +7,4 @@
 
 module load cs5220
 cd $PBS_O_WORKDIR
-./lshallow tests.lua dam 5 1 1
+./lshallow tests.lua dam 12 1 1
