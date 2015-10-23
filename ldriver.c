@@ -213,13 +213,14 @@ int run_sim(lua_State* L)
     int ny = lget_int(L, "ny", nx);
     int p = lget_int(L, "p", 1);
     int b = lget_int(L, "b", 1);
+    int mic = lget_int(L, "mic", 0);
     int frames = lget_int(L, "frames", 50);
     const char* fname = lget_string(L, "out", "sim.out");
 
     central2d_t* sim = central2d_init(w,h, nx,ny,
                                       3, cfl, b);
     lua_init_sim(L,sim);
-    printf("%g %g %d %d %g %d %g %d %d\n", w, h, nx, ny, cfl, frames, ftime, p, b);
+    printf("%g %g %d %d %g %d %g %d %d %d\n", w, h, nx, ny, cfl, frames, ftime, p, b, mic);
     FILE* viz = viz_open(fname, sim);
     solution_check(sim);
     viz_frame(viz, sim);
@@ -228,17 +229,17 @@ int run_sim(lua_State* L)
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        int nstep = central2d_run(sim->u, sim->nx, sim->ny, sim->ng, sim->nfield, ftime, sim->dx, sim->dy, sim->cfl, p, b);
+        int nstep = central2d_run(sim->u, sim->nx, sim->ny, sim->ng, sim->nfield, ftime, sim->dx, sim->dy, sim->cfl, p, b, mic);
         double t1 = omp_get_wtime();
         double elapsed = t1-t0;
 #elif defined SYSTIME
         struct timeval t0, t1;
         gettimeofday(&t0, NULL);
-        int nstep = central2d_run(sim->u, sim->nx, sim->ny, sim->ng, sim->nfield, ftime, sim->dx, sim->dy, sim->cfl, p, b);
+        int nstep = central2d_run(sim->u, sim->nx, sim->ny, sim->ng, sim->nfield, ftime, sim->dx, sim->dy, sim->cfl, p, b, mic);
         gettimeofday(&t1, NULL);
         double elapsed = (t1.tv_sec-t0.tv_sec) + (t1.tv_usec-t0.tv_usec)*1e-6;
 #else
-        int nstep = central2d_run(sim->u, sim->nx, sim->ny, sim->ng, sim->nfield, ftime, sim->dx, sim->dy, sim->cfl, p, b);
+        int nstep = central2d_run(sim->u, sim->nx, sim->ny, sim->ng, sim->nfield, ftime, sim->dx, sim->dy, sim->cfl, p, b, mic);
         double elapsed = 0;
 #endif
         solution_check(sim);

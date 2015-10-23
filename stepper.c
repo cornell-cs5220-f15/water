@@ -590,15 +590,12 @@ int central2d_run(float* restrict u,
                    int nfield,
                    float tfinal, float dx, float dy, float cfl,
                    int p,
-                   int b
+                   int b,
+                   int mic
                 )
 {
-    // #pragma offload target(mic)
-    // printf("%d\n", omp_get_num_threads());
     int nstep = 0;
-    int mic = 1;
-    if (mic == 1) {
-        // printf("%d\n", mic);
+    if (mic) {
         int nx_all = nx + 2*ng;
         int ny_all = ny + 2*ng;
         #pragma offload target(mic) inout(u : length(nx_all*ny_all*nfield)) \

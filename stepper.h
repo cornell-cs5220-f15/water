@@ -87,7 +87,8 @@ int central2d_run(float* restrict u,
                    int nfield,
                    float tfinal, float dx, float dy, float cfl,
                    int p,
-                   int b);
+                   int b,
+                   int mic);
 
 /**
  * ### Applying boundary conditions
