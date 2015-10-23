@@ -567,7 +567,7 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
                 global_cxy[1] = fmaxf(global_cxy[1], local_cxy[1]);
             }
 
-            // We need to barrier before calculating dt
+            // We need to make sure global_cxy is accurate before calculating dt
             #pragma omp barrier
 
             // Use maximum speed to calculate largest time step we can safely take
@@ -582,9 +582,13 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
                     done = true;
                 }
 
-                // Feels like cheating to update these before computing steps, but I think it works
+                // Feels a little like cheating to update these before actually computing steps, but I think it works
                 t += 2*rounds*dt;
                 nstep += 2*rounds;
+
+                // Also need to reset global_cxy somewhere where we have only one thread
+                global_cxy[0] = small_number;
+                global_cxy[1] = small_number;
             }
 
             // run each subdomain for b*2 steps
