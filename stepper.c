@@ -9,6 +9,11 @@
 #include <immintrin.h>
 #include <omp.h>
 
+#define ALLOC alloc_if(1)
+#define FREE free_if(1)
+#define RETAIN free_if(0)
+#define REUSE alloc_if(0)
+
 //ldoc on
 /**
  * ## Implementation
@@ -16,7 +21,7 @@
  * ### Structure allocation
  */
 
-central2d_t* central2d_init(float w, float h, int nx, int ny,
+central2d_t* __attribute__((target(mic))) central2d_init(float w, float h, int nx, int ny,
                             int nfield, flux_t flux, speed_t speed,
                             float cfl, int b)
 {
@@ -47,25 +52,95 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
 }
 
 
-void central2d_free(central2d_t* sim)
+void __attribute__((target(mic))) central2d_free(central2d_t* sim)
 {
     _mm_free(sim->u);
     _mm_free(sim);
 }
 
+static const float __attribute__((target(mic))) g = 9.8;
 
-int central2d_offset(central2d_t* sim, int k, int ix, int iy)
+
+static
+void __attribute__((target(mic))) shallow2dv_flux(float* restrict fh,
+                     float* restrict fhu,
+                     float* restrict fhv,
+                     float* restrict gh,
+                     float* restrict ghu,
+                     float* restrict ghv,
+                     const float* restrict h,
+                     const float* restrict hu,
+                     const float* restrict hv,
+                     float g,
+                     int ncell)
 {
-    int nx = sim->nx, ny = sim->ny, ng = sim->ng;
+    memcpy(fh, hu, ncell * sizeof(float));
+    memcpy(gh, hv, ncell * sizeof(float));
+    // #pragma vector aligned
+    for (int i = 0; i < ncell; ++i) {
+        float hi = h[i], hui = hu[i], hvi = hv[i];
+        float inv_h = 1/hi;
+        fhu[i] = hui*hui*inv_h + (0.5f*g)*hi*hi;
+        fhv[i] = hui*hvi*inv_h;
+        ghu[i] = hui*hvi*inv_h;
+        ghv[i] = hvi*hvi*inv_h + (0.5f*g)*hi*hi;
+    }
+}
+
+
+static
+void __attribute__((target(mic))) shallow2dv_speed(float* restrict cxy,
+                      const float* restrict h,
+                      const float* restrict hu,
+                      const float* restrict hv,
+                      float g,
+                      int ncell)
+{
+    float cx = cxy[0];
+    float cy = cxy[1];
+    // #pragma vector aligned
+    for (int i = 0; i < ncell; ++i) {
+        float hi = h[i];
+        float inv_hi = 1.0f/h[i];
+        float root_gh = sqrtf(g * hi);
+        float cxi = fabsf(hu[i] * inv_hi) + root_gh;
+        float cyi = fabsf(hv[i] * inv_hi) + root_gh;
+        if (cx < cxi) cx = cxi;
+        if (cy < cyi) cy = cyi;
+    }
+    cxy[0] = cx;
+    cxy[1] = cy;
+}
+
+
+void __attribute__((target(mic))) shallow2d_flux(float* FU, float* GU, const float* U,
+                    int ncell, int field_stride)
+{
+    shallow2dv_flux(FU, FU+field_stride, FU+2*field_stride,
+                    GU, GU+field_stride, GU+2*field_stride,
+                    U,  U +field_stride, U +2*field_stride,
+                    g, ncell);
+}
+
+
+void __attribute__((target(mic))) shallow2d_speed(float* cxy, const float* U,
+                     int ncell, int field_stride)
+{
+    shallow2dv_speed(cxy, U, U+field_stride, U+2*field_stride, g, ncell);
+}
+
+
+
+int __attribute__((target(mic))) central2d_offset(int nx, int ny, int ng, int k, int ix, int iy)
+{
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
     return (k*ny_all+(ng+iy))*nx_all+(ng+ix);
 }
 
 //offsets wrt to 0,0 absolute memory position
-int central2d_offset_absolute(central2d_t* sim, int k, int ix, int iy)
+int __attribute__((target(mic))) central2d_offset_absolute(int nx, int ny, int ng, int k, int ix, int iy)
 {
-    int nx = sim->nx, ny = sim->ny, ng = sim->ng;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
     return (k*ny_all+(iy))*nx_all+(ix);
@@ -87,18 +162,18 @@ int central2d_offset_absolute(central2d_t* sim, int k, int ix, int iy)
  */
 
 static inline
-void copy_subgrid(float* restrict dst,
+void __attribute__((target(mic))) copy_subgrid(float* restrict dst,
                   const float* restrict src,
                   int nx, int ny, int stride)
 {
-    #pragma vector aligned
+    // #pragma vector aligned
     for (int iy = 0; iy < ny; ++iy)
-        #pragma vector aligned
+        // #pragma vector aligned
         for (int ix = 0; ix < nx; ++ix)
             dst[iy*stride+ix] = src[iy*stride+ix];
 }
 
-void central2d_periodic(float* restrict u,
+void __attribute__((target(mic))) central2d_periodic(float* restrict u,
                         int nx, int ny, int ng, int nfield)
 {
     // Stride and number per field
@@ -112,7 +187,7 @@ void central2d_periodic(float* restrict u,
     int t = ng*s, tg = (nx+ng)*s;
 
     // Copy data into ghost cells on each side
-    #pragma vector aligned
+    // #pragma vector aligned
     for (int k = 0; k < nfield; ++k) {
         float* uk = u + k*field_stride;
         copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s);
@@ -142,7 +217,7 @@ void central2d_periodic(float* restrict u,
 
 // Branch-free computation of minmod of two numbers times 2s
 static inline
-float xmin2s(float s, float a, float b) {
+float __attribute__((target(mic))) xmin2s(float s, float a, float b) {
     float sa = copysignf(s, a);
     float sb = copysignf(s, b);
     float abs_a = fabsf(a);
@@ -154,7 +229,7 @@ float xmin2s(float s, float a, float b) {
 
 // Limited combined slope estimate
 static inline
-float limdiff(float um, float u0, float up) {
+float __attribute__((target(mic))) limdiff(float um, float u0, float up) {
     const float theta = 2.0;
     const float quarter = 0.25;
     float du1 = u0-um;   // Difference to left
@@ -166,11 +241,11 @@ float limdiff(float um, float u0, float up) {
 
 // Compute limited derivs
 static inline
-void limited_deriv1(float* restrict du,
+void __attribute__((target(mic))) limited_deriv1(float* restrict du,
                     const float* restrict u,
                     int ncell)
 {
-    #pragma vector aligned
+    // #pragma vector aligned
     for (int i = 0; i < ncell; ++i)
         du[i] = limdiff(u[i-1], u[i], u[i+1]);
 }
@@ -178,12 +253,12 @@ void limited_deriv1(float* restrict du,
 
 // Compute limited derivs across stride
 static inline
-void limited_derivk(float* restrict du,
+void __attribute__((target(mic))) limited_derivk(float* restrict du,
                     const float* restrict u,
                     int ncell, int stride)
 {
     assert(stride > 0);
-    #pragma vector aligned
+    // #pragma vector aligned
     for (int i = 0; i < ncell; ++i)
         du[i] = limdiff(u[i-stride], u[i], u[i+stride]);
 }
@@ -224,7 +299,7 @@ void limited_derivk(float* restrict du,
 
 // Predictor half-step
 static
-void central2d_predict(float* restrict v,
+void __attribute__((target(mic))) central2d_predict(float* restrict v,
                        float* restrict scratch,
                        const float* restrict u,
                        const float* restrict f,
@@ -234,14 +309,14 @@ void central2d_predict(float* restrict v,
 {
     float* restrict fx = scratch;
     float* restrict gy = scratch+nx;
-    #pragma vector aligned
+    // #pragma vector aligned
     for (int k = 0; k < nfield; ++k) {
-        #pragma vector aligned
+        // #pragma vector aligned
         for (int iy = 1; iy < ny-1; ++iy) {
             int offset = (k*ny+iy)*nx+1;
             limited_deriv1(fx+1, f+offset, nx-2);
             limited_derivk(gy+1, g+offset, nx-2, nx);
-            #pragma vector aligned
+            // #pragma vector aligned
             for (int ix = 1; ix < nx-1; ++ix) {
                 int offset = (k*ny+iy)*nx+ix;
                 v[offset] = u[offset] - dtcdx2 * fx[ix] - dtcdy2 * gy[ix];
@@ -253,7 +328,7 @@ void central2d_predict(float* restrict v,
 
 // Corrector
 static
-void central2d_correct_sd(float* restrict s,
+void __attribute__((target(mic))) central2d_correct_sd(float* restrict s,
                           float* restrict d,
                           const float* restrict ux,
                           const float* restrict uy,
@@ -263,13 +338,13 @@ void central2d_correct_sd(float* restrict s,
                           float dtcdx2, float dtcdy2,
                           int xlo, int xhi)
 {
-    #pragma vector aligned
+    // #pragma vector aligned
     for (int ix = xlo; ix < xhi; ++ix)
         s[ix] =
             0.2500f * (u [ix] + u [ix+1]) +
             0.0625f * (ux[ix] - ux[ix+1]) +
             dtcdx2  * (f [ix] - f [ix+1]);
-    #pragma vector aligned
+    // #pragma vector aligned
     for (int ix = xlo; ix < xhi; ++ix)
         d[ix] =
             0.0625f * (uy[ix] + uy[ix+1]) +
@@ -279,7 +354,7 @@ void central2d_correct_sd(float* restrict s,
 
 // Corrector
 static
-void central2d_correct(float* restrict v,
+void __attribute__((target(mic))) central2d_correct(float* restrict v,
                        float* restrict scratch,
                        const float* restrict u,
                        const float* restrict f,
@@ -297,7 +372,7 @@ void central2d_correct(float* restrict v,
     float* restrict d0 = scratch + 3*nx;
     float* restrict s1 = scratch + 4*nx;
     float* restrict d1 = scratch + 5*nx;
-    #pragma vector aligned
+    // #pragma vector aligned
     for (int k = 0; k < nfield; ++k) {
 
         float*       restrict vk = v + k*ny*nx;
@@ -310,7 +385,7 @@ void central2d_correct(float* restrict v,
         central2d_correct_sd(s1, d1, ux, uy,
                              uk + ylo*nx, fk + ylo*nx, gk + ylo*nx,
                              dtcdx2, dtcdy2, xlo, xhi);
-        #pragma vector aligned
+        // #pragma vector aligned
         for (int iy = ylo; iy < yhi; ++iy) {
 
             float* tmp;
@@ -322,7 +397,7 @@ void central2d_correct(float* restrict v,
             central2d_correct_sd(s1, d1, ux, uy,
                                  uk + (iy+1)*nx, fk + (iy+1)*nx, gk + (iy+1)*nx,
                                  dtcdx2, dtcdy2, xlo, xhi);
-            #pragma vector aligned
+            // #pragma vector aligned
             for (int ix = xlo; ix < xhi; ++ix)
                 vk[iy*nx+ix] = (s1[ix]+s0[ix])-(d1[ix]-d0[ix]);
         }
@@ -331,7 +406,7 @@ void central2d_correct(float* restrict v,
 
 
 static
-void central2d_step(float* restrict u, float* restrict v,
+void __attribute__((target(mic))) central2d_step(float* restrict u, float* restrict v,
                     float* restrict scratch,
                     float* restrict f,
                     float* restrict g,
@@ -345,16 +420,16 @@ void central2d_step(float* restrict u, float* restrict v,
     float dtcdx2 = 0.5 * dt / dx;
     float dtcdy2 = 0.5 * dt / dy;
 
-    flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
+    shallow2d_flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
 
     central2d_predict(v, scratch, u, f, g, dtcdx2, dtcdy2,
                       nx_all, ny_all, nfield);
 
     // Flux values of f and g at half step
-    #pragma vector aligned
+    // #pragma vector aligned
     for (int iy = 1; iy < ny_all-1; ++iy) {
         int jj = iy*nx_all+1;
-        flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
+        shallow2d_flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
     }
 
     central2d_correct(v+io*(nx_all+1), scratch, u, f, g, dtcdx2, dtcdy2,
@@ -373,33 +448,17 @@ void central2d_step(float* restrict u, float* restrict v,
 // p is row major, e.g.
 // 1 2
 // 3 4
-void copy_to_block(int offset_x, int offset_y, central2d_t* block, central2d_t* sim) {
+void __attribute__((target(mic))) copy_to_block(int offset_x, int offset_y, central2d_t* block, float* u, int nx, int ny, int ng, int nfield) {
     int nx_all_block = (block->ng*2 + block->nx);
     int ny_all_block = block->ng*2 + block->ny;
-    for (int k = 0; k < sim->nfield; ++k) {
+    // #pragma vector aligned
+    for (int k = 0; k < nfield; ++k) {
+        // #pragma vector aligned
         for (int iy = 0; iy < ny_all_block; ++iy) {
+            // #pragma vector aligned
             for(int ix = 0; ix < nx_all_block; ++ix) {
-                block->u[central2d_offset_absolute(block, k, ix, iy)] =
-                            sim->u[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
-                block->g[central2d_offset_absolute(block, k, ix, iy)] =
-                            sim->g[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
-                block->f[central2d_offset_absolute(block, k, ix, iy)] =
-                            sim->f[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
-                block->v[central2d_offset_absolute(block, k, ix, iy)] =
-                            sim->v[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
-            }
-        }
-    }
-}
-
-void copy_to_global(int offset_x, int offset_y, central2d_t* block, central2d_t* sim) {
-    int nx_block = block->nx;
-    int ny_block = block->ny;
-    for (int k = 0; k < sim->nfield; ++k) {
-        for (int iy = 0; iy < ny_block; ++iy) {
-            for(int ix = 0; ix < nx_block; ++ix) {
-                sim->u[central2d_offset(sim, k, ix+offset_x, iy+offset_y)] =
-                        block->u[central2d_offset(block, k, ix, iy)];
+                block->u[central2d_offset_absolute(nx, ny, ng, k, ix, iy)] =
+                            u[central2d_offset_absolute(nx, ny, ng, k, ix+offset_x, iy+offset_y)];
                 // block->g[central2d_offset_absolute(block, k, ix, iy)] =
                 //             sim->g[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
                 // block->f[central2d_offset_absolute(block, k, ix, iy)] =
@@ -411,10 +470,33 @@ void copy_to_global(int offset_x, int offset_y, central2d_t* block, central2d_t*
     }
 }
 
-void offsets(int* offset_x, int* offset_y, int p_number, int p_total, central2d_t* sim) {
+void __attribute__((target(mic))) copy_to_global(int offset_x, int offset_y, central2d_t* block, float* u, int nx, int ny, int ng, int nfield) {
+    int nx_block = block->nx;
+    int ny_block = block->ny;
+
+    // #pragma vector aligned
+    for (int k = 0; k < nfield; ++k) {
+        // #pragma vector aligned
+        for (int iy = 0; iy < ny_block; ++iy) {
+            // #pragma vector aligned
+            for(int ix = 0; ix < nx_block; ++ix) {
+                u[central2d_offset(nx, ny, ng, k, ix+offset_x, iy+offset_y)] =
+                        block->u[central2d_offset(nx, ny, ng, k, ix, iy)];
+                // block->g[central2d_offset_absolute(block, k, ix, iy)] =
+                //             sim->g[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
+                // block->f[central2d_offset_absolute(block, k, ix, iy)] =
+                //             sim->f[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
+                // block->v[central2d_offset_absolute(block, k, ix, iy)] =
+                //             sim->v[central2d_offset_absolute(sim, k, ix+offset_x, iy+offset_y)];
+            }
+        }
+    }
+}
+
+void __attribute__((target(mic))) offsets(int* offset_x, int* offset_y, int p_number, int p_total, int nx, int ny) {
     int p_dim = (int) sqrt(p_total);
-    int block_x = sim->nx / p_dim;
-    int block_y = sim->ny / p_dim;
+    int block_x = nx / p_dim;
+    int block_y = ny / p_dim;
 
     int p_x = p_number % p_dim;
     int p_y = p_number / p_dim;
@@ -423,17 +505,17 @@ void offsets(int* offset_x, int* offset_y, int p_number, int p_total, central2d_
     *offset_y = p_y * block_y;
 }
 
-void print_block(central2d_t* block) {
-    int nx_all_block = (block->ng*2 + block->nx);
-    int ny_all_block = block->ng*2 + block->ny;
-    for (int iy = 0; iy < ny_all_block; ++iy) {
-        for(int ix = 0; ix < nx_all_block; ++ix) {
-            printf("%0.01f ", block->u[central2d_offset_absolute(block, 0, ix, iy)]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
+// void __attribute__((target(mic))) print_block(central2d_t* block) {
+//     int nx_all_block = (block->ng*2 + block->nx);
+//     int ny_all_block = block->ng*2 + block->ny;
+//     for (int iy = 0; iy < ny_all_block; ++iy) {
+//         for(int ix = 0; ix < nx_all_block; ++ix) {
+//             printf("%0.01f ", block->u[central2d_offset_absolute(block, 0, ix, iy)]);
+//         }
+//         printf("\n");
+//     }
+//     printf("\n");
+// }
 
 /**
  * ### Advance a fixed time
@@ -458,7 +540,6 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    int nfield, flux_t flux, speed_t speed,
                    float tfinal, float dx, float dy, float cfl,
                    int p,
-                   central2d_t* sim,
                    int b
                 )
 {
@@ -474,25 +555,32 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
     omp_set_dynamic(0);
     omp_set_num_threads(p);
+    #pragma offload target(mic) in(u : length(nx_all*ny_all*nfield))
     #pragma omp parallel
     {
+        printf("%d\n",t);
         central2d_t* block = (central2d_t*) malloc(sizeof(central2d_t*));
-        block = central2d_init(sim->nx*sim->dx/side, sim->ny*sim->dy/side,
-                   sim->nx/side, sim->ny/side, sim->nfield,
-                   sim->flux, sim->speed, sim->cfl, b);
+        block = central2d_init(nx*dx/side, ny*dy/side,
+                   nx/side, ny/side, nfield,
+                   flux, speed, cfl, b);
         int proc = omp_get_thread_num();
     int offset_x;
         int offset_y;
-        offsets(&offset_x, &offset_y, proc, p, sim);
+        offsets(&offset_x, &offset_y, proc, p, nx, ny);
+
+        // for(int i = 0; i < nx_all*ny_all*nfield; ++i) {
+        //     printf("%0.02f\n",u[i]);
+        // }
 
         while (!done) {
-            #pragma omp single
-        {
+            // #pragma omp single
+            // {
                 cxy[0] = 1.0e-15f;
                 cxy[1] = 1.0e-15f;
                 central2d_periodic(u, nx, ny, ng, nfield);
-                speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
+                shallow2d_speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
                 dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
+                // dt = 0.011;
                 // int rounds = b;
                 // dt = dt * 0.9; // TODO: Figure out backoff
 
@@ -500,10 +588,10 @@ int central2d_xrun(float* restrict u, float* restrict v,
                     dt = (tfinal-t)/(2*rounds);
                     done = true;
                 }
-            }
+            // }
 
             //copy memory to each subdomain
-            copy_to_block(offset_x, offset_y, block, sim);
+            copy_to_block(offset_x, offset_y, block, u, nx, ny, ng, nfield);
 
             // run each subdomain for b*2 steps
             for(int i = 0; i < rounds; i++) {
@@ -520,14 +608,14 @@ int central2d_xrun(float* restrict u, float* restrict v,
             #pragma omp barrier
 
             // copy memory to global sim
-            copy_to_global(offset_x, offset_y, block, sim);
+            copy_to_global(offset_x, offset_y, block, u, nx, ny, ng, nfield);
 
-            #pragma omp single
-        {
+        //     #pragma omp single
+        // {
                 t += 2*rounds*dt;
                 nstep += 2*rounds;
             }
-        }
+        // }
     }
     return nstep;
 }
@@ -546,5 +634,5 @@ int central2d_run(central2d_t* sim, float tfinal, int p, int b)
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl, p, sim, b);
+                          tfinal, sim->dx, sim->dy, sim->cfl, p, b);
 }

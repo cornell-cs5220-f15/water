@@ -75,7 +75,7 @@ void central2d_free(central2d_t* sim);
  * (zero-based) cell index, where cell `(0,0)` is a corner
  * real (non-ghost) cell.
  */
-int  central2d_offset(central2d_t* sim, int k, int ix, int iy);
+int central2d_offset(int nx, int ny, int ng, int k, int ix, int iy);
 
 /**
  * ### Running the simulation
