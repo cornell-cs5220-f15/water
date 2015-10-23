@@ -4,13 +4,15 @@
 nx = tonumber(args[2]) or 200
 p = tonumber(args[3]) or 1
 b = tonumber(args[4]) or 1
+mic = tonumber(args[5]) or 0
 
 pond = {
   init = function(x,y) return 1, 0, 0 end,
   out = "pond.out",
   nx = nx,
   b = b,
-  p = p
+  p = p,
+  mic = mic
 }
 
 river = {
@@ -18,7 +20,8 @@ river = {
   out = "river.out",
   nx = nx,
   b = b,
-  p = p
+  p = p,
+  mic = mic
 }
 
 dam = {
@@ -32,7 +35,8 @@ dam = {
   out = "dam_break.out",
   nx = nx,
   b = b,
-  p = p
+  p = p,
+  mic = mic
 }
 
 wave = {
@@ -43,7 +47,8 @@ wave = {
   frames = 100,
   nx = nx,
   b = b,
-  p = p
+  p = p,
+  mic = mic
 }
 
 simulate(_G[args[1]])

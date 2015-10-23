@@ -1,5 +1,5 @@
 #include "stepper.h"
-#include "shallow2d.h"
+// #include "shallow2d.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -38,16 +38,16 @@ void solution_check(central2d_t* sim)
     int nx = sim->nx, ny = sim->ny;
     float* u = sim->u;
     float h_sum = 0, hu_sum = 0, hv_sum = 0;
-    float hmin = u[central2d_offset(sim,0,0,0)];
+    float hmin = u[central2d_offset(sim->nx,sim->ny,sim->ng,0,0,0)];
     float hmax = hmin;
     #pragma vector aligned
     for (int j = 0; j < ny; ++j)
         #pragma vector aligned
         for (int i = 0; i < nx; ++i) {
-            float h = u[central2d_offset(sim,0,i,j)];
+            float h = u[central2d_offset(sim->nx,sim->ny,sim->ng,0,i,j)];
             h_sum += h;
-            hu_sum += u[central2d_offset(sim,1,i,j)];
-            hv_sum += u[central2d_offset(sim,2,i,j)];
+            hu_sum += u[central2d_offset(sim->nx,sim->ny,sim->ng,1,i,j)];
+            hv_sum += u[central2d_offset(sim->nx,sim->ny,sim->ng,2,i,j)];
             hmax = fmaxf(h, hmax);
             hmin = fminf(h, hmin);
         }
@@ -89,7 +89,7 @@ void viz_frame(FILE* fp, central2d_t* sim)
 {
     if (fp)
         for (int iy = 0; iy < sim->ny; ++iy)
-            fwrite(sim->u + central2d_offset(sim,0,0,iy),
+            fwrite(sim->u + central2d_offset(sim->nx,sim->ny,sim->ng,0,0,iy),
                    sizeof(float), sim->nx, fp);
 }
 
@@ -176,7 +176,7 @@ void lua_init_sim(lua_State* L, central2d_t* sim)
             lua_pushnumber(L, y);
             lua_call(L, 2, nfield);
             for (int k = 0; k < nfield; ++k)
-                u[central2d_offset(sim,k,ix,iy)] = lua_tonumber(L, k-nfield);
+                u[central2d_offset(sim->nx,sim->ny,sim->ng,k,ix,iy)] = lua_tonumber(L, k-nfield);
             lua_pop(L, nfield);
         }
     }
@@ -213,13 +213,14 @@ int run_sim(lua_State* L)
     int ny = lget_int(L, "ny", nx);
     int p = lget_int(L, "p", 1);
     int b = lget_int(L, "b", 1);
+    int mic = lget_int(L, "mic", 0);
     int frames = lget_int(L, "frames", 50);
     const char* fname = lget_string(L, "out", "sim.out");
 
     central2d_t* sim = central2d_init(w,h, nx,ny,
-                                      3, shallow2d_flux, shallow2d_speed, cfl, b);
+                                      3, cfl, b);
     lua_init_sim(L,sim);
-    printf("%g %g %d %d %g %d %g %d %d\n", w, h, nx, ny, cfl, frames, ftime, p, b);
+    printf("%g %g %d %d %g %d %g %d %d %d\n", w, h, nx, ny, cfl, frames, ftime, p, b, mic);
     FILE* viz = viz_open(fname, sim);
     solution_check(sim);
     viz_frame(viz, sim);
@@ -228,17 +229,17 @@ int run_sim(lua_State* L)
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        int nstep = central2d_run(sim, ftime, p, b);
+        int nstep = central2d_run(sim->u, sim->nx, sim->ny, sim->ng, sim->nfield, ftime, sim->dx, sim->dy, sim->cfl, p, b, mic);
         double t1 = omp_get_wtime();
         double elapsed = t1-t0;
 #elif defined SYSTIME
         struct timeval t0, t1;
         gettimeofday(&t0, NULL);
-        int nstep = central2d_run(sim, ftime, p, b);
+        int nstep = central2d_run(sim->u, sim->nx, sim->ny, sim->ng, sim->nfield, ftime, sim->dx, sim->dy, sim->cfl, p, b, mic);
         gettimeofday(&t1, NULL);
         double elapsed = (t1.tv_sec-t0.tv_sec) + (t1.tv_usec-t0.tv_usec)*1e-6;
 #else
-        int nstep = central2d_run(sim, ftime, p, b);
+        int nstep = central2d_run(sim->u, sim->nx, sim->ny, sim->ng, sim->nfield, ftime, sim->dx, sim->dy, sim->cfl, p, b, mic);
         double elapsed = 0;
 #endif
         solution_check(sim);

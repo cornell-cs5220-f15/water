@@ -43,10 +43,6 @@ typedef struct central2d_t {
     float dx, dy; // Cell width in x/y
     float cfl;    // Max allowed CFL number
 
-    // Flux and speed functions
-    flux_t flux;
-    speed_t speed;
-
     // Storage
     float* u;
     float* v;
@@ -63,7 +59,7 @@ typedef struct central2d_t {
  * functions.
  */
 central2d_t* central2d_init(float w, float h, int nx, int ny,
-                            int nfield, flux_t flux, speed_t speed,
+                            int nfield,
                             float cfl, int b);
 
 void central2d_free(central2d_t* sim);
@@ -75,7 +71,7 @@ void central2d_free(central2d_t* sim);
  * (zero-based) cell index, where cell `(0,0)` is a corner
  * real (non-ghost) cell.
  */
-int  central2d_offset(central2d_t* sim, int k, int ix, int iy);
+int central2d_offset(int nx, int ny, int ng, int k, int ix, int iy);
 
 /**
  * ### Running the simulation
@@ -86,7 +82,13 @@ int  central2d_offset(central2d_t* sim, int k, int ix, int iy);
  * that we always take steps in multiples of two so that we end
  * at the reference grid.
  */
-int central2d_run(central2d_t* sim, float tfinal, int p, int b);
+int central2d_run(float* restrict u,
+                   int nx, int ny, int ng,
+                   int nfield,
+                   float tfinal, float dx, float dy, float cfl,
+                   int p,
+                   int b,
+                   int mic);
 
 /**
  * ### Applying boundary conditions

@@ -23,10 +23,10 @@ include Makefile.in.$(PLATFORM)
 # ===
 # Main driver and sample run
 
-lshallow: ldriver.o shallow2d.o stepper.o
+lshallow: ldriver.o stepper.o
 	$(CC) $(CFLAGS) $(LUA_CFLAGS) -o $@ $^ $(LUA_LIBS)
 
-ldriver.o: ldriver.c shallow2d.h
+ldriver.o: ldriver.c
 	$(CC) $(CFLAGS) $(LUA_CFLAGS) -c $<
 
 shallow2d.o: shallow2d.c
