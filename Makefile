@@ -20,7 +20,7 @@ shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
 .PHONY: run big
-run: dam_break.gif
+run: dam_break.mp4
 
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
@@ -80,4 +80,5 @@ clean:
 	rm -f shallow
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
+	rm -f shallow.o*
 

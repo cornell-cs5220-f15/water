@@ -1,7 +1,8 @@
-#ifndef SHALLOW2D_H
-#define SHALLOW2D_H
+#ifndef VEC_SHALLOW2D_H
+#define VEC_SHALLOW2D_H
 
 #include <cmath>
+
 
 struct Shallow2D {
 
@@ -12,7 +13,7 @@ struct Shallow2D {
     static constexpr real g = 9.8;
 
     // Compute shallow water fluxes F(U), G(U)
-    static void flux(real* FU, real* GU, real* U) {
+    static void flux(real* FU, real* GU, const real* U) {
         real h = U[0], hu = U[1], hv = U[2];
 
         FU[0] = hu;
@@ -25,7 +26,7 @@ struct Shallow2D {
     }
 
     // Compute shallow water wave speed
-    static void wave_speed(real& cx, real& cy, real* U) {
+    static void wave_speed(real& cx, real& cy, const real* U) {
         using namespace std;
         real h = U[0], hu = U[1], hv = U[2];
         real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
@@ -34,4 +35,4 @@ struct Shallow2D {
     }
 };
 
-#endif /* SHALLOW2D_H */
+#endif /* VEC_SHALLOW2D_H */

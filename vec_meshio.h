@@ -1,5 +1,5 @@
-#ifndef MESHIO_H
-#define MESHIO_H
+#ifndef VEC_MESHIO_H
+#define VEC_MESHIO_H
 
 //ldoc on
 
@@ -58,7 +58,7 @@ public:
         if (fp)
             for (int j = 0; j < sim.ysize(); ++j)
                 for (int i = 0; i < sim.xsize(); ++i) {
-                    float uij = sim(i,j);
+                    float uij = sim(i,j)[0];
                     fwrite(&uij, sizeof(float), 1, fp);
                 }
     }

@@ -7,4 +7,4 @@
 
 module load cs5220
 cd $PBS_O_WORKDIR
-./shallow -i dam_break -o dam_break.out
+valgrind shallow -g -i dam_break -o dam_break.out
