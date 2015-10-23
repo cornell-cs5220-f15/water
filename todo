@@ -1,0 +1,10 @@
+run strong/weak scaling studies for:
+    mic
+    main processor
+    run for a couple of batch sizes
+    baseline for more n
+    get baseline for main processor (single thread) also maybe mic?
+Coding (if we want):
+    get pragma alignment working on mic
+    parallelize speed function?
+Write report.
