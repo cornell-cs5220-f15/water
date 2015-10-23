@@ -567,6 +567,9 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
                 global_cxy[1] = fmaxf(global_cxy[1], local_cxy[1]);
             }
 
+            // We need to barrier before calculating dt
+            #pragma omp barrier
+
             // Use maximum speed to calculate largest time step we can safely take
             #pragma omp single
             {
