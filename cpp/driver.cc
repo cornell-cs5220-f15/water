@@ -139,6 +139,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "Unknown initial conditions\n");
     }
     
+//	Sim::real dx = width/nx;
     Sim sim(width,width, nx,nx);
     SimViz<Sim> viz(fname.c_str(), sim);
     sim.init(icfun);

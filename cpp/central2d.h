@@ -236,6 +236,7 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::init_as_subdomain(const std::vector<vec>& larger_u, 
 			const int x_start, const int y_start)
 {
+	printf("Copying larger_u from (%d, %d) to (%d, %d), to u from (%d, %d) to (%d, %d)\n", x_start - nghost, y_start - nghost, nx_all+x_start-nghost-1, ny_all+y_start-nghost-1, 0, 0, nx_all-1, ny_all-1);
 	for (int y = 0; y < ny_all; ++y) {
 		for (int x = 0; x < nx_all; ++x) {
 			//Copy starting at x_start and y_start, but include neighboring cells as ghosts
@@ -251,6 +252,7 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::copy_results_out(std::vector<vec>& larger_v, 
 			const int x_start, const int y_start)
 {
+	printf("Copying out u from (%d, %d) to (%d, %d), to larger_v from (%d, %d) to (%d, %d)\n", nghost, nghost, nx-1+nghost, ny-1+nghost, x_start, y_start, nx-1+x_start, ny-1+y_start);
 	for (int y = 0; y < ny; ++y) {
 		for (int x = 0; x < nx; ++x) {
 			larger_v[offset(x + x_start, y + y_start)] = u(x+nghost,y+nghost);
@@ -311,7 +313,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < ny_all; ++iy)
+    for (int iy = 0; iy < ny_all; ++iy) {
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
@@ -319,6 +321,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
+	}
     cx_ = cx;
     cy_ = cy;
 }
@@ -458,10 +461,22 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(const real tfinal)
 {
 	bool done = false;
-	curtime = 0;
+	real curtime = 0;
+	//Since dt is now computed at the end of a batch, 
+	//must do an extra step to compute it before the first step
+	real cx, cy;
+	apply_periodic();
+	compute_fg_speeds(cx, cy);
+	real dt = cfl / std::max(cx/dx, cy/dy);
+	printf("Starting dt is %f\n", dt);
 	while(!done) {
+		if (curtime + 2*dt >= tfinal) {
+			dt = (tfinal-curtime)/2;
+			done = true;
+		}
+		curtime += 2*dt;
 		apply_periodic();
-		done = take_timestep_pair(tfinal);
+		dt = take_timestep_pair(dt);
 	}
 }
 

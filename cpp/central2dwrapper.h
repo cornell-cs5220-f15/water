@@ -32,8 +32,9 @@ public:
     // Advance from time 0 to time tfinal
 	void run(const real tfinal);
 
+    // Call f(Uxy, x, y) at each cell center to set initial conditions
 	template <typename F>
-		void init(F f);
+	void init(F f);
 
     // Diagnostics
     void solution_check();
@@ -165,9 +166,11 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 	std::vector<vec>* large_u = &u_;
 	std::vector<vec>* large_v = &v_;
 	//Shared arrays for combining maximum dt values, but can't be initialized until we know the number of threads
-	std::vector<real> local_dts_curr;
-	std::vector<real> local_dts_next;
-	#pragma omp parallel shared(local_dts_curr,local_dts_next) firstprivate(tfinal, large_u, large_v) default(none) 
+	std::vector<real>* local_dts_curr = new std::vector<real>();
+	std::vector<real>* local_dts_next = new std::vector<real>();
+	//DEBUG
+	omp_set_num_threads(1);
+	#pragma omp parallel firstprivate(tfinal, large_u, large_v, local_dts_curr,local_dts_next) default(none) 
 	{
 		const int nthreads = omp_get_num_threads();
 		//Now that we know how many threads there are, split the board into
@@ -183,8 +186,8 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		//Now we can initialize the local_dts array
 		#pragma omp single
 		{
-			local_dts_curr.resize(nblocks);
-			local_dts_next.resize(nblocks);
+			local_dts_curr->resize(nblocks);
+			local_dts_next->resize(nblocks);
 		}
 		//Number of blocks each processor actually gets, >1 since we rounded up the number of blocks
 		const int blockspp = nblocks / nthreads;
@@ -195,7 +198,8 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 			(omp_get_thread_num() == nthreads-1 && one_extra ? 1 : 0);
 		for(int b = 0; b < my_numblocks; b++) {
 			//Blocks are counted in row-major order across the grid
-			const int blocknum = omp_get_thread_num() * blockspp + b;
+			const int blocknum = b;
+			//const int blocknum = omp_get_thread_num() * blockspp + b;
 			const int blockrow = blocknum / nblocksx;
 			const int blockcol = blocknum % nblocksx;
 			//Acutal width and height of this block, accounting for rectangluar ones at the ends
@@ -211,18 +215,24 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		//block's local entry. It's ugly, but I don't see any way around it.
 		#pragma omp single
 		{
+			apply_periodic();
 			real init_dt = compute_current_dt();
+			printf("Starting dt is %f\n", init_dt);
 			for(int i = 0; i < nblocks; i++) 
-				local_dts_curr[i] = init_dt;
-			#pragma omp flush(local_dts_curr)
+				(*local_dts_curr)[i] = init_dt;
 		}
 		//Now we can start the actual per-thread computation
+		#pragma omp critical
+		{
+			printf("Thread %d has %d blocks of size %d x %d \n", omp_get_thread_num(), my_numblocks, bwidth, bheight);
+		}
 		real curtime = 0;
 		real dt;
 		bool done = false;
+		bool first = true;
 		while (!done) {
 			#pragma omp single 
-			{
+			if (!first) {
 				apply_periodic();
 				//There's another barrier here implicitly. Instead, we need to have each block
 				//do its section of apply_periodic when it copies results back out to v.
@@ -231,13 +241,15 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 			//Take the minimum of the dt's reported by the previous iteration as the dt for this iteration
 			dt = tfinal; //largest value it could be
 			for(int i = 0; i < nblocks; i++) {
-				if (local_dts_curr[i] < dt)
-					dt = local_dts_curr[i];
+				if ((*local_dts_curr)[i] < dt)
+					dt = (*local_dts_curr)[i];
 			}
+			printf("Updated dt to %f\n", dt);
 			//Every thread will reach the same conclusion here, since they have the same dt and curtime
 			if (curtime + nbatch*dt >= tfinal) {
 				dt = (tfinal-curtime)/nbatch;
 				done = true;
+				printf("Last iteration, dt set to %f\n", dt);
 			}
 
 			//Hopefully this loop only runs once or twice at each thread
@@ -249,19 +261,23 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 				blockSims[b].init_as_subdomain(*large_u, 
 						nghost + blockcol * bwidth, nghost + blockrow * bheight);
 				//Advance two timesteps locally, and put the new dt in dts_next
-				local_dts_next[blocknum] = blockSims[b].take_timestep_pair(dt);
+				(*local_dts_next)[blocknum] = blockSims[b].take_timestep_pair(dt);
 				//Copy the results back out to v, so it can happen concurrently with reads from u
 				blockSims[b].copy_results_out(*large_v, 
 						nghost + blockcol * bwidth, nghost + blockrow * bheight);
 			}
+//			printf("Thread %d finished with timestep pair\n", omp_get_thread_num());
+
 			//Local blocks have now advanced by dt, nbatch times
 			curtime += dt*nbatch;
-			printf("Thread %d finished with timestep pair\n", omp_get_thread_num());
 
 			//Wait for all threads to finish writing out results, then swap "current" and "next" pointers
 			#pragma omp barrier
 			std::swap(large_u, large_v);
 			std::swap(local_dts_curr, local_dts_next);
+			//DEBUG
+			solution_check();
+			first = false;
 		}
     }
 }
