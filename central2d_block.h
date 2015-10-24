@@ -44,6 +44,7 @@ public:
     }
 
     // Advance from time 0 to time tfinal
+    void run_block(const int block_row, const int block_col);
     void run(real tfinal);
 
     // Call f(Uxy, x, y) at each cell center to set initial conditions
@@ -69,12 +70,13 @@ public:
     }
 
 private:
-    static constexpr int nghost = 3;   // Number of ghost cells
+    static constexpr int nghost     = 3;  // Number of ghost cells
+    static constexpr int block_size = 64; // The side length of one block
 
-    const int nx, ny;          // Number of (non-ghost) cells in x/y
-    const int nx_all, ny_all;  // Total cells in x/y (including ghost)
-    const real dx, dy;         // Cell size in x/y
-    const real cfl;            // Allowed CFL number
+    const int nx, ny;           // Number of (non-ghost) cells in x/y
+    const int nx_all, ny_all;   // Total cells in x/y (including ghost)
+    const real dx, dy;          // Cell size in x/y
+    const real cfl;             // Allowed CFL number
 
     // All vectors are stored as a flattened representation of a
     // two-dimensional array of arrays. For example, consider a 2x4 grid where
@@ -127,9 +129,20 @@ private:
     real& gy   (int k, int ix, int iy) { return gy_[offset (k, ix, iy)]; }
     real& uwrap(int k, int ix, int iy) { return u_ [ioffset(k, ix, iy)]; }
 
+    const real& cu    (int k, int ix, int iy) const { return u_ [offset (k, ix, iy)]; }
+    const real& cv    (int k, int ix, int iy) const { return v_ [offset (k, ix, iy)]; }
+    const real& cf    (int k, int ix, int iy) const { return f_ [offset (k, ix, iy)]; }
+    const real& cg    (int k, int ix, int iy) const { return g_ [offset (k, ix, iy)]; }
+    const real& cux   (int k, int ix, int iy) const { return ux_[offset (k, ix, iy)]; }
+    const real& cuy   (int k, int ix, int iy) const { return uy_[offset (k, ix, iy)]; }
+    const real& cfx   (int k, int ix, int iy) const { return fx_[offset (k, ix, iy)]; }
+    const real& cgy   (int k, int ix, int iy) const { return gy_[offset (k, ix, iy)]; }
+    const real& cuwrap(int k, int ix, int iy) const { return u_ [ioffset(k, ix, iy)]; }
+
     // Stages of the main algorithm
     void apply_periodic();
-    void compute_fg_speeds(real& cx, real& cy);
+    void compute_max_speed(real& cx, real& cy) const;
+    void flux();
     void limited_derivs();
     void compute_step(int io, real dt);
 };
@@ -181,12 +194,27 @@ void Central2DBlock<Physics, Limiter>::apply_periodic() {
 }
 
 template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
-{
+void Central2DBlock<Physics, Limiter>::compute_max_speed(real& cx, real& cy) const {
     using namespace std;
-    real cx = 1.0e-15;
-    real cy = 1.0e-15;
+    real _cx = 1.0e-15;
+    real _cy = 1.0e-15;
 
+    for (int iy = nghost; iy < nx + nghost; ++iy) {
+        for (int ix = nghost; ix < nx + nghost; ++ix) {
+            real cell_cx, cell_cy;
+            Physics::wave_speed(cell_cx, cell_cy,
+                                cu(0, ix,iy), cu(1, ix, iy), cu(2, ix, iy));
+            _cx = max(_cx, cell_cx);
+            _cy = max(_cy, cell_cy);
+        }
+    }
+
+    cx = _cx;
+    cy = _cy;
+}
+
+template <class Physics, class Limiter>
+void Central2DBlock<Physics, Limiter>::flux() {
     // KINDA VEC
     for (int iy = 0; iy < ny_all; ++iy) {
         #pragma ivdep
@@ -204,20 +232,6 @@ void Central2DBlock<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
             Physics::flux(f0, f1, f2, g0, g1, g2, h, hu, hv);
         }
     }
-
-    // KINDA VEC
-    for (int iy = 0; iy < ny_all; ++iy) {
-        for (int ix = 0; ix < nx_all; ++ix) {
-            real cell_cx, cell_cy;
-            Physics::wave_speed(cell_cx, cell_cy,
-                                u(0, ix,iy), u(1, ix, iy), u(2, ix, iy));
-            cx = max(cx, cell_cx);
-            cy = max(cy, cell_cy);
-        }
-    }
-
-    cx_ = cx;
-    cy_ = cy;
 }
 
 template <class Physics, class Limiter>
@@ -292,25 +306,43 @@ void Central2DBlock<Physics, Limiter>::compute_step(int io, real dt)
 }
 
 template <class Physics, class Limiter>
+void Central2DBlock<Physics, Limiter>::run_block(const int block_row,
+                                                 const int block_col) {
+    // copy u
+    // blank space for f, g, ux, uy, fx, gy
+    // do stuff
+    // write to v
+}
+
+template <class Physics, class Limiter>
 void Central2DBlock<Physics, Limiter>::run(real tfinal)
 {
+    // number of rows and columns of blocks
+    const int num_block_rows = nx / block_size + (nx % block_size != 0 ? 1 : 0);
+    const int num_block_cols = ny / block_size + (ny % block_size != 0 ? 1 : 0);
+
     bool done = false;
     real t = 0;
     while (!done) {
         real dt;
         for (int io = 0; io < 2; ++io) {
             real cx, cy;
+            compute_max_speed(cx, cy);
             apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
-            if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
-                }
-            }
-            compute_step(io, dt);
+            flux();
+            // for (int block_row = 0; num_block_rows; ++block_row) {
+                // for (int block_col = 0; num_block_cols; ++block_col) {
+                    limited_derivs();
+                    if (io == 0) {
+                        dt = cfl / std::max(cx/dx, cy/dy);
+                        if (t + 2*dt >= tfinal) {
+                            dt = (tfinal-t)/2;
+                            done = true;
+                        }
+                    }
+                    compute_step(io, dt);
+                // }
+            // }
             t += dt;
         }
     }
