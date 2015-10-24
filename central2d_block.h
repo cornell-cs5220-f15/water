@@ -129,17 +129,21 @@ private:
                       (iy+ny-nghost) % ny + nghost);
     }
 
-    real& u (int k, int ix, int iy) { return u_ [offset(nx_all, ny_all, k, ix, iy)]; }
-    real& v (int k, int ix, int iy) { return v_ [offset(nx_all, ny_all, k, ix, iy)]; }
-    real& f (int k, int ix, int iy) { return f_ [offset(nx_all, ny_all, k, ix, iy)]; }
-    real& g (int k, int ix, int iy) { return g_ [offset(nx_all, ny_all, k, ix, iy)]; }
-    real& ux(int k, int ix, int iy) { return ux_[offset(nx_all, ny_all, k, ix, iy)]; }
-    real& uy(int k, int ix, int iy) { return uy_[offset(nx_all, ny_all, k, ix, iy)]; }
-    real& fx(int k, int ix, int iy) { return fx_[offset(nx_all, ny_all, k, ix, iy)]; }
-    real& gy(int k, int ix, int iy) { return gy_[offset(nx_all, ny_all, k, ix, iy)]; }
+    real& get(real *xs, int nx_all, int ny_all, int k, int ix, int iy) {
+        return xs[offset(nx_all, ny_all, k, ix, iy)];
+    }
+
+    real& u (int k, int ix, int iy) { return get(u_,  nx_all, ny_all, k, ix, iy); }
+    real& v (int k, int ix, int iy) { return get(v_,  nx_all, ny_all, k, ix, iy); }
+    real& f (int k, int ix, int iy) { return get(f_,  nx_all, ny_all, k, ix, iy); }
+    real& g (int k, int ix, int iy) { return get(g_,  nx_all, ny_all, k, ix, iy); }
+    real& ux(int k, int ix, int iy) { return get(ux_, nx_all, ny_all, k, ix, iy); }
+    real& uy(int k, int ix, int iy) { return get(uy_, nx_all, ny_all, k, ix, iy); }
+    real& fx(int k, int ix, int iy) { return get(fx_, nx_all, ny_all, k, ix, iy); }
+    real& gy(int k, int ix, int iy) { return get(gy_, nx_all, ny_all, k, ix, iy); }
 
     real& uwrap(int k, int ix, int iy) {
-        return u_ [ioffset(nx_all, ny_all, nx, ny, nghost, k, ix, iy)];
+        return u_[ioffset(nx_all, ny_all, nx, ny, nghost, k, ix, iy)];
     }
 
     // Stages of the main algorithm
