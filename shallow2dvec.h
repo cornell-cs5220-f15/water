@@ -1,6 +1,7 @@
 #ifndef SHALLOW2DVEC_H
 #define SHALLOW2DVEC_H
 
+#include <omp.h>
 #include <cmath>
 #include <array>
 #include <vector>
@@ -74,6 +75,7 @@ struct Shallow2D {
   {
     std::copy(hu,hu+ncell,F);
     std::copy(hv,hv+ncell,G);
+    #pragma omp parallel for
     for (int i = 0; i < ncell; ++i, ++h,++hu,++hv,++FU,++FV,++GU,++GV){
       real hi = (*h), hui = (*hu), hvi = (*hv);
       real inv_h = 1/hi;
@@ -97,6 +99,7 @@ struct Shallow2D {
 			  iter hv, int ncell) {
     using namespace std;
     real cx2,cy2;
+    #pragma omp parallel for
     for (int i = 0; i < ncell; ++i,++h,++hu,++hv){
         real hi = *h;
         real inv_hi=1/hi;
