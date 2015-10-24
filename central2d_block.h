@@ -107,26 +107,40 @@ private:
     real *v_;  // Solution values at next step
 
     // Array accessor functions
+    static int offset(int nx_all, int ny_all, int k, int ix, int iy) {
+        return (((k * ny_all) + iy) * nx_all) + ix;
+    }
+
     int offset(int k, int ix, int iy) const {
         return (((k * ny_all) + iy) * nx_all) + ix;
     }
 
     // Wrapped accessor (periodic BC)
+    static int ioffset(int nx_all, int ny_all, int nx, int ny, int nghost,
+                       int k, int ix, int iy) {
+        return offset(nx_all, ny_all, k,
+                      (ix+nx-nghost) % nx + nghost,
+                      (iy+ny-nghost) % ny + nghost);
+    }
+
     int ioffset(int k, int ix, int iy) {
         return offset(k,
                       (ix+nx-nghost) % nx + nghost,
                       (iy+ny-nghost) % ny + nghost);
     }
 
-    real& u    (int k, int ix, int iy) { return u_ [offset (k, ix, iy)]; }
-    real& v    (int k, int ix, int iy) { return v_ [offset (k, ix, iy)]; }
-    real& f    (int k, int ix, int iy) { return f_ [offset (k, ix, iy)]; }
-    real& g    (int k, int ix, int iy) { return g_ [offset (k, ix, iy)]; }
-    real& ux   (int k, int ix, int iy) { return ux_[offset (k, ix, iy)]; }
-    real& uy   (int k, int ix, int iy) { return uy_[offset (k, ix, iy)]; }
-    real& fx   (int k, int ix, int iy) { return fx_[offset (k, ix, iy)]; }
-    real& gy   (int k, int ix, int iy) { return gy_[offset (k, ix, iy)]; }
-    real& uwrap(int k, int ix, int iy) { return u_ [ioffset(k, ix, iy)]; }
+    real& u (int k, int ix, int iy) { return u_ [offset(nx_all, ny_all, k, ix, iy)]; }
+    real& v (int k, int ix, int iy) { return v_ [offset(nx_all, ny_all, k, ix, iy)]; }
+    real& f (int k, int ix, int iy) { return f_ [offset(nx_all, ny_all, k, ix, iy)]; }
+    real& g (int k, int ix, int iy) { return g_ [offset(nx_all, ny_all, k, ix, iy)]; }
+    real& ux(int k, int ix, int iy) { return ux_[offset(nx_all, ny_all, k, ix, iy)]; }
+    real& uy(int k, int ix, int iy) { return uy_[offset(nx_all, ny_all, k, ix, iy)]; }
+    real& fx(int k, int ix, int iy) { return fx_[offset(nx_all, ny_all, k, ix, iy)]; }
+    real& gy(int k, int ix, int iy) { return gy_[offset(nx_all, ny_all, k, ix, iy)]; }
+
+    real& uwrap(int k, int ix, int iy) {
+        return u_ [ioffset(nx_all, ny_all, nx, ny, nghost, k, ix, iy)];
+    }
 
     // Stages of the main algorithm
     void run_block(const int io, const real dt, const int block_row, const int block_col);
