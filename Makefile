@@ -15,6 +15,7 @@ include Makefile.in.$(PLATFORM)
 
 SIMULATORS = \
 	shallow \
+	shallow_block \
 	shallow_buggy \
 	shallow_copy \
 	shallow_par \
@@ -22,6 +23,7 @@ SIMULATORS = \
 
 HEADERS = \
 	central2d.h \
+	central2d_block.h \
 	central2d_buggy.h \
 	central2d_copy.h \
 	central2d_par.h \

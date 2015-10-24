@@ -1,4 +1,5 @@
 #include "central2d.h"
+#include "central2d_block.h"
 #include "central2d_buggy.h"
 #include "central2d_copy.h"
 #include "central2d_par.h"
@@ -53,6 +54,8 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
 
 #if defined(VERSION_ref)
     typedef ReferenceSim Sim;
+#elif defined(VERSION_block)
+    typedef Central2DBlock<Shallow2DVec, MinMod<Shallow2DVec::real>> Sim;
 #elif defined(VERSION_vec)
     typedef Central2DVec<Shallow2DVec, MinMod<Shallow2DVec::real>> Sim;
 #elif defined(VERSION_buggy)
