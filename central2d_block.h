@@ -44,7 +44,6 @@ public:
     }
 
     // Advance from time 0 to time tfinal
-    void run_block(const int block_row, const int block_col);
     void run(real tfinal);
 
     // Call f(Uxy, x, y) at each cell center to set initial conditions
@@ -140,6 +139,7 @@ private:
     const real& cuwrap(int k, int ix, int iy) const { return u_ [ioffset(k, ix, iy)]; }
 
     // Stages of the main algorithm
+    void run_block(const int io, const real dt, const int block_row, const int block_col);
     void apply_periodic();
     void compute_max_speed(real& cx, real& cy) const;
     void flux();
@@ -306,12 +306,26 @@ void Central2DBlock<Physics, Limiter>::compute_step(int io, real dt)
 }
 
 template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::run_block(const int block_row,
+void Central2DBlock<Physics, Limiter>::run_block(const int io,
+                                                 const real dt,
+                                                 const int block_row,
                                                  const int block_col) {
+    const int row = block_row * block_size;
+    const int col = block_col * block_size;
+    const int block_height = (row + block_size > ny ? ny - row : block_size);
+    const int block_width  = (col + block_size > nx ? nx - col : block_size);
     // copy u
     // blank space for f, g, ux, uy, fx, gy
     // do stuff
     // write to v
+    if (block_row == 0 && block_col == 0) {
+        // std::cout << "io is " << io << std::endl;
+        // std::cout << "dt is " << dt << std::endl;
+        apply_periodic();
+        flux();
+        limited_derivs();
+        compute_step(io, dt);
+    }
 }
 
 template <class Physics, class Limiter>
@@ -328,21 +342,25 @@ void Central2DBlock<Physics, Limiter>::run(real tfinal)
         for (int io = 0; io < 2; ++io) {
             real cx, cy;
             compute_max_speed(cx, cy);
-            apply_periodic();
-            flux();
-            // for (int block_row = 0; num_block_rows; ++block_row) {
-                // for (int block_col = 0; num_block_cols; ++block_col) {
-                    limited_derivs();
-                    if (io == 0) {
-                        dt = cfl / std::max(cx/dx, cy/dy);
-                        if (t + 2*dt >= tfinal) {
-                            dt = (tfinal-t)/2;
-                            done = true;
-                        }
-                    }
-                    compute_step(io, dt);
-                // }
-            // }
+            if (io == 0) {
+                dt = cfl / std::max(cx/dx, cy/dy);
+                if (t + 2*dt >= tfinal) {
+                    dt = (tfinal-t)/2;
+                    done = true;
+                }
+            }
+            for (int block_row = 0; block_row < num_block_rows; ++block_row) {
+                for (int block_col = 0; block_col < num_block_cols; ++block_col) {
+                    run_block(io, dt, block_row, block_col);
+                    // if (block_row == 0 && block_col == 0) {
+                        // std::cout << "dt is " << dt << std::endl;
+                        // apply_periodic();
+                        // flux();
+                        // limited_derivs();
+                        // compute_step(io, dt);
+                    // }
+                }
+            }
             t += dt;
         }
     }
