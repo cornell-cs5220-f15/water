@@ -605,7 +605,9 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
 
             // copy memory to global sim
             copy_to_global(offset_x, offset_y, block, u, nx, ny, ng, nfield);
-
+	    
+	    #pragma omp barrier
+	    
             // Update time and number of steps
             // #pragma omp single
             // {
