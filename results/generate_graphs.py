@@ -35,8 +35,11 @@ for i, n in enumerate(N):
     pts.sort(order=['n'])
     x = pts['p']
     y = baseline_y[i] / pts['time']
-    plt.plot(x,y, color=colors[i], label=str(n))
-plt.legend(loc=4)
+    plt.plot(x,y, color=colors[i], label=str(int(n)))
+plt.legend(bbox_to_anchor=(1.12,1),
+          ncol=1)
+plt.xlabel('Threads')
+plt.ylabel('Speedup')
 plt.savefig('strong.pdf')
 plt.close()
 
@@ -49,6 +52,10 @@ for i, n in enumerate(N):
     x = pts['p']
     y = baseline_y[i] / pts['time']
     plt.plot(x,y, color=colors[i], label=str(n))
-plt.legend(loc=4)
+
+plt.legend(bbox_to_anchor=(1.12,1),
+          ncol=1)
+plt.xlabel('Threads')
+plt.ylabel('Speedup')
 plt.savefig('weak.pdf')
 
