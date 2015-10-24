@@ -1,4 +1,4 @@
-#include "stepper.h"
+#include "stepperpar.h"
 #include "shallow2d.h"
 
 #ifdef _OPENMP
