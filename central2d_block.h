@@ -128,20 +128,10 @@ private:
     real& gy   (int k, int ix, int iy) { return gy_[offset (k, ix, iy)]; }
     real& uwrap(int k, int ix, int iy) { return u_ [ioffset(k, ix, iy)]; }
 
-    const real& cu    (int k, int ix, int iy) const { return u_ [offset (k, ix, iy)]; }
-    const real& cv    (int k, int ix, int iy) const { return v_ [offset (k, ix, iy)]; }
-    const real& cf    (int k, int ix, int iy) const { return f_ [offset (k, ix, iy)]; }
-    const real& cg    (int k, int ix, int iy) const { return g_ [offset (k, ix, iy)]; }
-    const real& cux   (int k, int ix, int iy) const { return ux_[offset (k, ix, iy)]; }
-    const real& cuy   (int k, int ix, int iy) const { return uy_[offset (k, ix, iy)]; }
-    const real& cfx   (int k, int ix, int iy) const { return fx_[offset (k, ix, iy)]; }
-    const real& cgy   (int k, int ix, int iy) const { return gy_[offset (k, ix, iy)]; }
-    const real& cuwrap(int k, int ix, int iy) const { return u_ [ioffset(k, ix, iy)]; }
-
     // Stages of the main algorithm
     void run_block(const int io, const real dt, const int block_row, const int block_col);
     void apply_periodic();
-    void compute_max_speed(real& cx, real& cy) const;
+    void compute_max_speed(real& cx, real& cy);
     void flux();
     void limited_derivs();
     void compute_step(int io, real dt);
@@ -194,7 +184,7 @@ void Central2DBlock<Physics, Limiter>::apply_periodic() {
 }
 
 template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::compute_max_speed(real& cx, real& cy) const {
+void Central2DBlock<Physics, Limiter>::compute_max_speed(real& cx, real& cy) {
     using namespace std;
     real _cx = 1.0e-15;
     real _cy = 1.0e-15;
@@ -203,7 +193,7 @@ void Central2DBlock<Physics, Limiter>::compute_max_speed(real& cx, real& cy) con
         for (int ix = nghost; ix < nx + nghost; ++ix) {
             real cell_cx, cell_cy;
             Physics::wave_speed(cell_cx, cell_cy,
-                                cu(0, ix,iy), cu(1, ix, iy), cu(2, ix, iy));
+                                u(0, ix,iy), u(1, ix, iy), u(2, ix, iy));
             _cx = max(_cx, cell_cx);
             _cy = max(_cy, cell_cy);
         }
