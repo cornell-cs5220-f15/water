@@ -1,7 +1,7 @@
 import os
 import time
 
-n= [300,600,900,1200,1500,2400,3600]
+n= range(360,4000,360)
 procs= [1, 4, 9, 16, 25, 36]
 rounds= [1]
 
@@ -14,7 +14,7 @@ for np in procs:
       out = open(fname,'w')
       s = '''#!/bin/sh -l
 #PBS -l nodes=1:ppn=24
-#PBS -l walltime=2:30:00
+#PBS -l walltime=0:60:00
 #PBS -N lshallow
 #PBS -j oe
 module load cs5220

@@ -581,6 +581,7 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
                 nstep += 2*rounds;
             }
         }
+        central2d_free(block);
     }
     return nstep;
 }

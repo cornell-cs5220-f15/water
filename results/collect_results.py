@@ -10,8 +10,9 @@ with open('results.csv', 'w') as out:
                     x = f.read().split('\n')
                     params = x[0].split()
                     n = params[3]
-                    p = params[-2]
-                    b = params[-1]
+                    p = params[-3]
+                    b = params[-2]
+                    mic = int(params[-1])
                     time = float(x[-2].split(': ')[1])
                     writer.writerow([n, p, b, time])
                 except:
