@@ -147,7 +147,7 @@ private:
     }
 
     // Stages of the main algorithm
-    void run_block(const int io, const real dt, const int block_row, const int block_col);
+    void run_block(const int io, const real dt, const int bx, const int by);
     void apply_periodic();
     void compute_max_speed(real& cx, real& cy);
     void flux();
@@ -316,32 +316,82 @@ void Central2DBlock<Physics, Limiter>::compute_step(int io, real dt)
 template <class Physics, class Limiter>
 void Central2DBlock<Physics, Limiter>::run_block(const int io,
                                                  const real dt,
-                                                 const int block_row,
-                                                 const int block_col) {
-    const int row = block_row * block_size;
-    const int col = block_col * block_size;
-    const int block_height = (row + block_size > ny ? ny - row : block_size);
-    const int block_width  = (col + block_size > nx ? nx - col : block_size);
-    // copy u
-    // blank space for f, g, ux, uy, fx, gy
-    // do stuff
-    // write to v
-    if (block_row == 0 && block_col == 0) {
-        // std::cout << "io is " << io << std::endl;
-        // std::cout << "dt is " << dt << std::endl;
+                                                 const int bx,
+                                                 const int by) {
+    //
+    //    +---+---+---+---+---+---+---+---+
+    //  6 |48#|49#|50#|51#|52#|53#|54#|55#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       5 |###|###|###|###|
+    //  5 |40#|41c|42c|43c|44c|45c|46d|47#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       4 |###|38b|39b|###|
+    //  4 |32#|33a|34a|35a|36a|37b|38b|39#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       3 |###|30b|31b|###|
+    //  3 |24#|25a|26a|27a|28a|29b|30b|31#|  ==>    +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       2 |###|21b|22b|###|
+    //  2 |16#|17a|18a|19a|20a|21b|22b|23#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       1 |###|13b|14b|###|
+    //  1 ||8#| 9a|10a|11a|12a|13b|14b|15#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       0 |###|###|###|###|
+    //  0 |#0#|#1#|#2#|#3#|#4#|#5#|#6#|#7#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+           0   1   2   3
+    //      0   1   2   3   4   5   6   7
+    //
+    //                             nghost = 1
+    //                           block_size = 4
+    //                           nx = 6, ny = 5
+    //                       nx_all = 8, ny_all = 7
+    //                           BX = 2, BY = 2
+    const int bghosts = 1;
+    const int ix = nghost + (bx * block_size);
+    const int iy = nghost + (by * block_size);
+    const int width  = (ix+block_size > nx+nghost) ? nx+nghost-ix : block_size;
+    const int height = (iy+block_size > ny+nghost) ? ny+nghost-iy : block_size;
+    const int width_all  = width  + 2*bghosts;
+    const int height_all = height + 2*bghosts;
+    const int size_all   = width_all * height_all;
+
+    real *_u  = (real *)malloc(size_all * num_fields * sizeof(real));
+    real *_f  = (real *)malloc(size_all * num_fields * sizeof(real));
+    real *_g  = (real *)malloc(size_all * num_fields * sizeof(real));
+    real *_ux = (real *)malloc(size_all * num_fields * sizeof(real));
+    real *_uy = (real *)malloc(size_all * num_fields * sizeof(real));
+    real *_fx = (real *)malloc(size_all * num_fields * sizeof(real));
+    real *_gy = (real *)malloc(size_all * num_fields * sizeof(real));
+    real *_v  = (real *)malloc(size_all * num_fields * sizeof(real));
+
+    for (int k = 0; k < num_fields; ++k) {
+        for (int x = 0; x < width_all; ++x) {
+            for (int y = 0; y < height_all; ++y) {
+                get(_u, width_all, height_all, k, x, y) = u(k, ix-1+x, iy-1+y);
+            }
+        }
+    }
+
+    // TODO(mwhittaker): remove hack and use blocks.
+    //   - block stuff
+    //   - fix writing to v
+    if (bx == 0 && by == 0) {
         apply_periodic();
         flux();
         limited_derivs();
         compute_step(io, dt);
     }
+
+    free(_u);
+    free(_f);
+    free(_g);
+    free(_ux);
+    free(_uy);
+    free(_fx);
+    free(_gy);
+    free(_v);
 }
 
 template <class Physics, class Limiter>
 void Central2DBlock<Physics, Limiter>::run(real tfinal)
 {
-    // number of rows and columns of blocks
-    const int num_block_rows = nx / block_size + (nx % block_size != 0 ? 1 : 0);
-    const int num_block_cols = ny / block_size + (ny % block_size != 0 ? 1 : 0);
+    const int BX = nx / block_size + (nx % block_size != 0 ? 1 : 0);
+    const int BY = ny / block_size + (ny % block_size != 0 ? 1 : 0);
 
     bool done = false;
     real t = 0;
@@ -357,16 +407,9 @@ void Central2DBlock<Physics, Limiter>::run(real tfinal)
                     done = true;
                 }
             }
-            for (int block_row = 0; block_row < num_block_rows; ++block_row) {
-                for (int block_col = 0; block_col < num_block_cols; ++block_col) {
-                    run_block(io, dt, block_row, block_col);
-                    // if (block_row == 0 && block_col == 0) {
-                        // std::cout << "dt is " << dt << std::endl;
-                        // apply_periodic();
-                        // flux();
-                        // limited_derivs();
-                        // compute_step(io, dt);
-                    // }
+            for (int by = 0; by < BY; ++by) {
+                for (int bx = 0; bx < BX; ++bx) {
+                    run_block(io, dt, bx, by);
                 }
             }
             t += dt;
