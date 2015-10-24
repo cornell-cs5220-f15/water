@@ -199,7 +199,7 @@ void Central2DBlock<Physics, Limiter>::compute_max_speed(real& cx, real& cy) con
     real _cx = 1.0e-15;
     real _cy = 1.0e-15;
 
-    for (int iy = nghost; iy < nx + nghost; ++iy) {
+    for (int iy = nghost; iy < ny + nghost; ++iy) {
         for (int ix = nghost; ix < nx + nghost; ++ix) {
             real cell_cx, cell_cy;
             Physics::wave_speed(cell_cx, cell_cy,
