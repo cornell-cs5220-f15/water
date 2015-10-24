@@ -520,12 +520,16 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
     int nstep = 0;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
+    int side = (int)sqrt(p);
+    int block_nx_all = nx/side + 2*ng;
+    int block_ny_all = ny/side + 2*ng;
     bool done = false;
     float t = 0;
-    float cxy[2];
+    float small_number = 1.0e-15f;
+    float global_cxy[2] = {small_number, small_number};
     int rounds = b;
     float dt;
-    int side = (int)sqrt(p);
+    central2d_periodic(u,nx,ny,ng,nfield);
     omp_set_dynamic(0);
     omp_set_num_threads(p);
     #pragma omp parallel
@@ -537,26 +541,55 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
         int proc = omp_get_thread_num();
         int offset_x;
         int offset_y;
+        float local_cxy[2];
         offsets(&offset_x, &offset_y, proc, p, nx, ny);
 
+
         while (!done) {
+            // Apply periodic boundary conditions
             #pragma omp single
             {
-                cxy[0] = 1.0e-15f;
-                cxy[1] = 1.0e-15f;
-                central2d_periodic(u, nx, ny, ng, nfield);
-                shallow2d_speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
-                dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-                // dt = dt * 0.9; // TODO: Figure out backoff
+                central2d_periodic(u,nx,ny,ng,nfield);
+            }
 
+            // Copy memory to each subdomain
+            copy_to_block(offset_x, offset_y, block, u, nx, ny, ng, nfield);
+
+            // Calculate speed for each subdomain
+            local_cxy[0] = small_number;
+            local_cxy[1] = small_number;
+            shallow2d_speed(local_cxy, block->u, block_nx_all*block_ny_all, block_nx_all*block_ny_all);
+
+            // Find maximum speed over all subdomains
+            #pragma omp critical
+            {
+                global_cxy[0] = fmaxf(global_cxy[0], local_cxy[0]);
+                global_cxy[1] = fmaxf(global_cxy[1], local_cxy[1]);
+            }
+
+            // We need to make sure global_cxy is accurate before calculating dt
+            #pragma omp barrier
+
+            // Use maximum speed to calculate largest time step we can safely take
+            #pragma omp single
+            {
+                dt = cfl / fmaxf(global_cxy[0]/dx, global_cxy[1]/dy);
+                if(rounds > 1) {
+                    dt = 0.9*dt; // TODO: set this more intelligently?
+                }
                 if (t + 2*rounds*dt >= tfinal) {
                     dt = (tfinal-t)/(2*rounds);
                     done = true;
                 }
-            }
 
-            //copy memory to each subdomain
-            copy_to_block(offset_x, offset_y, block, u, nx, ny, ng, nfield);
+                // Feels a little like cheating to update these before actually computing steps, but I think it works
+                t += 2*rounds*dt;
+                nstep += 2*rounds;
+
+                // Also need to reset global_cxy somewhere where we have only one thread
+                global_cxy[0] = small_number;
+                global_cxy[1] = small_number;
+            }
 
             // run each subdomain for b*2 steps
             for(int i = 0; i < rounds; i++) {
@@ -570,16 +603,17 @@ int __attribute__((target(mic))) central2d_xrun(float* restrict u,
                                dt, block->dx, block->dy);
             }
 
-            #pragma omp barrier
-
             // copy memory to global sim
             copy_to_global(offset_x, offset_y, block, u, nx, ny, ng, nfield);
-
-            #pragma omp single
-            {
-                t += 2*rounds*dt;
-                nstep += 2*rounds;
-            }
+	    
+	    #pragma omp barrier
+	    
+            // Update time and number of steps
+            // #pragma omp single
+            // {
+            //     t += 2*rounds*dt;
+            //     nstep += 2*rounds;
+            // }
         }
     }
     return nstep;
