@@ -189,17 +189,24 @@ private:
         iy = (iy + ny_all) % ny_all;
         return iy*nx_all + ix;
     }
+    
+    // access the (ix, iy) element of the tno'th subdomain, ix and iy are relative 
+    // indices 0 <= ix, iy < domain_nx_inc_ghost, domain_ny_inc_ghost
+    int offsetg (int ix, int iy, int tno) const {
+        return (iy+(tno/nodomains)*domain_ny_inc_ghost)*nx_all + (tno%nodomains)*domain_nx_inc_ghost + ix;
+    }
 
     vec& u(int ix, int iy, int tno)    { return u_[offset(ix, iy, tno)]; }
     vec& uf(int ix, int iy)            { return u_[offsetfull(ix, iy)];  }
-    vec& v(int ix, int iy, int tno)    { return v_[offset(ix, iy, tno)]; }
-    vec& f(int ix, int iy, int tno)    { return f_[offset(ix, iy, tno)]; }
-    vec& g(int ix, int iy, int tno)    { return g_[offset(ix, iy, tno)]; }
+    vec& ug(int ix, int iy, int tno)   { return u_[offsetg(ix, iy, tno)];}
+    vec& v(int ix, int iy, int tno)    { return v_[offsetg(ix, iy, tno)]; }
+    vec& f(int ix, int iy, int tno)    { return f_[offsetg(ix, iy, tno)];}
+    vec& g(int ix, int iy, int tno)    { return g_[offsetg(ix, iy, tno)];}
 
-    vec& ux(int ix, int iy, int tno)   { return ux_[offset(ix, iy, tno)]; }
-    vec& uy(int ix, int iy, int tno)   { return uy_[offset(ix, iy, tno)]; }
-    vec& fx(int ix, int iy, int tno)   { return fx_[offset(ix, iy, tno)]; }
-    vec& gy(int ix, int iy, int tno)   { return gy_[offset(ix, iy, tno)]; }
+    vec& ux(int ix, int iy, int tno)   { return ux_[offsetg(ix, iy, tno)]; }
+    vec& uy(int ix, int iy, int tno)   { return uy_[offsetg(ix, iy, tno)]; }
+    vec& fx(int ix, int iy, int tno)   { return fx_[offsetg(ix, iy, tno)]; }
+    vec& gy(int ix, int iy, int tno)   { return gy_[offsetg(ix, iy, tno)]; }
 
     // Wrapped accessor (periodic BC)
     //TODO: Need to change this
@@ -331,21 +338,21 @@ template <class Physics, class Limiter>
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
+void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_, int tno)
 {
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
+    for (int iy = 0; iy < domain_ny_inc_ghost; ++iy)
+        for (int ix = 0; ix < domain_nx_inc_ghost; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+            Physics::flux(f(ix,iy, tno), g(ix,iy, tno), ug(ix,iy, tno));
+            Physics::wave_speed(cell_cx, cell_cy, ug(ix,iy, tno));
             cx = cx > cell_cx ? cx : cell_cx;
             cy = cy > cell_cy ? cy : cell_cy;
         }
-        cx_ = cx;
-        cy_ = cy;
+        *cx_ = cx;
+        *cy_ = cy;
     }
 
 /**
@@ -357,25 +364,19 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
  */
 
 template <class Physics, class Limiter>
- void Central2D<Physics, Limiter>::limited_derivs()
+ void Central2D<Physics, Limiter>::limited_derivs(int tno)
  {
     int iy, ix;
-    //#pragma omp parallel \
-    shared(this.ux, this.fx, this.u, this.f, this.uy, this.gy, this.g, this.ny_all, this.nx_all) \
-    private(ix, iy)
-    {
-        //#pragma omp for
-        for (iy = 1; iy < ny_all-1; ++iy) {
-            for (ix = 1; ix < nx_all-1; ++ix) {
+    for (iy = 1; iy < domain_ny_inc_ghost-1; ++iy) {
+        for (ix = 1; ix < domain_nx_inc_ghost-1; ++ix) {
 
-            // x derivs
-                limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-                limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
+        // x derivs
+            limdiff( ux(ix,iy,tno), ug(ix-1,iy,tno), ug(ix,iy,tno), ug(ix+1,iy,tno) );
+            limdiff( fx(ix,iy,tno), f(ix-1,iy,tno), f(ix,iy,tno), f(ix+1,iy,tno) );
 
-            // y derivs
-                limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-                limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
-            }
+        // y derivs
+            limdiff( uy(ix,iy,tno), ug(ix,iy-1,tno), ug(ix,iy,tno), ug(ix,iy+1,tno) );
+            limdiff( gy(ix,iy,tno), g(ix,iy-1,tno), g(ix,iy,tno), g(ix,iy+1,tno) );
         }
     }
 }
@@ -404,44 +405,44 @@ template <class Physics, class Limiter>
  */
 
 template <class Physics, class Limiter>
- void Central2D<Physics, Limiter>::compute_step(int io, real dt)
+ void Central2D<Physics, Limiter>::compute_step(int io, real dt, int tno)
  {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec uh = u(ix,iy);
+    for (int iy = 1; iy < domain_ny_inc_ghost-1; ++iy)
+        for (int ix = 1; ix < domain_nx_inc_ghost-1; ++ix) {
+            vec uh = ug(ix,iy,tno);
             for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * fx(ix,iy)[m];
-                uh[m] -= dtcdy2 * gy(ix,iy)[m];
+                uh[m] -= dtcdx2 * fx(ix,iy,tno)[m];
+                uh[m] -= dtcdy2 * gy(ix,iy,tno)[m];
             }
-            Physics::flux(f(ix,iy), g(ix,iy), uh);
+            Physics::flux(f(ix,iy,tno), g(ix,iy,tno), uh);
         }
 
     // Corrector (finish the step)
-        for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-            for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-                for (int m = 0; m < v(ix,iy).size(); ++m) {
-                    v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                       u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                       ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                       uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                       uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                       f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                       g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
+        for (int iy = nghost-io; iy < domain_ny+nghost-io; ++iy)
+            for (int ix = nghost-io; ix < domain_nx+nghost-io; ++ix) {
+                for (int m = 0; m < v(ix,iy,tno).size(); ++m) {
+                    v(ix,iy,tno)[m] =
+                    0.2500 * ( ug(ix,iy,tno)[m] + ug(ix+1,iy,tno)[m] +
+                       ug(ix,iy+1,tno)[m] + ug(ix+1,iy+1,tno)[m] ) -
+                    0.0625 * ( ux(ix+1,iy,tno)[m] - ux(ix,iy,tno)[m] +
+                       ux(ix+1,iy+1,tno)[m] - ux(ix,iy+1,tno)[m] +
+                       uy(ix,  iy+1,tno)[m] - uy(ix,  iy,tno)[m] +
+                       uy(ix+1,iy+1,tno)[m] - uy(ix+1,iy,tno)[m] ) -
+                    dtcdx2 * ( f(ix+1,iy,tno)[m] - f(ix,iy,tno)[m] +
+                       f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
+                    dtcdy2 * ( g(ix,  iy+1,tno)[m] - g(ix,  iy,tno)[m] +
+                       g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
                 }
             }
 
     // Copy from v storage back to main grid
-            for (int j = nghost; j < ny+nghost; ++j){
-                for (int i = nghost; i < nx+nghost; ++i){
-                    u(i,j) = v(i-io,j-io);
+            for (int j = nghost; j < domain_ny+nghost; ++j){
+                for (int i = nghost; i < domain_nx+nghost; ++i){
+                    ug(i,j,tno) = v(i-io,j-io,tno);
                 }
             }
         }
@@ -466,22 +467,37 @@ template <class Physics, class Limiter>
  {
     bool done = false;
     real t = 0;
-    #pragma parallel num_threads(nodomains*nodomains)
+    #pragma omp parallel num_threads(nodomains*nodomains)
     while (!done) {
         real dt;
+        int tno = omp_get_thread_num();
         for (int io = 0; io < 2; ++io) {
-            real cx, cy;
+            real cx[] = real[nodomains*nodomains], cy[]= real[nodomains*nodomains];
+            #paragma omp single
             apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
+            compute_fg_speeds(cx+tno, cy+tno, tno); 
+            limited_derivs(tno);
             if (io == 0) {
-                dt = cfl / (cx/dx > cy/dy ? cx/dx : cy/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
+                #pragma omp barrier 
+                {
+                    #pragma omp single
+                    {
+                        real cxmax=cx[0], cymax=cy[0];
+                        for (int i=1; i<nodomains*nodomains; i++) {
+                            cxmax = (cxmax>cx[i])?cxmax:cx[i];
+                            cymax = (cymax>cy[i])?cymax:cy[i];
+                        }
+                      
+                        dt = cfl / (cxmax/dx > cymax/dy ? cxmax/dx : cymax/dy);
+                    
+                        if (t + 2*dt >= tfinal) {
+                            dt = (tfinal-t)/2;
+                            done = true;
+                        }
+                    }
                 }
             }
-            compute_step(io, dt);
+            compute_step(io, dt, tno);
             t += dt;
         }
     }
