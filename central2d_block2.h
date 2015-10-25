@@ -8,13 +8,16 @@
 
 #include "flat_array.h"
 
+////////////////////////////////////////////////////////////////////////////////
+// Block
+////////////////////////////////////////////////////////////////////////////////
 template <class Physics, class Limiter>
 class Block {
 public:
     typedef typename Physics::real real;
     static constexpr int num_fields = Physics::num_fields;
 
-    Block(real *xs, int nx, int ny, int nghost, real io, real dt) :
+    Block(real *xs, int nx, int ny, int nghost, int io, real dt) :
         xs_(xs),
         nx_(nx),
         ny_(ny),
@@ -46,12 +49,13 @@ public:
         free(v_);
     }
 
-private:
+    void step();
+
     const int nx_;
     const int ny_;
     const int nghost_;
     const int io_;
-    const int dt_;
+    const real dt_;
     const int nx_all_;
     const int ny_all_;
     real *u_;
@@ -62,8 +66,36 @@ private:
     real *fx_;
     real *gy_;
     real *v_;
+
+private:
+    void flux();
+    void limited_derivs();
+    void compute_step(int io, real dt);
 };
 
+template <class Physics, class Limiter>
+void Block<Physics, Limiter>::flux() {
+    assert (false); // TODO
+}
+
+template <class Physics, class Limiter>
+void Block<Physics, Limiter>::limited_derivs() {
+    assert (false); // TODO
+}
+
+template <class Physics, class Limiter>
+void Block<Physics, Limiter>::compute_step(int io, real dt) {
+    assert (false); // TODO
+}
+
+template <class Physics, class Limiter>
+void Block<Physics, Limiter>::step() {
+    assert (false); // TODO
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Central2D
+////////////////////////////////////////////////////////////////////////////////
 template <class Physics, class Limiter>
 class Central2DBlock2 {
 public:
