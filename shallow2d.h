@@ -1,10 +1,14 @@
 #ifndef SHALLOW2D_H
 #define SHALLOW2D_H
 
+#if defined _PARALLEL_DEVICE
 #pragma offload_attribute(push,target(mic))
+#endif
 #include <cmath>
 #include <array>
+#if defined _PARALLEL_DEVICE
 #pragma offload_attribute(pop)
+#endif
 
 //ldoc on
 /**
@@ -67,11 +71,15 @@ struct Shallow2D {
     typedef std::array<real,4> vec;
 
     // Gravitational force (compile time constant)
+    #if defined _PARALLEL_DEVICE
     __declspec(target(mic))
+    #endif
     static constexpr real g = 9.8;
 
     // Compute shallow water fluxes F(U), G(U)
+    #if defined _PARALLEL_DEVICE
     __declspec(target(mic))
+    #endif
     static void flux(vec& FU, vec& GU, const vec& U) {
         real h = U[0], hu = U[1], hv = U[2];
 

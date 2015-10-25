@@ -472,7 +472,7 @@ void Central2D<Physics, Limiter>::copy_to_local(
     int nx_per_block, int ny_per_block,
     real* u, LocalState* local)
 {
-    int biy     = tid / nyblocks;
+    int biy     = tid / nxblocks;
     int bix     = tid % nxblocks;
     int biy_off = biy * (ny_per_block - 2*nghost);
     int bix_off = bix * (nx_per_block - 2*nghost);
@@ -493,7 +493,7 @@ void Central2D<Physics, Limiter>::copy_from_local(
     int nx_per_block, int ny_per_block,
     real* u, LocalState* local)
 {
-    int biy     = tid / nyblocks;
+    int biy     = tid / nxblocks;
     int bix     = tid % nxblocks;
     int biy_off = biy * (ny_per_block - 2*nghost);
     int bix_off = bix * (nx_per_block - 2*nghost);

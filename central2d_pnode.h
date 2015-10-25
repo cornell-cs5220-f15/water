@@ -454,7 +454,7 @@ void Central2D<Physics, Limiter>::compute_step(int tid, int io, real dt)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::copy_to_local(int tid)
 {
-    int biy     = tid / nyblocks;
+    int biy     = tid / nxblocks;
     int bix     = tid % nxblocks;
     int biy_off = biy * (ny_per_block - 2*nghost);
     int bix_off = bix * (nx_per_block - 2*nghost);
@@ -467,7 +467,7 @@ void Central2D<Physics, Limiter>::copy_to_local(int tid)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::copy_from_local(int tid)
 {
-    int biy     = tid / nyblocks;
+    int biy     = tid / nxblocks;
     int bix     = tid % nxblocks;
     int biy_off = biy * (ny_per_block - 2*nghost);
     int bix_off = bix * (nx_per_block - 2*nghost);

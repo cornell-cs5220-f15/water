@@ -59,11 +59,15 @@
 
 template <class real>
 struct MinMod {
+    #if defined _PARALLEL_DEVICE
     __declspec(target(mic))
+    #endif
     static constexpr real theta = 2.0;
 
     // Branch-free computation of minmod of two numbers
+    #if defined _PARALLEL_DEVICE
     __declspec(target(mic))
+    #endif
     static real xmin(real a, real b) {
         using namespace std;
         return ((copysign((real) 0.5, a) +
@@ -72,7 +76,9 @@ struct MinMod {
     }
 
     // Limited combined slope estimate
+    #if defined _PARALLEL_DEVICE
     __declspec(target(mic))
+    #endif
     static real limdiff(real um, real u0, real up) {
         real du1 = u0-um;         // Difference to left
         real du2 = up-u0;         // Difference to right
