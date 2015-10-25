@@ -450,7 +450,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
     float dt;
     
     
-    #pragma omp parallel default(none) private(iter,thread)
+    #pragma omp parallel 
     {
         thread = omp_get_thread_num();
         
