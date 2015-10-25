@@ -150,6 +150,10 @@ private:
     void run_block(const int io, const real dt, const int bx, const int by);
     void apply_periodic();
     void compute_max_speed(real& cx, real& cy);
+    void flux(real* restrict f0, real* restrict f1, real* restrict f2,
+              real* restrict g0, real* restrict g1, real* restrict g2,
+              const real* restrict u, const real* restrict hu, const real* restrict hv,
+              const int len);
     void flux();
     void limited_derivs();
     void compute_step(int io, real dt);
@@ -219,6 +223,27 @@ void Central2DBlock<Physics, Limiter>::compute_max_speed(real& cx, real& cy) {
 
     cx = _cx;
     cy = _cy;
+}
+
+template <class Physics, class Limiter>
+void Central2DBlock<Physics, Limiter>::flux(
+        real* restrict f0, real* restrict f1, real* restrict f2,
+        real* restrict g0, real* restrict g1, real* restrict g2,
+        const real* restrict u, const real* restrict hu, const real* restrict hv,
+        const int len) {
+    for (int i = 0; i < len; ++i) {
+        real _h  = u[i];
+        real _hu = hu[i];
+        real _hv = hv[i];
+
+        f0[i] = _hu;
+        f1[i] = _hu*_hu/_h + (0.5f*Physics::g)*_h*_h;
+        f2[i] = _hu*_hv/_h;
+
+        g0[i] = _hv;
+        g1[i] = _hu*_hv/_h;
+        g1[i] = _hv*_hv/_h + (0.5f*Physics::g)*_h*_h;
+    }
 }
 
 template <class Physics, class Limiter>
@@ -370,12 +395,16 @@ void Central2DBlock<Physics, Limiter>::run_block(const int io,
     // TODO(mwhittaker): remove hack and use blocks.
     //   - block stuff
     //   - fix writing to v
-    if (bx == 0 && by == 0) {
-        apply_periodic();
-        flux();
-        limited_derivs();
-        compute_step(io, dt);
-    }
+    real *f0 = &_f[offset(width_all, height_all, 0, 0, 0)];
+    real *f1 = &_f[offset(width_all, height_all, 1, 0, 0)];
+    real *f2 = &_f[offset(width_all, height_all, 2, 0, 0)];
+    real *g0 = &_g[offset(width_all, height_all, 0, 0, 0)];
+    real *g1 = &_g[offset(width_all, height_all, 1, 0, 0)];
+    real *g2 = &_g[offset(width_all, height_all, 2, 0, 0)];
+    real *u0 = &_u[offset(width_all, height_all, 0, 0, 0)];
+    real *u1 = &_u[offset(width_all, height_all, 1, 0, 0)];
+    real *u2 = &_u[offset(width_all, height_all, 2, 0, 0)];
+    flux(f0, f1, f2, g0, g1, g2, u0, u1, u2, width_all * height_all);
 
     free(_u);
     free(_f);
@@ -407,11 +436,16 @@ void Central2DBlock<Physics, Limiter>::run(real tfinal)
                     done = true;
                 }
             }
+
+            apply_periodic();
             for (int by = 0; by < BY; ++by) {
                 for (int bx = 0; bx < BX; ++bx) {
                     run_block(io, dt, bx, by);
                 }
             }
+            limited_derivs();
+            compute_step(io, dt);
+
             t += dt;
         }
     }
