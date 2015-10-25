@@ -67,22 +67,39 @@ private:
     real *v_;
 
     real *at(real *xs, int x, int y) {
-        return flat_array::at(xs, nx_all, ny_all, x, y);
+        return flat_array::at(xs, nx_all_, ny_all_, x, y);
     }
 
     real *field(real *xs, int k) {
-        return flat_array::field(xs, nx_all, ny_all, k);
+        return flat_array::field(xs, nx_all_, ny_all_, k);
     }
+
+    #define FIELD_GETTERS(xs) \
+        real *xs##0() { return field(xs##_, 0); } \
+        real *xs##1() { return field(xs##_, 1); } \
+        real *xs##2() { return field(xs##_, 2); }
+    FIELD_GETTERS(u);
+    FIELD_GETTERS(f);
+    FIELD_GETTERS(g);
+    FIELD_GETTERS(ux);
+    FIELD_GETTERS(uy);
+    FIELD_GETTERS(fx);
+    FIELD_GETTERS(gy);
+    FIELD_GETTERS(v);
 
 private:
     void flux();
     void limited_derivs();
-    void compute_step(int io, real dt);
+    void compute_step();
 };
 
 template <class Physics, class Limiter>
 void Block<Physics, Limiter>::flux() {
-    // TODO
+    for (int iy = 0; iy < ny_all_; ++iy) {
+        for (int ix = 0; ix < nx_all_; ++ix) {
+            Physics::flux(*f0(), *f1(), *f2(), *g0(), *g1(), *g2(), *u0(), *u1(), *u2());
+        }
+    }
 }
 
 template <class Physics, class Limiter>
@@ -91,13 +108,15 @@ void Block<Physics, Limiter>::limited_derivs() {
 }
 
 template <class Physics, class Limiter>
-void Block<Physics, Limiter>::compute_step(int io, real dt) {
+void Block<Physics, Limiter>::compute_step() {
     // TODO
 }
 
 template <class Physics, class Limiter>
 void Block<Physics, Limiter>::step() {
-    // TODO
+    flux();
+    limited_derivs();
+    compute_step();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
