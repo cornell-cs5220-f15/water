@@ -18,7 +18,7 @@ import numpy as np
 fig_width_pt  = 244.0
 inches_per_pt = 1.0/72.27                     # convert pt to inch
 
-aspect_ratio  = 0.75
+aspect_ratio  = 0.70
 
 fig_width     = 6.5                           # width in inches
 fig_height    = fig_width * aspect_ratio      # height in inches
@@ -52,11 +52,13 @@ num_bmarks = len( bmarks )
 # Configurations
 
 configs = [
-  'serial',
-  'parallel (2 threads)',
-  'parallel (4 threads)',
-  'parallel (8 threads)',
-  'parallel (16 threads)',
+  '1',
+  '2',
+  '4',
+  '6',
+  '8',
+  '12',
+  '16',
 ]
 
 num_configs = len( configs )
@@ -83,10 +85,22 @@ perf_data = [
     1.32e-2, 8.67e-3, 1.10e-2, 1.31e-2,
   ],
 
+  # parallel (6 threads)
+
+  [
+    1.03e-2, 8.33e-3, 1.06e-2, 1.04e-2,
+  ],
+
   # parallel (8 threads)
 
   [
     8.21e-3, 6.44e-3, 8.15e-3, 9.70e-3,
+  ],
+
+  # parallel (12 threads)
+
+  [
+    1.06e-2, 4.97e-3, 1.07e-2, 7.33e-3,
   ],
 
   # parallel (16 threads)
@@ -110,7 +124,7 @@ mid = num_configs / 2.0
 
 # Bar widths
 
-width = 0.15
+width = 0.10
 
 # Colors
 
@@ -150,7 +164,7 @@ ax.grid(True)
 
 # Set axis limits
 
-plt.axis( xmax=num_bmarks-1+(num_configs+2)*width )
+plt.axis( xmax=num_bmarks-1+(num_configs+2)*width, ymax=6.5 )
 
 # Add bars for each configuration
 
@@ -171,7 +185,7 @@ plt.axhline( y=1, color='k', linewidth=1.5 )
 # Legend
 
 ax.legend( rects, configs, loc=8, bbox_to_anchor=(0.01,1.02,0.98,0.1),
-           ncol=3, borderaxespad=0, prop={'size':12}, frameon=False )
+           ncol=4, borderaxespad=0, prop={'size':12}, frameon=False )
 
 # Pretty layout
 
