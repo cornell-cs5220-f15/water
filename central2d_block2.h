@@ -26,13 +26,13 @@ public:
         nx_all_(nx_ + 2*nghost_),
         ny_all_(ny_ + 2*nghost_),
         u_ (u),
-        f_ (flat_array::make<real>(nx_all, ny_all, num_fields)),
-        g_ (flat_array::make<real>(nx_all, ny_all, num_fields)),
-        ux_(flat_array::make<real>(nx_all, ny_all, num_fields)),
-        uy_(flat_array::make<real>(nx_all, ny_all, num_fields)),
-        fx_(flat_array::make<real>(nx_all, ny_all, num_fields)),
-        gy_(flat_array::make<real>(nx_all, ny_all, num_fields)),
-        v_ (flat_array::make<real>(nx_all, ny_all, num_fields)) {}
+        f_ (flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        g_ (flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        ux_(flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        uy_(flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        fx_(flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        gy_(flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        v_ (flat_array::make<real>(nx_all_, ny_all_, num_fields)) {}
 
     Block(const Block&) = delete;
     Block(Block&&)      = delete;
@@ -171,7 +171,8 @@ public:
     }
 
 private:
-    static constexpr int nghost = 3;   // Number of ghost cells
+    static constexpr int nghost     = 3;  // Number of ghost cells
+    static constexpr int block_size = 64; // The side length of one block
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
@@ -230,7 +231,9 @@ private:
     real& uwrap(int k, int ix, int iy) { return u_ [ioffset(k, ix, iy)]; }
 
     // Stages of the main algorithm
+    void run_block(const int io, const real dt, const int bx, const int by);
     void apply_periodic();
+    void compute_max_speed(real& cx, real& cy);
     void compute_fg_speeds(real& cx, real& cy);
     void limited_derivs();
     void compute_step(int io, real dt);
@@ -280,6 +283,26 @@ void Central2DBlock2<Physics, Limiter>::apply_periodic() {
             }
         }
     }
+}
+
+template <class Physics, class Limiter>
+void Central2DBlock2<Physics, Limiter>::compute_max_speed(real& cx, real& cy) {
+    using namespace std;
+    real _cx = 1.0e-15;
+    real _cy = 1.0e-15;
+
+    for (int iy = nghost; iy < ny + nghost; ++iy) {
+        for (int ix = nghost; ix < nx + nghost; ++ix) {
+            real cell_cx, cell_cy;
+            Physics::wave_speed(cell_cx, cell_cy,
+                                u(0, ix, iy), u(1, ix, iy), u(2, ix, iy));
+            _cx = max(_cx, cell_cx);
+            _cy = max(_cy, cell_cy);
+        }
+    }
+
+    cx = _cx;
+    cy = _cy;
 }
 
 template <class Physics, class Limiter>
@@ -394,8 +417,70 @@ void Central2DBlock2<Physics, Limiter>::compute_step(int io, real dt)
 }
 
 template <class Physics, class Limiter>
+void Central2DBlock2<Physics, Limiter>::run_block(const int io,
+                                                 const real dt,
+                                                 const int bx,
+                                                 const int by) {
+    //
+    //    +---+---+---+---+---+---+---+---+
+    //  6 |48#|49#|50#|51#|52#|53#|54#|55#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       5 |###|###|###|###|
+    //  5 |40#|41c|42c|43c|44c|45c|46d|47#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       4 |###|38b|39b|###|
+    //  4 |32#|33a|34a|35a|36a|37b|38b|39#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       3 |###|30b|31b|###|
+    //  3 |24#|25a|26a|27a|28a|29b|30b|31#|  ==>    +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       2 |###|21b|22b|###|
+    //  2 |16#|17a|18a|19a|20a|21b|22b|23#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       1 |###|13b|14b|###|
+    //  1 ||8#| 9a|10a|11a|12a|13b|14b|15#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+       0 |###|###|###|###|
+    //  0 |#0#|#1#|#2#|#3#|#4#|#5#|#6#|#7#|         +---+---+---+---+
+    //    +---+---+---+---+---+---+---+---+           0   1   2   3
+    //      0   1   2   3   4   5   6   7
+    //
+    //                             nghost = 1
+    //                           block_size = 4
+    //                           nx = 6, ny = 5
+    //                       nx_all = 8, ny_all = 7
+    //                           BX = 2, BY = 2
+
+    // initialize sizes and dimensions
+    const int bghosts = 3;
+    const int ix = nghost + (bx * block_size);
+    const int iy = nghost + (by * block_size);
+    const int width  = (ix+block_size > nx+nghost) ? nx+nghost-ix : block_size;
+    const int height = (iy+block_size > ny+nghost) ? ny+nghost-iy : block_size;
+    const int width_all  = width  + 2*bghosts;
+    const int height_all = height + 2*bghosts;
+    const int size_all   = width_all * height_all;
+
+    // TODO(mwhittaker): check that this is correct allocate blocks
+    real *_u  = (real *)malloc(size_all * num_fields * sizeof(real));
+    for (int k = 0; k < num_fields; ++k) {
+        real *_uk = flat_array::field(_u, width_all, height_all, k);
+        for (int x = 0; x < width_all; ++x) {
+            for (int y = 0; y < height_all; ++y) {
+                *flat_array::at(_uk, width_all, height_all, x, y) =
+                    u(k, ix-bghosts+x, iy-bghosts+y);
+            }
+        }
+    }
+
+    // step block
+    Block<Physics, Limiter> b(_u, width, height, bghosts, io, dt);
+    b.step();
+
+    // TODO(mwhittaker): write back
+}
+
+
+template <class Physics, class Limiter>
 void Central2DBlock2<Physics, Limiter>::run(real tfinal)
 {
+    const int BX = nx / block_size + (nx % block_size != 0 ? 1 : 0);
+    const int BY = ny / block_size + (ny % block_size != 0 ? 1 : 0);
+
     bool done = false;
     real t = 0;
     while (!done) {
@@ -403,8 +488,7 @@ void Central2DBlock2<Physics, Limiter>::run(real tfinal)
         for (int io = 0; io < 2; ++io) {
             real cx, cy;
             apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
+            compute_max_speed(cx, cy);
             if (io == 0) {
                 dt = cfl / std::max(cx/dx, cy/dy);
                 if (t + 2*dt >= tfinal) {
@@ -412,7 +496,13 @@ void Central2DBlock2<Physics, Limiter>::run(real tfinal)
                     done = true;
                 }
             }
-            compute_step(io, dt);
+
+            for (int by = 0; by < BY; ++by) {
+                for (int bx = 0; bx < BX; ++bx) {
+                    run_block(io, dt, bx, by);
+                }
+            }
+
             t += dt;
         }
     }

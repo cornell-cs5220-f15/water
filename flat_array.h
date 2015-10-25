@@ -1,6 +1,7 @@
 #ifndef FLAT_ARRAY_H
 #define FLAT_ARRAY_H
 
+#include <cstdlib>
 
 // flat arrays are a flattened representation of a two-dimensional array of
 // arrays. For example, consider a 2x4 grid where each element of the grid
@@ -26,7 +27,7 @@ namespace flat_array {
 
 template <typename A>
 A *make(int nx, int ny, int num_fields) {
-    return malloc(nx * ny * num_fields * sizeof(A));
+    return (A *)malloc(nx * ny * num_fields * sizeof(A));
 }
 
 template <typename A>
