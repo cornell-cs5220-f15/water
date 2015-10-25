@@ -223,7 +223,7 @@ template <typename F>
  {
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
-            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            f(u(ix,iy), (ix+0.5)*dx, (iy+0.5)*dy);
     }
 
 /**
@@ -307,8 +307,8 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
             Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
-            cx = max(cx, cell_cx);
-            cy = max(cy, cell_cy);
+            cx = cx > cell_cx ? cx : cell_cx;
+            cy = cy > cell_cy ? cy : cell_cy;
         }
         cx_ = cx;
         cy_ = cy;
@@ -440,7 +440,7 @@ template <class Physics, class Limiter>
             compute_fg_speeds(cx, cy);
             limited_derivs();
             if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
+                dt = cfl / (cx/dx > cy/dy ? cx/dx : cy/dy);
                 if (t + 2*dt >= tfinal) {
                     dt = (tfinal-t)/2;
                     done = true;
