@@ -29,6 +29,7 @@ HEADERS = \
 	central2d_copy.h \
 	central2d_par.h \
 	central2d_vec.h \
+	flat_array.h \
 	meshio.h \
 	minmod.h \
 	shallow2d.h \
@@ -69,6 +70,14 @@ time: clean $(shell echo shallow-timing{,_vec}) $(shell echo run{,_vec})
 
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
+
+# ===
+# test cases
+flat_array_test: flat_array_test.cc flat_array.h
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+test: flat_array_test
+	./flat_array_test
 
 # ===
 # Example analyses

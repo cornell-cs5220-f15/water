@@ -15,6 +15,7 @@ shallow*
 !shallow2d*.h
 !shallow-ampl.pbs
 !shallow.pbs
+flat_array_test
 
 ################################################################################
 # C++
