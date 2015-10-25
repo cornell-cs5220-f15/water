@@ -212,7 +212,7 @@ private:
     //TODO: Need to change this
     int ioffset(int ix, int iy) {
         return offset( (ix+nx-nghost) % nx + nghost,
-           (iy+ny-nghost) % ny + nghost );
+         (iy+ny-nghost) % ny + nghost );
     }
 
     //TODO: Remove this because this is not required
@@ -273,20 +273,20 @@ template <typename F>
 template <class Physics, class Limiter>
  void Central2D<Physics, Limiter>::apply_periodic()
  {
-        
-        for (int i=0; i<nodomains; i++)
-            for (int j=0; j<ny_all; j++)
-                for (int k=0; k<nghost; k++) {
-                    uf(k+i*domain_nx_inc_ghost, j) = uf(k+i*domain_nx_inc_ghost-2*nghost, j);
-                    uf(k+i*domain_nx_inc_ghost+nghost+domain_nx, j) = uf(k+i*domain_nx_inc_ghost+3*nghost+domain_nx, j);
-                }
-                
-        for (int i=0; i<nodomains; i++)
-            for (int j=0; j<nx_all; j++)
-                for (int k=0; k<nghost; k++) {
-                    uf(j, k+i*domain_ny_inc_ghost) = uf(j, k+i*domain_ny_inc_ghost -2*nghost);
-                    uf(j, k+i*domain_ny_inc_ghost+nghost+domain_ny) = uf(j, k+i*domain_ny_inc_ghost+3*nghost+domain_ny);
-                }
+
+    for (int i=0; i<nodomains; i++)
+        for (int j=0; j<ny_all; j++)
+            for (int k=0; k<nghost; k++) {
+                uf(k+i*domain_nx_inc_ghost, j) = uf(k+i*domain_nx_inc_ghost-2*nghost, j);
+                uf(k+i*domain_nx_inc_ghost+nghost+domain_nx, j) = uf(k+i*domain_nx_inc_ghost+3*nghost+domain_nx, j);
+            }
+
+            for (int i=0; i<nodomains; i++)
+                for (int j=0; j<nx_all; j++)
+                    for (int k=0; k<nghost; k++) {
+                        uf(j, k+i*domain_ny_inc_ghost) = uf(j, k+i*domain_ny_inc_ghost -2*nghost);
+                        uf(j, k+i*domain_ny_inc_ghost+nghost+domain_ny) = uf(j, k+i*domain_ny_inc_ghost+3*nghost+domain_ny);
+                    }
 // Copy data between right and left boundaries
 //     /*for (int iy = 0; iy < ny_all; ++iy)
 //         for (int ix = 0; ix < nghost; ++ix) {
@@ -326,7 +326,7 @@ template <class Physics, class Limiter>
 //             u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
 //         }
 //     }
-}
+                }
 /**
  * ### Initial flux and speed computations
  * 
@@ -427,15 +427,15 @@ template <class Physics, class Limiter>
                 for (int m = 0; m < v(ix,iy,tno).size(); ++m) {
                     v(ix,iy,tno)[m] =
                     0.2500 * ( ug(ix,iy,tno)[m] + ug(ix+1,iy,tno)[m] +
-                       ug(ix,iy+1,tno)[m] + ug(ix+1,iy+1,tno)[m] ) -
+                     ug(ix,iy+1,tno)[m] + ug(ix+1,iy+1,tno)[m] ) -
                     0.0625 * ( ux(ix+1,iy,tno)[m] - ux(ix,iy,tno)[m] +
-                       ux(ix+1,iy+1,tno)[m] - ux(ix,iy+1,tno)[m] +
-                       uy(ix,  iy+1,tno)[m] - uy(ix,  iy,tno)[m] +
-                       uy(ix+1,iy+1,tno)[m] - uy(ix+1,iy,tno)[m] ) -
+                     ux(ix+1,iy+1,tno)[m] - ux(ix,iy+1,tno)[m] +
+                     uy(ix,  iy+1,tno)[m] - uy(ix,  iy,tno)[m] +
+                     uy(ix+1,iy+1,tno)[m] - uy(ix+1,iy,tno)[m] ) -
                     dtcdx2 * ( f(ix+1,iy,tno)[m] - f(ix,iy,tno)[m] +
-                       f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
+                     f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
                     dtcdy2 * ( g(ix,  iy+1,tno)[m] - g(ix,  iy,tno)[m] +
-                       g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
+                     g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
                 }
             }
 
@@ -467,38 +467,40 @@ template <class Physics, class Limiter>
  {
     bool done = false;
     real t = 0;
-    #pragma omp parallel num_threads(nodomains*nodomains)
+    #pragma omp parallel num_threads(nodomains*nodomains) \
+    shared(done)
     while (!done) {
         real dt;
         int tno = omp_get_thread_num();
+        
+        #pragma omp single
+        apply_periodic();
+        
         for (int io = 0; io < 2; ++io) {
             real cx[] = real[nodomains*nodomains], cy[]= real[nodomains*nodomains];
-            #paragma omp single
-            apply_periodic();
             compute_fg_speeds(cx+tno, cy+tno, tno); 
             limited_derivs(tno);
             if (io == 0) {
                 #pragma omp barrier 
+                #pragma omp single
                 {
-                    #pragma omp single
-                    {
-                        real cxmax=cx[0], cymax=cy[0];
-                        for (int i=1; i<nodomains*nodomains; i++) {
-                            cxmax = (cxmax>cx[i])?cxmax:cx[i];
-                            cymax = (cymax>cy[i])?cymax:cy[i];
-                        }
-                      
-                        dt = cfl / (cxmax/dx > cymax/dy ? cxmax/dx : cymax/dy);
+                    real cxmax=cx[0], cymax=cy[0];
+                    for (int i=1; i<nodomains*nodomains; i++) {
+                        cxmax = (cxmax>cx[i])?cxmax:cx[i];
+                        cymax = (cymax>cy[i])?cymax:cy[i];
+                    }
+
+                    dt = cfl / (cxmax/dx > cymax/dy ? cxmax/dx : cymax/dy);
                     
-                        if (t + 2*dt >= tfinal) {
-                            dt = (tfinal-t)/2;
-                            done = true;
-                        }
+                    if (t + 2*dt >= tfinal) {
+                        dt = (tfinal-t)/2;
+                        done = true;
                     }
                 }
             }
             compute_step(io, dt, tno);
             t += dt;
+            #pragma omp barrier
         }
     }
 }
@@ -538,7 +540,7 @@ void Central2D<Physics, Limiter>::solution_check()
         hu_sum *= cell_area;
         hv_sum *= cell_area;
         printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-           h_sum, hu_sum, hv_sum, hmin, hmax);
+         h_sum, hu_sum, hv_sum, hmin, hmax);
     }
 
 //ldoc off
