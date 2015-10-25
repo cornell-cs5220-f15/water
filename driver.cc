@@ -7,6 +7,7 @@
 #include "meshio.h"
 #include "minmod.h"
 #include "shallow2d.h"
+#include "shallow2d_block.h"
 #include "shallow2d_vec.h"
 
 #ifdef _OPENMP
@@ -55,7 +56,7 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
 #if defined(VERSION_ref)
     typedef ReferenceSim Sim;
 #elif defined(VERSION_block)
-    typedef Central2DBlock<Shallow2DVec, MinMod<Shallow2DVec::real>> Sim;
+    typedef Central2DBlock<Shallow2DBlock, MinMod<Shallow2DBlock::real>> Sim;
 #elif defined(VERSION_vec)
     typedef Central2DVec<Shallow2DVec, MinMod<Shallow2DVec::real>> Sim;
 #elif defined(VERSION_buggy)
