@@ -58,7 +58,8 @@ public:
         if (fp)
             for (int j = 0; j < sim.ysize(); ++j)
                 for (int i = 0; i < sim.xsize(); ++i) {
-                    float uij = sim(i,j)[0];
+                    float uij =  *(sim.pointers[0]+(sim.ng+j)*sim.nx_all+(sim.ng+i));
+                   // float uij = sim(i,j)[0];
                     fwrite(&uij, sizeof(float), 1, fp);
                 }
     }

@@ -1,5 +1,5 @@
-#ifndef MINMOD_H
-#define MINMOD_H
+#ifndef MINMODVEC_H
+#define MINMODVEC_H
 
 #include <cmath>
 

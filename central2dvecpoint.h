@@ -426,12 +426,12 @@ void Central2D<Physics, Limiter>::central2d_predict(real* v,
 }
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::central2d_correct(real* restrict v,
-                       const real* restrict u,
-                       const real* restrict ux,
-                       const real* restrict  uy,
-                       const real* restrict  f,
-                       const real* restrict g,
+void Central2D<Physics, Limiter>::central2d_correct(real*  v,
+                       const real*  u,
+                       const real*  ux,
+                       const real*  uy,
+                       const real*  f,
+                       const real*  g,
                        float dtcdx2, float dtcdy2,
                        int xlo, int xhi, int ylo, int yhi,
                        int nx, int ny, int nfield)
