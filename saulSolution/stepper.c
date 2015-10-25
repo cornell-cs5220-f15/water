@@ -343,6 +343,9 @@ void central2d_step(float* restrict u, float* restrict v,
                       ng-io, nx+ng-io,
                       ng-io, ny+ng-io,
                       nx_all, ny_all, nfield);
+    memcpy(u,
+           v,
+           (nfield*ny_all) * nx_all * sizeof(float));
 }
 
 
@@ -451,7 +454,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
     
     omp_set_dynamic(0);
     omp_set_num_threads(nthreads);
-    printf("a ver %e",sim->u[5]);
+ 
     #pragma omp parallel 
     {
         thread = omp_get_thread_num();
@@ -472,14 +475,14 @@ int central2d_xrun(float* restrict u, float* restrict v,
                 }
             }
             copytoregion(region,sim,thread,p);
-            printf("a ver %e",region->u[5]);
+   
             central2d_periodic(region->u,region->nx,region->ny,region->ng,region->nfield);
             for (iter=0;iter<timef;++iter){
                 central2d_step(region->u, region->v, region->scratch, region->f, region->g,
-                               0, (region->nx)+4, (region->ny)+4, region->ng-2,
+                               0, (region->nx), (region->ny), region->ng,
                                region->nfield, region->flux, region->speed,
                                dt, region->dx, region->dy);
-                central2d_step(region->v, region->u, region->scratch, region->f, region->g,
+                central2d_step(region->u, region->v, region->scratch, region->f, region->g,
                                1, (region->nx), (region->ny), region->ng,
                                region->nfield, region->flux, region->speed,
                                dt, region->dx, region->dy);
