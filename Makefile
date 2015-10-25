@@ -24,6 +24,7 @@ SIMULATORS = \
 HEADERS = \
 	central2d.h \
 	central2d_block.h \
+	central2d_block2.h \
 	central2d_buggy.h \
 	central2d_copy.h \
 	central2d_par.h \
