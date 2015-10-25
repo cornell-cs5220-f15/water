@@ -437,7 +437,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    int nx, int ny, int ng,
                    int nfield, flux_t flux, speed_t speed,
                    float tfinal, float dx, float dy, float cfl,
-                   int nthreads, int timef)
+                   int nthreads, int timef,central2d_t* sim)
 {
     int nstep = 0;
     int nx_all = nx + 2*ng;
@@ -450,7 +450,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
     float dt;
     
     
-    #pragma omp parallel default(none) shared() private(iter,thread)
+    #pragma omp parallel default(none) private(iter,thread)
     {
         thread = omp_get_thread_num();
         
@@ -501,5 +501,5 @@ int central2d_run(central2d_t* sim, float tfinal, int nthreads, int timef)
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
                           tfinal, sim->dx, sim->dy, sim->cfl,
-                          nthreads,timef);
+                          nthreads,timef,sim);
 }

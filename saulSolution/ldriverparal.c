@@ -216,7 +216,7 @@ int run_sim(lua_State* L)
     int frames = lget_int(L, "frames", 50);
     const char* fname = lget_string(L, "out", "sim.out");
 
-    central2d_t* sim = central2d_f(w,h, nx,ny,
+    central2d_t* sim = central2d_init(w,h, nx,ny,
                                       3, shallow2d_flux, shallow2d_speed, cfl);
     lua_init_sim(L,sim);
 
@@ -227,7 +227,7 @@ int run_sim(lua_State* L)
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        int nstep = central2d_run(sim, ftime);
+        int nstep = central2d_run(sim, ftime, nthreads, timef);
         double t1 = omp_get_wtime();
         double elapsed = t1-t0;
         printf("Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
