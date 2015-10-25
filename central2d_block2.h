@@ -74,18 +74,26 @@ private:
         return flat_array::field(xs, nx_all_, ny_all_, k);
     }
 
-    #define FIELD_GETTERS(xs) \
+    #define BLOCK_MAP(function) \
+        function(u) \
+        function(f) \
+        function(g) \
+        function(ux) \
+        function(uy) \
+        function(fx) \
+        function(gy) \
+        function(v)
+
+    #define BLOCK_FIELDS(xs) \
         real *xs##0() { return field(xs##_, 0); } \
         real *xs##1() { return field(xs##_, 1); } \
         real *xs##2() { return field(xs##_, 2); }
-    FIELD_GETTERS(u);
-    FIELD_GETTERS(f);
-    FIELD_GETTERS(g);
-    FIELD_GETTERS(ux);
-    FIELD_GETTERS(uy);
-    FIELD_GETTERS(fx);
-    FIELD_GETTERS(gy);
-    FIELD_GETTERS(v);
+
+    #define BLOCK_INDEXERS(xs) \
+        real *xs(int k, int x, int y) { at(field(xs##_, k), x, y); }
+
+    BLOCK_MAP(BLOCK_FIELDS)
+    BLOCK_MAP(BLOCK_INDEXERS)
 
 private:
     void flux();
@@ -104,7 +112,20 @@ void Block<Physics, Limiter>::flux() {
 
 template <class Physics, class Limiter>
 void Block<Physics, Limiter>::limited_derivs() {
-    // TODO
+    using L = Limiter;
+    for (int k = 0; k < num_fields; ++k) {
+        for (int y = 1; y < ny_all_-1; ++y) {
+            for (int x = 1; x < nx_all_-1; ++x) {
+                // x derivs
+                *ux(k, x, y) = L::limdiff(*u(k,x-1,y), *u(k,x,y), *u(k,x+1,y));
+                *fx(k, x, y) = L::limdiff(*f(k,x-1,y), *f(k,x,y), *f(k,x+1,y));
+
+                // y derivs
+                *uy(k, x, y) = L::limdiff(*u(k,x,y-1), *u(k,x,y), *u(k,x,y+1));
+                *gy(k, x, y) = L::limdiff(*g(k,x,y-1), *g(k,x,y), *g(k,x,y+1));
+            }
+        }
+    }
 }
 
 template <class Physics, class Limiter>
