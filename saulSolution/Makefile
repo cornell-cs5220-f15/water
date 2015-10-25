@@ -23,16 +23,16 @@ include Makefile.in.$(PLATFORM)
 # ===
 # Main driver and sample run
 
-lshallow: ldriverparal.o shallow2d.o stepperpar.o
+lshallow: ldriver.o shallow2d.o stepper.o
 	$(CC) $(CFLAGS) $(LUA_CFLAGS) -o $@ $^ $(LUA_LIBS)
 
-ldriverparal.o: ldriverparal.c shallow2d.h
+ldriver.o: ldriver.c shallow2d.h
 	$(CC) $(CFLAGS) $(LUA_CFLAGS) -c $<
 
 shallow2d.o: shallow2d.c
 	$(CC) $(CFLAGS) -c $<
 
-stepperpar.o: stepperpar.c
+stepper.o: stepper.c
 	$(CC) $(CFLAGS) -c $<
 
 lshallow.dSYM: lshallow
@@ -43,11 +43,11 @@ run: dam_break.gif
 
 .PHONY: iprofile
 iprofile: lshallow lshallow.dSYM
-	iprofiler -timeprofiler -o lshallow_perf ./lshallow testspar.lua dam 400
+	iprofiler -timeprofiler -o lshallow_perf ./lshallow tests.lua dam 400
 	open lshallow_perf.dtps
 
 big: lshallow
-	./lshallow testspar.lua dam 400
+	./lshallow tests.lua dam 400
 
 
 # ===
@@ -82,10 +82,10 @@ wave.mp4: wave.out
 # Generate output files
 
 dam_break.out: lshallow
-	./lshallow testspar.lua dam
+	./lshallow tests.lua dam
 
 wave.out: lshallow
-	./lshallow testspar.lua wave
+	./lshallow tests.lua wave
 
 # ===
 # Generate documentation
@@ -93,7 +93,7 @@ wave.out: lshallow
 shallow.pdf: intro.md jt-scheme.md shallow.md
 	pandoc --toc $^ -o $@
 
-shallow.md: stepperpar.h stepperpar.c shallow2d.h shallow2d.c ldriverparal.c
+shallow.md: stepper.h stepper.c shallow2d.h shallow2d.c ldriver.c
 	ldoc $^ -o $@
 
 # ===
