@@ -259,11 +259,11 @@ template <class Physics, class Limiter>
 
         for (int y = 0; iy < domain_ny_inc_ghost; y++){
             for (int x = 0; x < nghost; x++){
-                u(x, y, tno) = ghost_cells((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno/nodomains) - nghost + ny + y) % ny);
+                u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno/nodomains) - nghost + ny + y) % ny);
             }
 
             for (int x = nghost + domain_nx - x_limit; x < nghost * 2 + domain_nx; x++){
-                u(x, y, tno) = ghost_cells((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
+                u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
             }
         }
 
@@ -278,11 +278,11 @@ template <class Physics, class Limiter>
     // Copy data between top and bottom boundari
     for (int x = 0; x < domain_nx_inc_ghost; x++){
         for (int y = 0; y < nghost; y++){
-            u(x, y, tno) = ghost_cells((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
+            u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
         }
 
         for (int y = nghost + domain_ny - y_limit; y < nghost * 2 + domain_ny; y++){
-            u(x, y, tno) = ghost_cells((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
+            u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
         }
     }
 }
