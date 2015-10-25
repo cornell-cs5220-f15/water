@@ -155,6 +155,14 @@ private:
               const real* restrict u, const real* restrict hu, const real* restrict hv,
               const int len);
     void flux();
+    void limited_derivsx(real* restrict dx,
+                         const real* restrict x,
+                         const int nx_all,
+                         const int ny_all);
+    void limited_derivsy(real* restrict dy,
+                         const real* restrict y,
+                         const int nx_all,
+                         const int ny_all);
     void limited_derivs();
     void compute_step(int io, real dt);
 };
@@ -267,6 +275,37 @@ void Central2DBlock<Physics, Limiter>::flux() {
     }
 }
 
+
+template <class Physics, class Limiter>
+void Central2DBlock<Physics, Limiter>::limited_derivsx(real* restrict _dx,
+                                                      const real* restrict _x,
+                                                      const int nx_all,
+                                                      const int ny_all) {
+    for (int x = 1; x < nx_all - 1; ++x) {
+        for (int y = 1; y < ny_all - 1; ++y) {
+            _dx[offset(nx_all, ny_all, 0, x, y)] = Limiter::limdiff(
+                    _x[offset(nx_all, ny_all, 0, x-1, y)],
+                    _x[offset(nx_all, ny_all, 0, x,   y)],
+                    _x[offset(nx_all, ny_all, 0, x+1, y)]);
+        }
+    }
+}
+
+template <class Physics, class Limiter>
+void Central2DBlock<Physics, Limiter>::limited_derivsy(real* restrict _dy,
+                                                      const real* restrict _y,
+                                                      const int nx_all,
+                                                      const int ny_all) {
+    for (int x = 1; x < nx_all - 1; ++x) {
+        for (int y = 1; y < ny_all - 1; ++y) {
+            _dy[offset(nx_all, ny_all, 0, x, y)] = Limiter::limdiff(
+                    _y[offset(nx_all, ny_all, 0, x, y-1)],
+                    _y[offset(nx_all, ny_all, 0, x, y)],
+                    _y[offset(nx_all, ny_all, 0, x, y+1)]);
+        }
+    }
+}
+
 template <class Physics, class Limiter>
 void Central2DBlock<Physics, Limiter>::limited_derivs() {
     using L = Limiter;
@@ -366,7 +405,7 @@ void Central2DBlock<Physics, Limiter>::run_block(const int io,
     //                           nx = 6, ny = 5
     //                       nx_all = 8, ny_all = 7
     //                           BX = 2, BY = 2
-    const int bghosts = 1;
+    const int bghosts = 3;
     const int ix = nghost + (bx * block_size);
     const int iy = nghost + (by * block_size);
     const int width  = (ix+block_size > nx+nghost) ? nx+nghost-ix : block_size;
@@ -395,6 +434,8 @@ void Central2DBlock<Physics, Limiter>::run_block(const int io,
     // TODO(mwhittaker): remove hack and use blocks.
     //   - block stuff
     //   - fix writing to v
+
+    // flux
     real *f0 = &_f[offset(width_all, height_all, 0, 0, 0)];
     real *f1 = &_f[offset(width_all, height_all, 1, 0, 0)];
     real *f2 = &_f[offset(width_all, height_all, 2, 0, 0)];
@@ -405,6 +446,25 @@ void Central2DBlock<Physics, Limiter>::run_block(const int io,
     real *u1 = &_u[offset(width_all, height_all, 1, 0, 0)];
     real *u2 = &_u[offset(width_all, height_all, 2, 0, 0)];
     flux(f0, f1, f2, g0, g1, g2, u0, u1, u2, width_all * height_all);
+
+    // limited_derivs
+    for (int k = 0; k < num_fields; ++k) {
+        // x derivs
+        limited_derivsx(&_ux[offset(width_all, height_all, k, 0, 0)],
+                        &_u [offset(width_all, height_all, k, 0, 0)],
+                        width_all, height_all);
+        limited_derivsx(&_fx[offset(width_all, height_all, k, 0, 0)],
+                        &_f [offset(width_all, height_all, k, 0, 0)],
+                        width_all, height_all);
+
+        // y derivs
+        limited_derivsy(&_uy[offset(width_all, height_all, k, 0, 0)],
+                        &_u [offset(width_all, height_all, k, 0, 0)],
+                        width_all, height_all);
+        limited_derivsy(&_gy[offset(width_all, height_all, k, 0, 0)],
+                        &_g [offset(width_all, height_all, k, 0, 0)],
+                        width_all, height_all);
+    }
 
     free(_u);
     free(_f);
