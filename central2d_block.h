@@ -181,6 +181,16 @@ private:
                         const real* restrict u2,
                         const real dtcdx2, const real dtcdy2,
                         const int len);
+    void corrector(real* restrict v,
+                   const real* restrict u,
+                   const real* restrict ux,
+                   const real* restrict uy,
+                   const real* restrict f,
+                   const real* restrict g,
+                   const real dtcdx2, const real dtcdy2,
+                   const int nx,      const int ny,
+                   const int nx_all,  const int ny_all,
+                   const int bghost,  const int io);
     void compute_step(int io, real dt);
 };
 
@@ -363,6 +373,49 @@ void Central2DBlock<Physics, Limiter>::predictor_flux(
         hv -= dtcdy2 * gy2[i];
 
         Physics::flux(&f0[i], &f1[i], &f2[i], &g0[i], &g1[i], &g2[i], h, hu, hv);
+    }
+}
+
+template <class Physics, class Limiter>
+void Central2DBlock<Physics, Limiter>::corrector(
+        real* restrict v,
+        const real* restrict u,
+        const real* restrict ux,
+        const real* restrict uy,
+        const real* restrict f,
+        const real* restrict g,
+        const real dtcdx2, const real dtcdy2,
+        const int nx,      const int ny,
+        const int nx_all,  const int ny_all,
+        const int bghost,  const int io) {
+
+    for (int iy = bghost-io; iy < ny+bghost-io; ++iy) {
+        for (int ix = bghost-io; ix < nx+bghost-io; ++ix) {
+            v[offset(nx_all, ny_all, 0, ix,iy)] =
+                0.2500 * ( u[offset(nx_all, ny_all, 0, ix,   iy  )] +
+                           u[offset(nx_all, ny_all, 0, ix+1, iy  )] +
+                           u[offset(nx_all, ny_all, 0, ix,   iy+1)] +
+                           u[offset(nx_all, ny_all, 0, ix+1, iy+1)] ) -
+
+                0.0625 * ( ux[offset(nx_all, ny_all, 0, ix+1, iy  )] -
+                           ux[offset(nx_all, ny_all, 0, ix,   iy  )] +
+                           ux[offset(nx_all, ny_all, 0, ix+1, iy+1)] -
+                           ux[offset(nx_all, ny_all, 0, ix,   iy+1)] +
+                           uy[offset(nx_all, ny_all, 0, ix,   iy+1)] -
+                           uy[offset(nx_all, ny_all, 0, ix,   iy  )] +
+                           uy[offset(nx_all, ny_all, 0, ix+1, iy+1)] -
+                           uy[offset(nx_all, ny_all, 0, ix+1, iy  )] ) -
+
+                dtcdx2 * ( f[offset(nx_all, ny_all, 0,  ix+1, iy  )] -
+                           f[offset(nx_all, ny_all, 0,  ix,   iy  )] +
+                           f[offset(nx_all, ny_all, 0,  ix+1, iy+1)] -
+                           f[offset(nx_all, ny_all, 0,  ix,   iy+1)] ) -
+
+                dtcdy2 * ( g[offset(nx_all, ny_all, 0,  ix,   iy+1)] -
+                           g[offset(nx_all, ny_all, 0,  ix,   iy  )] +
+                           g[offset(nx_all, ny_all, 0,  ix+1, iy+1)] -
+                           g[offset(nx_all, ny_all, 0,  ix+1, iy  )] );
+        }
     }
 }
 
