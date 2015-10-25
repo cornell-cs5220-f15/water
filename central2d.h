@@ -1,102 +1,36 @@
+#include <omp.h>
+
+#define ALLOC alloc_if(1)
+#define FREE free_if(1)
+#define RETAIN free_if(0)
+#define REUSE alloc_if(0)
+
+
 #ifndef CENTRAL2D_H
 #define CENTRAL2D_H
+
 
 #include <cstdio>
 #include <cmath>
 #include <cassert>
 #include <vector>
+#include "immintrin.h"
 
-//ldoc on
-/**
- * # Jiang-Tadmor central difference scheme
- * 
- * [Jiang and Tadmor][jt] proposed a high-resolution finite difference
- * scheme for solving hyperbolic PDE systems in two space dimensions.
- * The method is particularly attractive because, unlike many other
- * methods in this space, it does not require that we write any
- * solvers for problems with special initial data (so-called Riemann
- * problems), nor even that we compute Jacobians of the flux
- * functions.
- * 
- * While this code is based loosely on the Fortran code at the end of
- * Jiang and Tadmor's paper, we've written the current code to be
- * physics-agnostic (rather than hardwiring it to the shallow water
- * equations -- or the Euler equations in the Jiang-Tadmor paper).
- * If you're interested in the Euler equations, feel free to add your
- * own physics class to support them!
- * 
- * [jt]: http://www.cscamm.umd.edu/tadmor/pub/central-schemes/Jiang-Tadmor.SISSC-98.pdf
- * 
- * ## Staggered grids
- * 
- * The Jiang-Tadmor scheme works by alternating between a main grid
- * and a staggered grid offset by half a step in each direction.
- * Understanding this is important, particularly if you want to apply
- * a domain decomposition method and batch time steps between
- * synchronization barriers in your parallel code!
- * 
- * In even-numbered steps, the entry `u(i,j)` in the array of solution
- * values represents the average value of a cell centered at a point
- * $(x_i,y_j)$.  At the following odd-numbered step, the same entry
- * represents values for a cell centered at $(x_i + \Delta x/2, y_j +
- * \Delta y/2)$.  However, whenever we run a simulation, we always take
- * an even number of steps, so that outside the solver we can just think
- * about values on the main grid.  If `uold` and `unew` represent the
- * information at two successive *even* time steps (i.e. they represent
- * data on the same grid), then `unew(i,j)` depends indirectly on
- * `u(p,q)` for $i-3 \leq p \leq i+3$ and $j-3 \leq q \leq j+3$.
- * 
- * We currently manage this implicitly: the arrays at even time steps
- * represent cell values on the main grid, and arrays at odd steps
- * represent cell values on the staggered grid.  Our main `run` 
- * function always takes an even number of time steps to ensure we end
- * up on the primary grid.
- * 
- * ## Interface
- * 
- * We want a clean separation between the physics, the solver,
- * and the auxiliary limiter methods used by the solver.  At the same
- * time, we don't want to pay the overhead (mostly in terms of lost
- * optimization opportunities) for calling across an abstraction
- * barrier in the inner loops of our solver.  We can get around this
- * in C++ by providing the solver with *template arguments*, resolved
- * at compile time, that describe separate classes to implement the
- * physics and the limiter.
- *
- * The `Central2D` solver class takes two template arguments:
- * `Physics` and `Limiter`.  For `Physics`, we expect the name of a class
- * that defines:
- * 
- *  - A type for numerical data (`real`)
- *  - A type for solution and flux vectors in each cell (`vec`)
- *  - A flux computation function (`flux(vec& F, vec& G, const vec& U)`)
- *  - A wave speed computation function 
- *    (`wave_speed(real& cx, real& cy, const vec& U)`).
- * 
- * The `Limiter` argument is a type with a static function `limdiff`
- * with the signature
- * 
- *         limdiff(fm, f0, fp)
- * 
- * The semantics are that `fm`, `f0`, and `fp` are three successive
- * grid points in some direction, and the function returns an approximate
- * (scaled) derivative value from these points.
- * 
- * The solver keeps arrays for the solution, flux values, derivatives
- * of the solution and the fluxes, and the solution at the next time
- * point.  We use the C++ `vector` class to manage storage for these
- * arrays; but since we want to think of them as 2D arrays, we also
- * provide convenience functions to access them with multiple indices
- * (though we maintain C-style 0-based indexing).  The internal arrays
- * are padded with ghost cells; the ghost cell in the lower left corner
- * of the domain has index (0,0).
- */
+#ifndef NWATER
+    #define NWATER
+    #define NPAD 4
+    #define NX 200
+    #define BLOCKS 2
+    #define NBLOCK 100
+    #define NBLOCKALL 108
+    #define NSTRIDE 3
+#endif
+
 
 template <class Physics, class Limiter>
 class Central2D {
 public:
-    typedef typename Physics::real real;
-    typedef typename Physics::vec  vec;
+    typedef float real;
 
     Central2D(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
@@ -104,23 +38,17 @@ public:
         nx(nx), ny(ny),
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
-        dx(w/nx), dy(h/ny),
-        cfl(cfl), 
-        u_ (nx_all * ny_all),
-        f_ (nx_all * ny_all),
-        g_ (nx_all * ny_all),
-        ux_(nx_all * ny_all),
-        uy_(nx_all * ny_all),
-        fx_(nx_all * ny_all),
-        gy_(nx_all * ny_all),
-        v_ (nx_all * ny_all) {}
+        dx(w/NX), dy(h/NX),
+        cfl(cfl) {}
+
+        static const int stride = 16;
+        real dtcdx2, dtcdy2;
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
 
     // Call f(Uxy, x, y) at each cell center to set initial conditions
-    template <typename F>
-    void init(F f);
+    inline __declspec(target (mic)) void init();
 
     // Diagnostics
     void solution_check();
@@ -130,44 +58,81 @@ public:
     int ysize() const { return ny; }
     
     // Read / write elements of simulation state
-    vec&       operator()(int i, int j) {
-        return u_[offset(i+nghost,j+nghost)];
+    real&       operator()(int i, int j) {
+        return u1_[offset(i,j)];
     }
     
-    const vec& operator()(int i, int j) const {
-        return u_[offset(i+nghost,j+nghost)];
+    const real& operator()(int i, int j) const {
+        return u1_[offset(i,j)];
     }
     
 private:
     static constexpr int nghost = 3;   // Number of ghost cells
+    static constexpr real ghalf = 9.8*0.5;
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
 
-    std::vector<vec> u_;            // Solution values
-    std::vector<vec> f_;            // Fluxes in x
-    std::vector<vec> g_;            // Fluxes in y
-    std::vector<vec> ux_;           // x differences of u
-    std::vector<vec> uy_;           // y differences of u
-    std::vector<vec> fx_;           // x differences of f
-    std::vector<vec> gy_;           // y differences of g
-    std::vector<vec> v_;            // Solution values at next step
+         // Solution values at next step
 
     // Array accessor functions
+    
+    ///Naive, hard-to-read but easy to change change from 8 vectors to 24 arrays
+    static const int arrsize = (NX*NX) + stride - (NX*NX)%stride;
+
+    real u1_[NX*NX];            // Solution values
+    real u2_[NX*NX];            
+    real u3_[NX*NX]; 
+    real f1_[arrsize];            // Fluxes in x
+    real f2_[arrsize];
+    real f3_[arrsize]; 
+    real g1_[arrsize];            // Fluxes in y
+    real g2_[arrsize];
+    real g3_[arrsize];
+    real ux1_[arrsize];           // x differences of u
+    real ux2_[arrsize];
+    real ux3_[arrsize];
+    real uy1_[arrsize];           // y differences of u
+    real uy2_[arrsize];
+    real uy3_[arrsize];
+    real fx1_[arrsize];           // x differences of f
+    real fx2_[arrsize];
+    real fx3_[arrsize];
+    real gy1_[arrsize];           // y differences of g
+    real gy2_[arrsize];
+    real gy3_[arrsize];
+    real v1_[arrsize];            // Solution values at next step
+    real v2_[arrsize];
+    real v3_[arrsize];
 
     int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
-    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
-    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
-    vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
-    vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
-
-    vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
-    vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
-    vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
-    vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
+    real& u1(int ix, int iy) { return u1_[offset(ix,iy)]; }            // Solution values
+    real& u2(int ix, int iy) { return u2_[offset(ix,iy)]; }            
+    real& u3(int ix, int iy) { return u3_[offset(ix,iy)]; } 
+    real& f1(int ix, int iy) { return f1_[offset(ix,iy)]; }            // Fluxes in x
+    real& f2(int ix, int iy) { return f2_[offset(ix,iy)]; }
+    real& f3(int ix, int iy) { return f3_[offset(ix,iy)]; } 
+    real& g1(int ix, int iy) { return g1_[offset(ix,iy)]; }            // Fluxes in y
+    real& g2(int ix, int iy) { return g2_[offset(ix,iy)]; }
+    real& g3(int ix, int iy) { return g3_[offset(ix,iy)]; }
+    real& ux1(int ix, int iy) { return ux1_[offset(ix,iy)]; }           // x differences of u
+    real& ux2(int ix, int iy) { return ux2_[offset(ix,iy)]; }
+    real& ux3(int ix, int iy) { return ux3_[offset(ix,iy)]; }
+    real& uy1(int ix, int iy) { return uy1_[offset(ix,iy)]; }           // y differences of u
+    real& uy2(int ix, int iy) { return uy2_[offset(ix,iy)]; }
+    real& uy3(int ix, int iy) { return uy3_[offset(ix,iy)]; }
+    real& fx1(int ix, int iy) { return fx1_[offset(ix,iy)]; }           // x differences of f
+    real& fx2(int ix, int iy) { return fx2_[offset(ix,iy)]; }
+    real& fx3(int ix, int iy) { return fx3_[offset(ix,iy)]; }
+    real& gy1(int ix, int iy) { return gy1_[offset(ix,iy)]; }           // y differences of g
+    real& gy2(int ix, int iy) { return gy2_[offset(ix,iy)]; }
+    real& gy3(int ix, int iy) { return gy3_[offset(ix,iy)]; }
+    real& v1(int ix, int iy) {return v1_[offset(ix,iy)]; }            // Solution values at next step
+    real& v2(int ix, int iy) {return v2_[offset(ix,iy)]; }
+    real& v3(int ix, int iy) {return v3_[offset(ix,iy)]; }
 
     // Wrapped accessor (periodic BC)
     int ioffset(int ix, int iy) {
@@ -175,19 +140,18 @@ private:
                        (iy+ny-nghost) % ny + nghost );
     }
 
-    vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
+    real& uwrap1(int ix, int iy)  { return u1_[ioffset(ix,iy)]; }
+    real& uwrap2(int ix, int iy)  { return u2_[ioffset(ix,iy)]; }
+    real& uwrap3(int ix, int iy)  { return u3_[ioffset(ix,iy)]; }
 
-    // Apply limiter to all components in a vector
-    static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
-        for (int m = 0; m < du.size(); ++m)
-            du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
-    }
 
     // Stages of the main algorithm
-    void apply_periodic();
-    void compute_fg_speeds(real& cx, real& cy);
-    void limited_derivs();
-    void compute_step(int io, real dt);
+    inline __declspec(target (mic)) void apply_periodic();
+    inline __declspec(target (mic)) void compute_fg_speeds(real& cx, real& cy);
+    inline __declspec(target (mic)) void limited_derivs();
+     inline __declspec(target (mic)) void predictor();
+     inline __declspec(target (mic)) void corrector(int io, real* v, real* u, real* ux, real* uy, real* f, real* g, real dtcdx2, real dtcdy2);
+    inline __declspec(target (mic)) void compute_step(int io, real dt);
 
 };
 
@@ -204,12 +168,20 @@ private:
  */
 
 template <class Physics, class Limiter>
-template <typename F>
-void Central2D<Physics, Limiter>::init(F f)
+void Central2D<Physics, Limiter>::init()
 {
+    //default is dam break initial condition to generate the final image. 
+    #pragma omp parallel for 
     for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
-            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+        for (int ix = 0; ix < nx; ++ix){
+            real x = (ix+0.5)*dx;
+            real y = (iy+0.5)*dy;
+            x -= 1;
+            y -= 1;
+            u1(nghost+ix,nghost+iy) = 1.0 + 0.5*(x*x + y*y < 0.25+1e-5);
+            u2(nghost+ix,nghost+iy) = 0;
+            u3(nghost+ix,nghost+iy) = 0;
+        }
 }
 
 /**
@@ -230,20 +202,31 @@ void Central2D<Physics, Limiter>::init(F f)
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::apply_periodic()
+inline __declspec(target (mic)) void Central2D<Physics, Limiter>::apply_periodic()
 {
     // Copy data between right and left boundaries
+    #pragma omp parallel for
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nghost; ++ix) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
+            u1(ix,          iy) = uwrap1(ix,          iy);
+            u1(nx+nghost+ix,iy) = uwrap1(nx+nghost+ix,iy);
+            u2(ix,          iy) = uwrap2(ix,          iy);
+            u2(nx+nghost+ix,iy) = uwrap2(nx+nghost+ix,iy);
+            u3(ix,          iy) = uwrap3(ix,          iy);
+            u3(nx+nghost+ix,iy) = uwrap3(nx+nghost+ix,iy);
+
         }
 
     // Copy data between top and bottom boundaries
+    #pragma omp parallel for
     for (int ix = 0; ix < nx_all; ++ix)
         for (int iy = 0; iy < nghost; ++iy) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
+            u1(ix,          iy) = uwrap1(ix,          iy);
+            u1(ix,ny+nghost+iy) = uwrap1(ix,ny+nghost+iy);
+            u2(ix,          iy) = uwrap2(ix,          iy);
+            u2(ix,ny+nghost+iy) = uwrap2(ix,ny+nghost+iy);
+            u3(ix,          iy) = uwrap3(ix,          iy);
+            u3(ix,ny+nghost+iy) = uwrap3(ix,ny+nghost+iy);
         }
 }
 
@@ -259,16 +242,28 @@ void Central2D<Physics, Limiter>::apply_periodic()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
+inline __declspec(target (mic)) void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 {
-    using namespace std;
+    const real grav = 9.8;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+
+            //calculate flux
+            real h = u1(ix,iy), hu = u2(ix,iy), hv = u3(ix,iy);
+            f1(ix,iy) = hu;
+            f2(ix,iy) = hu*hu/h + grav *(0.5)*h*h;
+            f3(ix,iy) = hu*hv/h;
+
+            g1(ix,iy) = hv;
+            g2(ix,iy) = hu*hv/h;
+            g3(ix,iy) = hv*hv/h + grav *(0.5)*h*h;
+
+            real root_gh = sqrt(grav * h);  // NB: Don't let h go negative!
+            cell_cx = abs(hu/h) + root_gh;
+            cell_cy = abs(hv/h) + root_gh;
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
@@ -285,18 +280,27 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::limited_derivs()
+inline __declspec(target (mic)) void Central2D<Physics, Limiter>::limited_derivs()
 {
+    #pragma omp parallel for 
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
 
             // x derivs
-            limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-            limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
+            ux1(ix,iy) = Limiter::limdiff( u1(ix-1,iy), u1(ix,iy), u1(ix+1,iy) );
+            fx1(ix,iy) = Limiter::limdiff( f1(ix-1,iy), f1(ix,iy), f1(ix+1,iy) );
+            ux2(ix,iy) = Limiter::limdiff( u2(ix-1,iy), u2(ix,iy), u2(ix+1,iy) );
+            fx2(ix,iy) = Limiter::limdiff( f2(ix-1,iy), f2(ix,iy), f2(ix+1,iy) );
+            ux3(ix,iy) = Limiter::limdiff( u3(ix-1,iy), u3(ix,iy), u3(ix+1,iy) );
+            fx3(ix,iy) = Limiter::limdiff( f3(ix-1,iy), f3(ix,iy), f3(ix+1,iy) );
 
             // y derivs
-            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
+            uy1(ix,iy) = Limiter::limdiff( u1(ix,iy-1), u1(ix,iy), u1(ix,iy+1) );
+            gy1(ix,iy) = Limiter::limdiff( g1(ix,iy-1), g1(ix,iy), g1(ix,iy+1) );
+            uy2(ix,iy) = Limiter::limdiff( u2(ix,iy-1), u2(ix,iy), u2(ix,iy+1) );
+            gy2(ix,iy) = Limiter::limdiff( g2(ix,iy-1), g2(ix,iy), g2(ix,iy+1) );
+            uy3(ix,iy) = Limiter::limdiff( u3(ix,iy-1), u3(ix,iy), u3(ix,iy+1) );
+            gy3(ix,iy) = Limiter::limdiff( g3(ix,iy-1), g3(ix,iy), g3(ix,iy+1) );
         }
 }
 
@@ -323,49 +327,164 @@ void Central2D<Physics, Limiter>::limited_derivs()
  * indexing scheme.
  */
 
+
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_step(int io, real dt)
+inline __declspec(target (mic)) void Central2D<Physics, Limiter>
+::predictor()
 {
-    real dtcdx2 = 0.5 * dt / dx;
+    #ifdef __MIC__
+
+    int ix, iy, off;
+    __m512 u1r, fx1r, gy1r, u2r, fx2r, gy2r, u3r, fx3r, gy3r;
+    __m512 ghr, com, f2temp, g3temp;
+
+    // Predictor (flux values of f and g at half step)
+    //load 8 floating point values in the column
+    for (int iy = 1; iy < ny_all-1; ++iy) {
+        //unrolling loop x by stride will be inefficient at the lower egdes of the grid
+        for (int ix = 1; ix < nx_all-1; ix+=stride) {
+            off = offset(ix,iy);
+
+            u1r = _mm512_load_ps(u1 + off);
+            fx1r = _mm512_load_ps(fx1 + off);
+            gy1r = _mm512_load_ps(gy1 + off);
+            u1r = _mm512_fnmadd_ps(fx1r, _mm512_set1_ps(dtcdx2), u1r);
+            u1r = _mm512_fnmadd_ps(gy1r, _mm512_set1_ps(dtcdy2), u1r);
+    
+            u2r = _mm512_load_ps(u2_ + off);
+            fx2r = _mm512_load_ps(fx2_+ off);
+            gy2r = _mm512_load_ps(gy2_ + off);
+            u2r = _mm512_fnmadd_ps(fx2r, _mm512_set1_ps(dtcdx2), u2r);
+            u2r = _mm512_fnmadd_ps(gy2r, _mm512_set1_ps(dtcdy2), u2r);
+
+            u3r = _mm512_load_ps(u3_ + off);
+            fx3r = _mm512_load_ps(fx3_ + off);
+            gy3r = _mm512_load_ps(gy3_ + off);
+            u3r = _mm512_fnmadd_ps(fx3r, _mm512_set1_ps(dtcdx2), u3r);
+            u3r = _mm512_fnmadd_ps(gy3r, _mm512_set1_ps(dtcdy2), u3r);
+
+            ghr = _mm512_mul_ps(u1r, u1r);
+            ghr = _mm512_mul_ps(u1r, ghr);
+
+            com = _mm512_mul_ps(u2r, u3r);
+            com = _mm512_div_ps(com, u1r);
+
+            f2temp = _mm512_div_ps(u2r, u1r);
+            f2temp = _mm512_fmadd_ps(f2temp, u2r, ghr);
+
+            g3temp = _mm512_div_ps(u3r, u1r);
+            g3temp = _mm512_fmadd_ps(g3temp, u3r, ghr);
+
+            _mm512_store_ps(f1 + off, u2r);
+            _mm512_store_ps(g1 + off, u3r);
+            _mm512_store_ps(f2 + off, f2temp);
+            _mm512_store_ps(g2 + off, com);
+            _mm512_store_ps(f3 + off, com);
+            _mm512_store_ps(g3 + off, g3temp);
+        }
+    }
+    #endif
+}
+
+template <class Physics, class Limiter>
+inline __declspec(target (mic)) void Central2D<Physics, Limiter>
+::corrector(int io, real* v, real* u, real* ux, real* uy, real* f, real* g, real dtcdx2, real dtcdy2)
+{
+    #ifdef __MIC__
+    
+    int ix, iy;
+    __m512 u00, u10, u01, u11, ux00, ux10, ux01, ux11;
+    __m512 uy00, uy10, uy01, uy11, f00, f01, f10, f11;
+    __m512 g00, g01, g10, g11, vr;
+    
+    // Corrector (finish the step)
+    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
+        //unrolling loop x by stride will be inefficient at the lower egdes of the grid
+        for (int ix = nghost-io; ix < nx+nghost-io; ix+=stride) {
+
+            u00 = _mm512_load_ps(u + offset(ix,iy));
+            u10 = _mm512_load_ps(u + offset(ix+1,iy));
+            u01 = _mm512_load_ps(u + offset(ix,iy+1));
+            u11 = _mm512_load_ps(u + offset(ix+1,iy+1));
+
+            ux00 = _mm512_load_ps(ux + offset(ix,iy));
+            ux10 = _mm512_load_ps(ux + offset(ix+1,iy));
+            ux01 = _mm512_load_ps(ux + offset(ix,iy+1));
+            ux11 = _mm512_load_ps(ux + offset(ix+1,iy+1));
+
+            uy00 = _mm512_load_ps(uy + offset(ix,iy));
+            uy10 = _mm512_load_ps(uy + offset(ix+1,iy));
+            uy01 = _mm512_load_ps(uy + offset(ix,iy+1));
+            uy11 = _mm512_load_ps(uy + offset(ix+1,iy+1));
+    
+            f00 = _mm512_load_ps(f + offset(ix,iy));
+            f10 = _mm512_load_ps(f + offset(ix+1,iy));
+            f01 = _mm512_load_ps(f + offset(ix,iy+1));
+            f11 = _mm512_load_ps(f + offset(ix+1,iy+1));
+
+            g00 = _mm512_load_ps(g + offset(ix,iy));
+            g10 = _mm512_load_ps(g + offset(ix+1,iy));
+            g01 = _mm512_load_ps(g + offset(ix,iy+1));
+            g11 = _mm512_load_ps(g + offset(ix+1,iy+1));
+
+            u00 = _mm512_add_ps(u00, u10);
+            u00 = _mm512_add_ps(u00, u01);
+            u00 = _mm512_add_ps(u00, u11);
+            u00 = _mm512_mul_ps(u00, _mm512_set1_ps(0.2500f));
+
+            ux00 = _mm512_sub_ps(ux10, ux00);
+            ux00 = _mm512_add_ps(ux00, ux11);
+            ux00 = _mm512_sub_ps(ux00, ux01);
+            ux00 = _mm512_add_ps(ux00, uy01);
+            ux00 = _mm512_sub_ps(ux00, uy00);
+            ux00 = _mm512_add_ps(ux00, uy11);
+            ux00 = _mm512_sub_ps(ux00, uy10);
+            ux00 = _mm512_mul_ps(ux00, _mm512_set1_ps(0.0625f));
+
+            f00 = _mm512_sub_ps(f10, f00);
+            f00 = _mm512_add_ps(f00, f11);
+            f00 = _mm512_sub_ps(f00, f01);
+            f00 = _mm512_mul_ps(f00, _mm512_set1_ps(dtcdx2));
+
+            g00 = _mm512_sub_ps(g01, g00);
+            g00 = _mm512_add_ps(g00, g11);
+            g00 = _mm512_sub_ps(g00, g10);
+            g00 = _mm512_mul_ps(g00, _mm512_set1_ps(dtcdy2));
+
+            vr = _mm512_sub_ps(u00, ux00);
+            vr = _mm512_sub_ps(vr, f00);
+            vr = _mm512_sub_ps(vr, g00);
+
+            _mm512_store_ps(v + offset(ix,iy), vr);
+        }
+    #endif
+}
+
+
+template <class Physics, class Limiter>
+inline __declspec(target (mic)) void Central2D<Physics, Limiter>::compute_step(int io, real dt)
+{
+    real dtcdx2 = 0.5 * dt / dx;    
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec uh = u(ix,iy);
-            for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * fx(ix,iy)[m];
-                uh[m] -= dtcdy2 * gy(ix,iy)[m];
-            }
-            Physics::flux(f(ix,iy), g(ix,iy), uh);
-        }
+    predictor();
 
     // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int m = 0; m < v(ix,iy).size(); ++m) {
-                v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
-            }
-        }
+    corrector(io, v1_, u1_, ux1_, uy1_, f1_, g1_);
+    corrector(io, v1_, u2_, ux2_, uy2_, f2_, g2_);
+    corrector(io, v1_, u3_, ux3_, uy3_, f3_, g3_);
 
-    // Copy from v storage back to main grid
+
+     // Copy from v storage back to main grid
     for (int j = nghost; j < ny+nghost; ++j){
         for (int i = nghost; i < nx+nghost; ++i){
-            u(i,j) = v(i-io,j-io);
+            u1(i,j) = v1(i-io,j-io);
+            u2(i,j) = v2(i-io,j-io);
+            u3(i,j) = v3(i-io,j-io);
         }
     }
 }
-
 
 /**
  * ### Advance time
@@ -384,24 +503,236 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
-    bool done = false;
-    real t = 0;
-    while (!done) {
-        real dt;
-        for (int io = 0; io < 2; ++io) {
-            real cx, cy;
-            apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
-            if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
+    #pragma offload target(mic) in(u1_,u2_,u3_: REUSE RETAIN)
+    {
+        bool done = false;
+        real t = 0;
+        while (!done) {
+            // OpenMP sucks and doesn't allow members to be shared
+            real * su1  = u1_ ;
+            real * su2  = u2_ ;
+            real * su3  = u3_ ;
+            real res1[NX*NX];
+            real res2[NX*NX];
+            real res3[NX*NX];
+            
+            // Begin parallel section, share the current grid state
+            #pragma omp parallel shared(su1, su2, su3, res1, res2, res3)
+            {
+                // Create private instances
+                real pu1 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real pu2 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real pu3 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real pv1 [NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pv2 [NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pv3 [NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pf1 [NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pf2 [NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pf3 [NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pg1 [NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pg2 [NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pg3 [NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pux1[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pux2[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pux3[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real puy1[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real puy2[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real puy3[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pfx1[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pfx2[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pfx3[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pgy1[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pgy2[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                real pgy3[NBLOCKALL*NBLOCKALL*NSTRIDE] __attribute__((aligned(32)));
+                
+                // Split work by domain
+                #pragma omp for
+                for (int p = 0; p < BLOCKS * BLOCKS; p++) {
+                    // Block x
+                    int bx = p / BLOCKS;
+                    int bxo = bx * NBLOCK;
+                    // Block y
+                    int by = p % BLOCKS;
+                    int byo = by * NBLOCK;
+                    
+                    // Copy data to private instances
+                    for (int j = 0; j < NBLOCKALL; j++) {
+                        for (int i = 0; i < NBLOCKALL; i++) {
+                            // Map to indices on grid
+                            int wi = (i + bxo - NPAD) % NX;
+                            int wj = (j + byo - NPAD) % NX;
+                            
+                            pu1[j*NBLOCKALL+i] = su1[wj*NX+wj];
+                            pu2[j*NBLOCKALL+i] = su2[wj*NX+wj];
+                            pu3[j*NBLOCKALL+i] = su3[wj*NX+wj];
+                        }
+                    }
+                    
+                    // Run instances for as many steps as possible
+                    for (int step = 0; step < NPAD - 3 && !done; step++) {
+                        real dt;
+                        real cx = 1.0e-15;
+                        real cy = 1.0e-15;
+                        for (int io = 0; io < 2; ++io) {
+                            // This is done in the first instance copy
+                            // apply_periodic();
+                            
+                            // compute_fg_speeds
+                            const real grav = 9.8;
+                            for (int iy = 0; iy < NBLOCKALL; ++iy) {
+                                for (int ix = 0; ix < NBLOCKALL; ++ix) {
+                                    real cell_cx, cell_cy;
+
+                                    //calculate flux
+                                    real h  = pu1[ix+iy*NBLOCKALL];
+                                    real hu = pu2[ix+iy*NBLOCKALL];
+                                    real hv = pu3[ix+iy*NBLOCKALL];
+                                    pf1[ix+iy*NBLOCKALL] = hu;
+                                    pf2[ix+iy*NBLOCKALL] = hu*hu/h + grav *(0.5)*h*h;
+                                    pf3[ix+iy*NBLOCKALL] = hu*hv/h;
+
+                                    pg1[ix+iy*NBLOCKALL] = hv;
+                                    pg2[ix+iy*NBLOCKALL] = hu*hv/h;
+                                    pg3[ix+iy*NBLOCKALL] = hv*hv/h + grav *(0.5)*h*h;
+
+                                    real root_gh = sqrt(grav * h);  // NB: Don't let h go negative!
+                                    cell_cx = std::abs(hu/h) + root_gh;
+                                    cell_cy = std::abs(hv/h) + root_gh;
+                                    cx = std::max(cx, cell_cx);
+                                    cy = std::max(cy, cell_cy);
+                                }
+                            }
+                            
+                            // limited_derivs
+                            for (int iy = 1; iy < ny_all-1; ++iy) {
+                                for (int ix = 1; ix < nx_all-1; ++ix) {
+                                    // x derivs
+                                    pux1[ix+iy*NBLOCKALL] = Limiter::limdiff(pu1[ix-1+iy*NBLOCKALL], pu1[ix+iy*NBLOCKALL], pu1[ix+1+iy*NBLOCKALL] );
+                                    pfx1[ix+iy*NBLOCKALL] = Limiter::limdiff(pf1[ix-1+iy*NBLOCKALL], pf1[ix+iy*NBLOCKALL], pf1[ix+1+iy*NBLOCKALL] );
+                                    pux2[ix+iy*NBLOCKALL] = Limiter::limdiff(pu2[ix-1+iy*NBLOCKALL], pu2[ix+iy*NBLOCKALL], pu2[ix+1+iy*NBLOCKALL] );
+                                    pfx2[ix+iy*NBLOCKALL] = Limiter::limdiff(pf2[ix-1+iy*NBLOCKALL], pf2[ix+iy*NBLOCKALL], pf2[ix+1+iy*NBLOCKALL] );
+                                    pux3[ix+iy*NBLOCKALL] = Limiter::limdiff(pu3[ix-1+iy*NBLOCKALL], pu3[ix+iy*NBLOCKALL], pu3[ix+1+iy*NBLOCKALL] );
+                                    pfx3[ix+iy*NBLOCKALL] = Limiter::limdiff(pf3[ix-1+iy*NBLOCKALL], pf3[ix+iy*NBLOCKALL], pf3[ix+1+iy*NBLOCKALL] );
+
+                                    // y derivs
+                                    puy1[ix+iy*NBLOCKALL] = Limiter::limdiff( pu1[ix+(iy-1)*NBLOCKALL], pu1[ix+(iy)*NBLOCKALL], pu1[ix+(iy+1)*NBLOCKALL] );
+                                    pgy1[ix+iy*NBLOCKALL] = Limiter::limdiff( pg1[ix+(iy-1)*NBLOCKALL], pg1[ix+(iy)*NBLOCKALL], pg1[ix+(iy+1)*NBLOCKALL] );
+                                    puy2[ix+iy*NBLOCKALL] = Limiter::limdiff( pu2[ix+(iy-1)*NBLOCKALL], pu2[ix+(iy)*NBLOCKALL], pu2[ix+(iy+1)*NBLOCKALL] );
+                                    pgy2[ix+iy*NBLOCKALL] = Limiter::limdiff( pg2[ix+(iy-1)*NBLOCKALL], pg2[ix+(iy)*NBLOCKALL], pg2[ix+(iy+1)*NBLOCKALL] );
+                                    puy3[ix+iy*NBLOCKALL] = Limiter::limdiff( pu3[ix+(iy-1)*NBLOCKALL], pu3[ix+(iy)*NBLOCKALL], pu3[ix+(iy+1)*NBLOCKALL] );
+                                    pgy3[ix+iy*NBLOCKALL] = Limiter::limdiff( pg3[ix+(iy-1)*NBLOCKALL], pg3[ix+(iy)*NBLOCKALL], pg3[ix+(iy+1)*NBLOCKALL] );
+                                }
+                            }
+                            
+                            // Time step
+                            if (io == 0) {
+                                dt = cfl / std::max(cx/dx, cy/dy);
+                                if (t + 2*dt >= tfinal) {
+                                    dt = (tfinal-t)/2;
+                                    done = true;
+                                }
+                            }
+                            
+                            // compute_fg_speeds
+                            real dtcdx2 = 0.5 * dt / dx;
+                            real dtcdy2 = 0.5 * dt / dy;
+                            // Predictor (flux values of f and g at half step)
+                            {
+                                int ix, iy, off;
+                                __m512 u1r, fx1r, gy1r, u2r, fx2r, gy2r, u3r, fx3r, gy3r;
+                                __m512 ghr, com, f2temp, g3temp;
+
+                                // Predictor (flux values of f and g at half step)
+                                //load 8 floating point values in the column
+                                for (int iy = 1; iy < NBLOCKALL-1; ++iy) {
+                                    //unrolling loop x by stride will be inefficient at the lower egdes of the grid
+                                    for (int ix = 1; ix < NBLOCKALL-1; ix+=16) {
+                                        off = ix+iy*NBLOCKALL;
+
+                                        u1r = _mm512_load_ps  (pu1  + off);
+                                        fx1r = _mm512_load_ps (pfx1 + off);
+                                        gy1r = _mm512_load_ps (pgy1 + off);
+                                        u1r = _mm512_fnmadd_ps(fx1r, _mm512_set1_ps(dtcdx2), u1r);
+                                        u1r = _mm512_fnmadd_ps(gy1r, _mm512_set1_ps(dtcdy2), u1r);
+                                
+                                        u2r = _mm512_load_ps  (pu2  + off);
+                                        fx2r = _mm512_load_ps (pfx2 + off);
+                                        gy2r = _mm512_load_ps (pgy2 + off);
+                                        u2r = _mm512_fnmadd_ps(fx2r, _mm512_set1_ps(dtcdx2), u2r);
+                                        u2r = _mm512_fnmadd_ps(gy2r, _mm512_set1_ps(dtcdy2), u2r);
+
+                                        u3r = _mm512_load_ps  (pu3  + off);
+                                        fx3r = _mm512_load_ps (pfx3 + off);
+                                        gy3r = _mm512_load_ps (pgy3 + off);
+                                        u3r = _mm512_fnmadd_ps(fx3r, _mm512_set1_ps(dtcdx2), u3r);
+                                        u3r = _mm512_fnmadd_ps(gy3r, _mm512_set1_ps(dtcdy2), u3r);
+
+                                        ghr = _mm512_mul_ps(u1r, u1r);
+                                        ghr = _mm512_mul_ps(u1r, ghr);
+
+                                        com = _mm512_mul_ps(u2r, u3r);
+                                        com = _mm512_div_ps(com, u1r);
+
+                                        f2temp = _mm512_div_ps(u2r, u1r);
+                                        f2temp = _mm512_fmadd_ps(f2temp, u2r, ghr);
+
+                                        g3temp = _mm512_div_ps(u3r, u1r);
+                                        g3temp = _mm512_fmadd_ps(g3temp, u3r, ghr);
+
+                                        _mm512_store_ps(pf1 + off, u2r);
+                                        _mm512_store_ps(pg1 + off, u3r);
+                                        _mm512_store_ps(pf2 + off, f2temp);
+                                        _mm512_store_ps(pg2 + off, com);
+                                        _mm512_store_ps(pf3 + off, com);
+                                        _mm512_store_ps(pg3 + off, g3temp);
+                                    }
+                                }
+                            }
+                            
+                            // Corrector (finish the step)
+                            corrector(io, pv1, pu1, pux1, puy1, pf1, pg1, dtcdx2, dtcdy2);
+                            corrector(io, pv2, pu2, pux2, puy2, pf2, pg2, dtcdx2, dtcdy2);
+                            corrector(io, pv3, pu3, pux3, puy3, pf3, pg3, dtcdx2, dtcdy2);
+                            
+                             // Copy from v storage back to main grid
+                            for (int j = nghost; j < ny+nghost; ++j){
+                                for (int i = nghost; i < nx+nghost; ++i){
+                                    pu1[i+j*NBLOCKALL] = pv1[i-io+(j-io)*NBLOCKALL];
+                                    pu2[i+j*NBLOCKALL] = pv2[i-io+(j-io)*NBLOCKALL];
+                                    pu3[i+j*NBLOCKALL] = pv3[i-io+(j-io)*NBLOCKALL];
+                                }
+                            }
+                            t += dt;
+                        }
+                    }
+                    
+                    // Copy data to result grid
+                    for (int j = 0; j < NBLOCK; j++) {
+                        for (int i = 0; i < NBLOCK; i++) {
+                            // Private indices
+                            int pi = (i + NPAD);
+                            int pj = (j + NPAD);
+                            // Map to indices on grid
+                            int wi = (i + bxo);
+                            int wj = (j + byo);
+                            
+                            res1[wj*NX+wj] = pu1[pj*NBLOCKALL+pi];
+                            res2[wj*NX+wj] = pu2[pj*NBLOCKALL+pi];
+                            res3[wj*NX+wj] = pu3[pj*NBLOCKALL+pi];
+                        }
+                    }
                 }
+                
+                // Wait for all to finish
+                #pragma omp barrier
             }
-            compute_step(io, dt);
-            t += dt;
+            
+            // Copy result grid to original grid
+            for (int i = 0; i < NX*NX*NSTRIDE; i++) {
+                su1[i] = res1[i];
+                su2[i] = res2[i];
+                su3[i] = res3[i];
+            }
         }
     }
 }
@@ -423,15 +754,15 @@ void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u(nghost,nghost)[0];
+    real hmin = u1(nghost,nghost);
     real hmax = hmin;
     for (int j = nghost; j < ny+nghost; ++j)
         for (int i = nghost; i < nx+nghost; ++i) {
-            vec& uij = u(i,j);
-            real h = uij[0];
+            
+            real h = u1(i,j);
             h_sum += h;
-            hu_sum += uij[1];
-            hv_sum += uij[2];
+            hu_sum += u2(i,j);
+            hv_sum += u3(i,j);
             hmax = max(h, hmax);
             hmin = min(h, hmin);
             assert( h > 0) ;
@@ -446,3 +777,4 @@ void Central2D<Physics, Limiter>::solution_check()
 
 //ldoc off
 #endif /* CENTRAL2D_H*/
+
