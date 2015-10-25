@@ -38,7 +38,6 @@ public:
     Block(Block&&)      = delete;
 
     ~Block() {
-        free(u_);
         free(f_);
         free(g_);
         free(ux_);
@@ -49,10 +48,6 @@ public:
     }
 
     void step();
-
-    real *grid() {
-        return u_;
-    }
 
 private:
     const int nx_;
@@ -87,22 +82,22 @@ private:
 
 template <class Physics, class Limiter>
 void Block<Physics, Limiter>::flux() {
-    assert (false); // TODO
+    // TODO
 }
 
 template <class Physics, class Limiter>
 void Block<Physics, Limiter>::limited_derivs() {
-    assert (false); // TODO
+    // TODO
 }
 
 template <class Physics, class Limiter>
 void Block<Physics, Limiter>::compute_step(int io, real dt) {
-    assert (false); // TODO
+    // TODO
 }
 
 template <class Physics, class Limiter>
 void Block<Physics, Limiter>::step() {
-    assert (false); // TODO
+    // TODO
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -455,8 +450,8 @@ void Central2DBlock2<Physics, Limiter>::run_block(const int io,
     const int height_all = height + 2*bghosts;
     const int size_all   = width_all * height_all;
 
-    // TODO(mwhittaker): check that this is correct allocate blocks
-    real *_u  = (real *)malloc(size_all * num_fields * sizeof(real));
+    // copy from u to _u
+    real *_u  = flat_array::make<real>(width_all, height_all, num_fields);
     for (int k = 0; k < num_fields; ++k) {
         real *_uk = flat_array::field(_u, width_all, height_all, k);
         for (int x = 0; x < width_all; ++x) {
@@ -471,7 +466,17 @@ void Central2DBlock2<Physics, Limiter>::run_block(const int io,
     Block<Physics, Limiter> b(_u, width_all, height_all, bghosts, io, dt);
     b.step();
 
-    // TODO(mwhittaker): write back
+    // write back from _u to u
+    for (int k = 0; k < num_fields; ++k) {
+        real *_uk = flat_array::field(_u, width_all, height_all, k);
+        for (int x = bghosts; x < width + bghosts; ++x) {
+            for (int y = bghosts; y < height + bghosts; ++y) {
+                u(k, ix-bghosts+x, iy-bghosts+y) =
+                    *flat_array::at(_uk, width_all, height_all, x, y);
+            }
+        }
+    }
+    free(_u);
 }
 
 
