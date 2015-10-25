@@ -105,7 +105,7 @@ template <class Physics, class Limiter>
 void Block<Physics, Limiter>::flux() {
     for (int iy = 0; iy < ny_all_; ++iy) {
         for (int ix = 0; ix < nx_all_; ++ix) {
-            Physics::flux(*f0(), *f1(), *f2(), *g0(), *g1(), *g2(), *u0(), *u1(), *u2());
+            Physics::flux(f0(), f1(), f2(), g0(), g1(), g2(), *u0(), *u1(), *u2());
         }
     }
 }

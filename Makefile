@@ -34,6 +34,7 @@ HEADERS = \
 	minmod.h \
 	shallow2d.h \
 	shallow2d_block.h \
+	shallow2d_block2.h \
 	shallow2d_vec.h \
 
 # ===
