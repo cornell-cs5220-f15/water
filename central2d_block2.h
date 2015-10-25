@@ -468,7 +468,7 @@ void Central2DBlock2<Physics, Limiter>::run_block(const int io,
     }
 
     // step block
-    Block<Physics, Limiter> b(_u, width, height, bghosts, io, dt);
+    Block<Physics, Limiter> b(_u, width_all, height_all, bghosts, io, dt);
     b.step();
 
     // TODO(mwhittaker): write back
