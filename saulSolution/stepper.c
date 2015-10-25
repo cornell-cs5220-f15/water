@@ -389,9 +389,6 @@ void copytooriginal(central2d_t* region,central2d_t* sim,int processor, int nthr
         for (int iy=0; iy<region->ny; ++iy){
             for (int ix=0; ix<region->nx; ++ix){
                 (sim->u)[central2d_offset(region,k,ix+vdx,iy+vdy)]=(region->u)[central2d_offset(sim,k,ix,iy)];
-                (sim->f)[central2d_offset(region,k,ix+vdx,iy+vdy)]=(region->f)[central2d_offset(sim,k,ix,iy)];
-                (sim->g)[central2d_offset(region,k,ix+vdx,iy+vdy)]=(region->g)[central2d_offset(sim,k,ix,iy)];
-                (sim->v)[central2d_offset(region,k,ix+vdx,iy+vdy)]=(region->v)[central2d_offset(sim,k,ix,iy)];
             }
         }
     }
