@@ -18,9 +18,9 @@ import numpy as np
 fig_width_pt  = 244.0
 inches_per_pt = 1.0/72.27                     # convert pt to inch
 
-aspect_ratio  = 0.70
+aspect_ratio  = 0.75
 
-fig_width     = 6.0                           # width in inches
+fig_width     = 6.5                           # width in inches
 fig_height    = fig_width * aspect_ratio      # height in inches
 fig_size      = [ fig_width, fig_height ]
 
@@ -53,7 +53,9 @@ num_bmarks = len( bmarks )
 
 configs = [
   'serial',
+  'parallel (2 threads)',
   'parallel (4 threads)',
+  'parallel (8 threads)',
   'parallel (16 threads)',
 ]
 
@@ -69,10 +71,22 @@ perf_data = [
     4.43e-2, 2.91e-2, 3.60e-2, 4.40e-2,
   ],
 
+  # parallel (2 threads)
+
+  [
+    2.94e-2, 2.34e-2, 2.93e-2, 3.54e-2,
+  ],
+
   # parallel (4 threads)
 
   [
     1.32e-2, 8.67e-3, 1.10e-2, 1.31e-2,
+  ],
+
+  # parallel (8 threads)
+
+  [
+    8.21e-3, 6.44e-3, 8.15e-3, 9.70e-3,
   ],
 
   # parallel (16 threads)
@@ -96,7 +110,7 @@ mid = num_configs / 2.0
 
 # Bar widths
 
-width = 0.25
+width = 0.15
 
 # Colors
 
@@ -156,7 +170,8 @@ plt.axhline( y=1, color='k', linewidth=1.5 )
 
 # Legend
 
-ax.legend( rects, configs, loc=8, bbox_to_anchor=(0.01,1.02,0.98,0.1), ncol=5, borderaxespad=0, prop={'size':14}, frameon=False )
+ax.legend( rects, configs, loc=8, bbox_to_anchor=(0.01,1.02,0.98,0.1),
+           ncol=3, borderaxespad=0, prop={'size':12}, frameon=False )
 
 # Pretty layout
 
