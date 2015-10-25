@@ -17,8 +17,7 @@ public:
     typedef typename Physics::real real;
     static constexpr int num_fields = Physics::num_fields;
 
-    Block(real *xs, int nx, int ny, int nghost, int io, real dt) :
-        xs_(xs),
+    Block(real *u, int nx, int ny, int nghost, int io, real dt) :
         nx_(nx),
         ny_(ny),
         nghost_(nghost),
@@ -26,7 +25,7 @@ public:
         dt_(dt),
         nx_all_(nx_ + 2*nghost_),
         ny_all_(ny_ + 2*nghost_),
-        u_ (flat_array::make<real>(nx_all, ny_all, num_fields)),
+        u_ (u),
         f_ (flat_array::make<real>(nx_all, ny_all, num_fields)),
         g_ (flat_array::make<real>(nx_all, ny_all, num_fields)),
         ux_(flat_array::make<real>(nx_all, ny_all, num_fields)),
@@ -51,6 +50,11 @@ public:
 
     void step();
 
+    real *grid() {
+        return u_;
+    }
+
+private:
     const int nx_;
     const int ny_;
     const int nghost_;
@@ -66,6 +70,14 @@ public:
     real *fx_;
     real *gy_;
     real *v_;
+
+    real *at(real *xs, int x, int y) {
+        return flat_array::at(xs, nx_all, ny_all, x, y);
+    }
+
+    real *field(real *xs, int k) {
+        return flat_array::field(xs, nx_all, ny_all, k);
+    }
 
 private:
     void flux();
