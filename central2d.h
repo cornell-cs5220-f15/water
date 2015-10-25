@@ -121,7 +121,8 @@ template <class Physics, class Limiter>
     uy_(nx_all * ny_all),
     fx_(nx_all * ny_all),
     gy_(nx_all * ny_all),
-    v_ (nx_all * ny_all) {}
+    v_ (nx_all * ny_all),
+    ures_ (nx * ny) {}
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -165,13 +166,32 @@ private:
     std::vector<vec> fx_;           // x differences of f
     std::vector<vec> gy_;           // y differences of g
     std::vector<vec> v_;            // Solution values at next step
+    std::vector<vec> ures_;         // Joined solution values in one compressed board.
 
     // Array accessor functions
 
-    //Thread no * total X cells (ghost inc) * total y cells (ghost inc) + iy* total x cells (inc ghost) + ix
-    int offset(int ix, int iy, int tno) const { return tno*domain_nx_inc_ghost*domain_ny_inc_ghost + iy*domain_nx_inc_ghost+ix; }
+    // access the (ix, iy) element of the tno'th subdomain, ix and iy are relative 
+    // indices 0 <= ix, iy < domain_nx, domain_ny
+    int offset(int ix, int iy, int tno) const { 
+        return (nghost+iy+(tno/nodomains)*domain_ny_inc_ghost)*nx_all + (tno%nodomains)*domain_nx_inc_ghost + nghost + ix; 
+    }
+    
+    // access the (ix, iy) element of the tno'th subdomain, ix and iy are absolute  
+    // indices 0 <= ix, iy < nx, ny
+    int offsetabs(int ix, int iy, int tno) const {
+        return (nghost+iy+2*nghost*(iy/domain_ny))*nx_all + nghost+ix+2*nghost*(ix/domain_nx);
+    }
+    
+    // access the (ix, iy) element of the whole nx_all-by-ny_all board. If the coordinate
+    // is outside the board, move it in using the periodic re-enter strategy.
+    int offsetfull (int ix, int iy) const {
+        ix = (ix + nx_all) % nx_all;
+        iy = (iy + ny_all) % ny_all;
+        return iy*nx_all + ix;
+    }
 
     vec& u(int ix, int iy, int tno)    { return u_[offset(ix, iy, tno)]; }
+    vec& uf(int ix, int iy)            { return u_[offsetfull(ix, iy)];  }
     vec& v(int ix, int iy, int tno)    { return v_[offset(ix, iy, tno)]; }
     vec& f(int ix, int iy, int tno)    { return f_[offset(ix, iy, tno)]; }
     vec& g(int ix, int iy, int tno)    { return g_[offset(ix, iy, tno)]; }
@@ -244,47 +264,61 @@ template <typename F>
  */
 
 template <class Physics, class Limiter>
- void Central2D<Physics, Limiter>::apply_periodic(int tno)
+ void Central2D<Physics, Limiter>::apply_periodic()
  {
-    // Copy data between right and left boundaries
-    /*for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nghost; ++ix) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
-        }
-    */
-
-        int x_limit = (tno % nodomains == nodomains - 1) ? nodomains * domain_nx - nx : 0;
-        int y_limit = (tno / nodomains == nodomains - 1) ? nodomains * domain_ny - ny : 0;
-
-        for (int y = 0; iy < domain_ny_inc_ghost; y++){
-            for (int x = 0; x < nghost; x++){
-                u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno/nodomains) - nghost + ny + y) % ny);
-            }
-
-            for (int x = nghost + domain_nx - x_limit; x < nghost * 2 + domain_nx; x++){
-                u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
-            }
-        }
-
-
-    /*for (int ix = 0; ix < nx_all; ++ix)
-        for (int iy = 0; iy < nghost; ++iy) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
-        }
-    }*/
-
-    // Copy data between top and bottom boundari
-    for (int x = 0; x < domain_nx_inc_ghost; x++){
-        for (int y = 0; y < nghost; y++){
-            u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
-        }
-
-        for (int y = nghost + domain_ny - y_limit; y < nghost * 2 + domain_ny; y++){
-            u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
-        }
-    }
+        
+        for (int i=0; i<nodomains; i++)
+            for (int j=0; j<ny_all; j++)
+                for (int k=0; k<nghost; k++) {
+                    uf(k+i*domain_nx_inc_ghost, j) = uf(k+i*domain_nx_inc_ghost-2*nghost, j);
+                    uf(k+i*domain_nx_inc_ghost+nghost+domain_nx, j) = uf(k+i*domain_nx_inc_ghost+3*nghost+domain_nx, j);
+                }
+                
+        for (int i=0; i<nodomains; i++)
+            for (int j=0; j<nx_all; j++)
+                for (int k=0; k<nghost; k++) {
+                    uf(j, k+i*domain_ny_inc_ghost) = uf(j, k+i*domain_ny_inc_ghost -2*nghost);
+                    uf(j, k+i*domain_ny_inc_ghost+nghost+domain_ny) = uf(j, k+i*domain_ny_inc_ghost+3*nghost+domain_ny);
+                }
+// Copy data between right and left boundaries
+//     /*for (int iy = 0; iy < ny_all; ++iy)
+//         for (int ix = 0; ix < nghost; ++ix) {
+//             u(ix,          iy) = uwrap(ix,          iy);
+//             u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
+//         }
+//    
+// 
+//         int x_limit = (tno % nodomains == nodomains - 1) ? nodomains * domain_nx - nx : 0;
+//         int y_limit = (tno / nodomains == nodomains - 1) ? nodomains * domain_ny - ny : 0;
+// 
+//         for (int y = 0; iy < domain_ny_inc_ghost; y++){
+//             for (int x = 0; x < nghost; x++){
+//                 u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno/nodomains) - nghost + ny + y) % ny);
+//             }
+// 
+//             for (int x = nghost + domain_nx - x_limit; x < nghost * 2 + domain_nx; x++){
+//                 u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
+//             }
+//         }
+// 
+// 
+//     /*for (int ix = 0; ix < nx_all; ++ix)
+//         for (int iy = 0; iy < nghost; ++iy) {
+//             u(ix,          iy) = uwrap(ix,          iy);
+//             u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
+//         }
+//     }*/
+// 
+//     // Copy data between top and bottom boundari
+//     for (int x = 0; x < domain_nx_inc_ghost; x++){
+//         for (int y = 0; y < nghost; y++){
+//             u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
+//         }
+// 
+//         for (int y = nghost + domain_ny - y_limit; y < nghost * 2 + domain_ny; y++){
+//             u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
+//         }
+//     }
 }
 /**
  * ### Initial flux and speed computations
@@ -432,6 +466,7 @@ template <class Physics, class Limiter>
  {
     bool done = false;
     real t = 0;
+    #pragma parallel num_threads(nodomains*nodomains)
     while (!done) {
         real dt;
         for (int io = 0; io < 2; ++io) {
