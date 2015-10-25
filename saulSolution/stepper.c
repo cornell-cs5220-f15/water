@@ -454,13 +454,14 @@ int central2d_xrun(float* restrict u, float* restrict v,
     #pragma omp parallel 
     {
         thread = omp_get_thread_num();
-        
+        printf("I am%d",thread);
         central2d_t* region = (central2d_t*) malloc(sizeof(central2d_t));
         region=createRectangle(sim->dx*sim->nx/p,sim->dy*sim->ny/p,sim->nx/p,sim->ny/p,
                                sim->nfield,sim->flux, sim->speed,sim->cfl,timef);
         while (!done) {
             #pragma omp single
             {
+                
                 float cxy[2] = {1.0e-15f, 1.0e-15f};
                 central2d_periodic(u, nx, ny, ng, nfield);
                 speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
