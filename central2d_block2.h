@@ -6,6 +6,64 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "flat_array.h"
+
+template <class Physics, class Limiter>
+class Block {
+public:
+    typedef typename Physics::real real;
+    static constexpr int num_fields = Physics::num_fields;
+
+    Block(real *xs, int nx, int ny, int nghost, real io, real dt) :
+        xs_(xs),
+        nx_(nx),
+        ny_(ny),
+        nghost_(nghost),
+        io_(io),
+        dt_(dt),
+        nx_all_(nx_ + 2*nghost_),
+        ny_all_(ny_ + 2*nghost_),
+        u_ (flat_array::make<real>(nx_all, ny_all, num_fields)),
+        f_ (flat_array::make<real>(nx_all, ny_all, num_fields)),
+        g_ (flat_array::make<real>(nx_all, ny_all, num_fields)),
+        ux_(flat_array::make<real>(nx_all, ny_all, num_fields)),
+        uy_(flat_array::make<real>(nx_all, ny_all, num_fields)),
+        fx_(flat_array::make<real>(nx_all, ny_all, num_fields)),
+        gy_(flat_array::make<real>(nx_all, ny_all, num_fields)),
+        v_ (flat_array::make<real>(nx_all, ny_all, num_fields)) {}
+
+    Block(const Block&) = delete;
+    Block(Block&&)      = delete;
+
+    ~Block() {
+        free(u_);
+        free(f_);
+        free(g_);
+        free(ux_);
+        free(uy_);
+        free(fx_);
+        free(gy_);
+        free(v_);
+    }
+
+private:
+    const int nx_;
+    const int ny_;
+    const int nghost_;
+    const int io_;
+    const int dt_;
+    const int nx_all_;
+    const int ny_all_;
+    real *u_;
+    real *f_;
+    real *g_;
+    real *ux_;
+    real *uy_;
+    real *fx_;
+    real *gy_;
+    real *v_;
+};
+
 template <class Physics, class Limiter>
 class Central2DBlock2 {
 public:
