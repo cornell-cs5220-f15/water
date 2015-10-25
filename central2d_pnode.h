@@ -110,15 +110,41 @@ public:
         nbatch(nbatch), nghost(1+nbatch*2), // Number of ghost cells depend on batch size
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
-        nx_per_block(ceil(nx / nxblocks) + 2*nghost),
-        ny_per_block(ceil(ny / nyblocks) + 2*nghost),
         nthreads(nxblocks*nyblocks),
         dx(w/nx), dy(h/ny),
         cfl(cfl),
         u_(nx_all * ny_all) {
-        for (int i = 0; i < nthreads; ++i)
-            locals_.push_back(std::unique_ptr<LocalState>(
-                new LocalState(nx_per_block, ny_per_block)));
+
+        // Dimensions of block assigned to each thread
+        int nx_per_block = ceil(nx / (real)nxblocks);
+        int ny_per_block = ceil(ny / (real)nyblocks);
+
+        // Number of elements beyond grid boundary if block dimensions do
+        // not evenly divide the grid dimensions.
+        int nx_overhang = (nx_per_block * nxblocks) - nx;
+        int ny_overhang = (ny_per_block * nyblocks) - ny;
+
+        assert( nx_overhang >= 0 && ny_overhang >= 0 );
+
+        // Dimensions of block with ghost cells
+        int nx_per_block_padded = nx_per_block + 2*nghost;
+        int ny_per_block_padded = ny_per_block + 2*nghost;
+
+        // Set dimensions of each block. Block dimensions are only
+        // different if they do not evenly divide the grid dimensions at
+        // the boundaries. In such cases, we need to subtract the
+        // overhang count from the corresponding dimension for the
+        // boundary blocks.
+        for (int j = 0; j < nyblocks; ++j) {
+            int ny_local = (j == nyblocks - 1) ? ny_per_block_padded - ny_overhang
+                         :                       ny_per_block_padded;
+            for (int i = 0; i < nxblocks; ++i) {
+                int nx_local = (i == nxblocks - 1) ? nx_per_block_padded - nx_overhang
+                             :                       nx_per_block_padded;
+                locals_.push_back(std::unique_ptr<LocalState>(
+                    new LocalState(nx_local, ny_local)));
+            }
+        }
     }
 
     // Advance from time 0 to time tfinal
@@ -170,6 +196,10 @@ private:
       vec& fx(int ix, int iy) { return fx_[offset(ix,iy)]; }
       vec& gy(int ix, int iy) { return gy_[offset(ix,iy)]; }
 
+      // Miscellaneous accessors
+      int get_nx() { return nx; }
+      int get_ny() { return ny; }
+
      private:
       // Helper to calculate 1D offset from 2D coordinates
       int offset(int ix, int iy) const { return iy*nx+ix; }
@@ -190,8 +220,6 @@ private:
     const int nx, ny;             // Number of (non-ghost) cells in x/y
     const int nxblocks, nyblocks; // Number of blocks for batching in x/y
     const int nbatch;             // Number of timesteps to batch per block
-    const int nx_per_block;       // Number of cells per block in x
-    const int ny_per_block;       // Number of cells per block in y
     const int nthreads;           // Number of threads
     const int nx_all, ny_all;     // Total cells in x/y (including ghost)
     const real dx, dy;            // Cell size in x/y
@@ -322,6 +350,9 @@ void Central2D<Physics, Limiter>::compute_wave_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_flux(int tid)
 {
+    int ny_per_block  = locals_[tid]->get_ny();
+    int nx_per_block  = locals_[tid]->get_nx();
+
     for (int iy = 0; iy < ny_per_block; ++iy)
         for (int ix = 0; ix < nx_per_block; ++ix)
             Physics::flux(locals_[tid]->f(ix,iy),
@@ -340,6 +371,9 @@ void Central2D<Physics, Limiter>::compute_flux(int tid)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs(int tid)
 {
+    int ny_per_block  = locals_[tid]->get_ny();
+    int nx_per_block  = locals_[tid]->get_nx();
+
     for (int iy = 1; iy < ny_per_block-1; ++iy)
         for (int ix = 1; ix < nx_per_block-1; ++ix) {
 
@@ -383,6 +417,9 @@ void Central2D<Physics, Limiter>::limited_derivs(int tid)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_step(int tid, int io, real dt)
 {
+    int ny_per_block  = locals_[tid]->get_ny();
+    int nx_per_block  = locals_[tid]->get_nx();
+
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
@@ -454,6 +491,9 @@ void Central2D<Physics, Limiter>::compute_step(int tid, int io, real dt)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::copy_to_local(int tid)
 {
+    int ny_per_block  = locals_[tid]->get_ny();
+    int nx_per_block  = locals_[tid]->get_nx();
+
     int biy     = tid / nxblocks;
     int bix     = tid % nxblocks;
     int biy_off = biy * (ny_per_block - 2*nghost);
@@ -467,6 +507,9 @@ void Central2D<Physics, Limiter>::copy_to_local(int tid)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::copy_from_local(int tid)
 {
+    int ny_per_block  = locals_[tid]->get_ny();
+    int nx_per_block  = locals_[tid]->get_nx();
+
     int biy     = tid / nxblocks;
     int bix     = tid % nxblocks;
     int biy_off = biy * (ny_per_block - 2*nghost);
