@@ -10,7 +10,14 @@
 # Or create a Makefile.in.xxx of your own!
 #
 
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Darwin)
 PLATFORM=icc-mac
+else
+PLATFORM=icc
+endif
+
 include Makefile.in.$(PLATFORM)
 
 # ===
@@ -40,7 +47,7 @@ iprofile: lshallow lshallow.dSYM
 	open lshallow_perf.dtps
 
 big: lshallow
-	# ./shallow -i wave -o wave.out -n 1000 -F 100
+	./lshallow tests.lua dam 400
 
 
 # ===

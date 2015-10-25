@@ -50,12 +50,9 @@ typedef struct central2d_t {
     // Storage
     float* u;
     float* v;
-    float* ux;
-    float* uy;
     float* f;
-    float* fx;
     float* g;
-    float* gy;
+    float* scratch;
 
 } central2d_t;
 

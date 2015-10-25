@@ -86,11 +86,9 @@ void viz_close(FILE* fp)
 void viz_frame(FILE* fp, central2d_t* sim)
 {
     if (fp)
-        for (int j = 0; j < sim->ny; ++j)
-            for (int i = 0; i < sim->nx; ++i) {
-                float* uij = sim->u + central2d_offset(sim,0,i,j);
-                fwrite(uij, sizeof(float), 1, fp);
-            }
+        for (int iy = 0; iy < sim->ny; ++iy)
+            fwrite(sim->u + central2d_offset(sim,0,0,iy),
+                   sizeof(float), sim->nx, fp);
 }
 
 /**
@@ -214,35 +212,38 @@ int run_sim(lua_State* L)
     int frames = lget_int(L, "frames", 50);
     const char* fname = lget_string(L, "out", "sim.out");
 
-    central2d_t* sim = central2d_f(w,h, nx,ny,
+    central2d_t* sim = central2d_init(w,h, nx,ny,
                                       3, shallow2d_flux, shallow2d_speed, cfl);
     lua_init_sim(L,sim);
-
     printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
     FILE* viz = viz_open(fname, sim);
     solution_check(sim);
     viz_frame(viz, sim);
+
+    double tcompute = 0;
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
         int nstep = central2d_run(sim, ftime);
         double t1 = omp_get_wtime();
         double elapsed = t1-t0;
-        printf("Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
 #elif defined SYSTIME
         struct timeval t0, t1;
         gettimeofday(&t0, NULL);
         int nstep = central2d_run(sim, ftime);
         gettimeofday(&t1, NULL);
         double elapsed = (t1.tv_sec-t0.tv_sec) + (t1.tv_usec-t0.tv_usec)*1e-6;
-        printf("Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
 #else
         int nstep = central2d_run(sim, ftime);
-        printf("Took %d steps\n", nstep);
+        double elapsed = 0;
 #endif
         solution_check(sim);
+        tcompute += elapsed;
+        printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
         viz_frame(viz, sim);
     }
+    printf("Total compute time: %e\n", tcompute);
+
     central2d_free(sim);
     return 0;
 }
