@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 
 #include "flat_array.h"
 
@@ -90,7 +91,7 @@ private:
         real *xs##2() { return field(xs##_, 2); }
 
     #define BLOCK_INDEXERS(xs) \
-        real *xs(int k, int x, int y) { at(field(xs##_, k), x, y); }
+        real *xs(int k, int x, int y) { return at(field(xs##_, k), x, y); }
 
     BLOCK_MAP(BLOCK_FIELDS)
     BLOCK_MAP(BLOCK_INDEXERS)
@@ -503,7 +504,7 @@ void Central2DBlock2<Physics, Limiter>::run_block(const int io,
     }
 
     // step block
-    Block<Physics, Limiter> b(_u, width_all, height_all, bghosts, io, dt);
+    Block<Physics, Limiter> b(_u, width, height, bghosts, io, dt);
     b.step();
 
     // write back from _u to u

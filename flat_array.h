@@ -27,7 +27,9 @@ namespace flat_array {
 
 template <typename A>
 A *make(int nx, int ny, int num_fields) {
-    return (A *)malloc(nx * ny * num_fields * sizeof(A));
+    A *p = (A *)malloc(nx * ny * num_fields * sizeof(A));
+    assert(p);
+    return p;
 }
 
 template <typename A>
