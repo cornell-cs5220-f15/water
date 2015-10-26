@@ -6,6 +6,7 @@
 #include "central2d_vec.h"
 #include "meshio.h"
 #include "minmod.h"
+#include "minmod_opt.h"
 #include "shallow2d.h"
 #include "shallow2d_block.h"
 #include "shallow2d_vec.h"
