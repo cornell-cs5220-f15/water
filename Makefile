@@ -67,7 +67,7 @@ run_%: shallow_%
 run-ampl_%: shallow_%
 	qsub run-ampl.pbs -N $*-ampl -vARG1=$<
 
-time: clean $(shell echo shallow-timing{,_vec}) $(shell echo run{,_vec})
+time: clean $(shell echo shallow-timing{,_vec,_block,_block2}) $(shell echo run{,_vec,_block,_block2})
 
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
