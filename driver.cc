@@ -60,7 +60,7 @@ int main(int argc, char** argv)
     double width = 2.0;
     double ftime = 0.01;
     int    frames = 50;
-    int nx = 200;
+    int nx = 320;
     
     int c;
     /*
@@ -105,23 +105,26 @@ int main(int argc, char** argv)
         fprintf(stderr, "Unknown initial conditions\n");
     }
     */
+    
+    printf("Start\n");
     double t0 = omp_get_wtime();
     
     Sim sim(width,width, NX,NX);
     SimViz<Sim> viz("dam_break", sim);
+    printf("Init\n");
     sim.init();
+    printf("First check\n");
     sim.solution_check();
+    printf("Write\n");
     viz.write_frame();
-    for (int i = 0; i < frames; ++i) {
-#ifdef _OPENMP
-        
+    for (int i = 0; i < 1; ++i) {
+        printf("Frame %d\n", i);
         sim.run(ftime);
-
-#else
-        sim.run(ftime);
-#endif
-        sim.solution_check();
-        viz.write_frame();
+        printf("Check %d\n", i);
+        //sim.solution_check();
+        printf("Write %d\n", i);
+        //viz.write_frame();
+        printf("Done %d\n", i);
     }
     double t1 = omp_get_wtime();
     printf("Time: %e\n", t1-t0);

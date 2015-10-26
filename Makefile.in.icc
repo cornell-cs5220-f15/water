@@ -2,7 +2,6 @@ CXX=icpc
 CXXFLAGS=-std=c++14 -g -openmp
 
 # If you're using icc, these are good flags to try
-OPTFLAGS= -O3 \
-    	 -axCORE-AVX512,CORE-AVX512 -offload-attribute-target=mic 
+OPTFLAGS= -O3 -axCORE-AVX512 -offload-attribute-target=mic 
 CXXFLAGS+=$(OPTFLAGS)
 PYTHON=python
