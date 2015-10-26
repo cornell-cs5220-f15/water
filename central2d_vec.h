@@ -255,7 +255,9 @@ void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
+    for (int iy = 1; iy < ny_all-1; ++iy) {
+        #pragma vector aligned
+        #pragma ivdep
         for (int ix = 1; ix < nx_all-1; ++ix) {
             real h  = u(0, ix, iy);
             real hu = u(1, ix, iy);
@@ -272,23 +274,28 @@ void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
                           g(0, ix,iy), g(1, ix, iy), g(2, ix, iy),
                           h, hu, hv);
         }
+    }
 
     // Corrector (finish the step)
-    #pragma vector aligned
+    int _nx = nx;
+    int _ny = ny;
+    int _nghost = nghost;
     for (int k = 0; k < num_fields; ++k) {
-        for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
-            for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+        for (int iy = _nghost-io; iy < _ny+_nghost-io; ++iy) {
+            #pragma vector aligned
+            #pragma ivdep
+            for (int ix = _nghost-io; ix < _nx+_nghost-io; ++ix) {
                 v(k, ix+io, iy+io) =
-                    0.2500 * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
-                               u(k, ix,iy+1) + u(k, ix+1,iy+1) ) -
-                    0.0625 * ( ux(k, ix+1,iy  ) - ux(k, ix,iy  ) +
-                               ux(k, ix+1,iy+1) - ux(k, ix,iy+1) +
-                               uy(k, ix,  iy+1) - uy(k, ix,  iy) +
-                               uy(k, ix+1,iy+1) - uy(k, ix+1,iy) ) -
-                    dtcdx2 * ( f(k, ix+1,iy  ) - f(k, ix,iy  ) +
-                               f(k, ix+1,iy+1) - f(k, ix,iy+1) ) -
-                    dtcdy2 * ( g(k, ix,  iy+1) - g(k, ix,  iy) +
-                               g(k, ix+1,iy+1) - g(k, ix+1,iy) );
+                    0.2500f * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
+                                u(k, ix,iy+1) + u(k, ix+1,iy+1) ) -
+                    0.0625f * ( ux(k, ix+1,iy  ) - ux(k, ix,iy  ) +
+                                ux(k, ix+1,iy+1) - ux(k, ix,iy+1) +
+                                uy(k, ix,  iy+1) - uy(k, ix,  iy) +
+                                uy(k, ix+1,iy+1) - uy(k, ix+1,iy) ) -
+                    dtcdx2 * (  f(k, ix+1,iy  ) - f(k, ix,iy  ) +
+                                f(k, ix+1,iy+1) - f(k, ix,iy+1) ) -
+                    dtcdy2 * (  g(k, ix,  iy+1) - g(k, ix,  iy) +
+                                g(k, ix+1,iy+1) - g(k, ix+1,iy) );
             }
         }
     }
