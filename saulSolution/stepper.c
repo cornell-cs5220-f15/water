@@ -19,10 +19,10 @@
 
 central2d_t* central2d_init(float w, float h, int nx, int ny,
                             int nfield, flux_t flux, speed_t speed,
-                            float cfl)
+                            float cfl, int timef)
 {
     // We extend to a four cell buffer to avoid BC comm on odd time steps
-    int ng = 4;
+    int ng = 4*timef;
 
     central2d_t* sim = (central2d_t*) malloc(sizeof(central2d_t));
     sim->nx = nx;
@@ -387,8 +387,8 @@ void copytooriginal(central2d_t* region,central2d_t* sim,int processor, int nthr
     int vdx=(processor%nthreads) * (region->nx);
     int vdy=(processor/nthreads) * (region->ny);
     for (int k=0; k<region->nfield; ++k){
-        for (int iy=0; iy<region->ny; ++iy){
-            for (int ix=0; ix<region->nx; ++ix){
+        for (int iy=0; iy<(region->ny); ++iy){
+            for (int ix=0; ix<(region->nx); ++ix){
                 (sim->u)[central2d_offset(sim,k,ix+vdx,iy+vdy)]=(region->u)[central2d_offset(region,k,ix,iy)];
             }
         }
@@ -410,7 +410,7 @@ void copytoregion(central2d_t* region, central2d_t* sim, int processor, int nthr
     int vdy=(processor/nthreads) * (region->ny);
     int ny_all=(region->ny) + (2*(region->ng));
     int nx_all=(region->nx) + (2*(region->ng));
-    for (int k=0; k<region->nfield; ++k){
+    for (int k=0; k<(region->nfield); ++k){
         for (int iy=0; iy<ny_all; ++iy){
             for (int ix=0; ix<nx_all; ++ix){
                 (region->u)[central2d_offset_all(region,k,ix,iy)]=(sim->u)[central2d_offset_all(sim,k,ix+vdx,iy+vdy)];
@@ -474,8 +474,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
     omp_set_dynamic(0);
     omp_set_num_threads(nthreads);
     
-    printf("original block\n");
-    printregion(sim);
+
  
     #pragma omp parallel 
     {
@@ -497,10 +496,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                 }
             }
             copytoregion(region,sim,thread,p);
-            if (thread==1){
-                printf("region\n");
-                printregion(region);
-            }
+      
             for (int iter=0;iter<niterations;++iter){
                 central2d_step(region->u, region->v, region->scratch, region->f, region->g,
                                0, (region->nx), (region->ny), region->ng,
@@ -511,10 +507,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                                region->nfield, region->flux, region->speed,
                                dt, region->dx, region->dy);
             }
-            if (thread==1){
-                printf("region\n");
-                printregion(region);
-            }
+     
             #pragma omp 	barrier
           copytooriginal(region,sim,thread,p);
           
@@ -523,8 +516,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             {
                 t += 2*niterations*dt;
                 nstep+= 2*niterations;
-                printf("original block\n");
-                printregion(sim);
+
             }
         }
     }

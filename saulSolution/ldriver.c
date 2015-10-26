@@ -217,7 +217,7 @@ int run_sim(lua_State* L)
     const char* fname = lget_string(L, "out", "sim.out");
 
     central2d_t* sim = central2d_init(w,h, nx,ny,
-                                      3, shallow2d_flux, shallow2d_speed, cfl);
+                                      3, shallow2d_flux, shallow2d_speed, cfl,timef);
     lua_init_sim(L,sim);
 
     printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
