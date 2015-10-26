@@ -516,7 +516,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         }
     }
     
-    /**
+    
     bool done = false;
     real t = 0;
     while (!done) {
@@ -535,7 +535,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         std::vector<vec>* myFX = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
         std::vector<vec>* myGY = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
         
-        for (int io = 0; io < 2; ++io) {
+        for (int io = 0; io < 1; ++io) {
             
             real cx, cy;
             
@@ -556,28 +556,40 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             // this is difficult when copying ghost cells
             //
             
-            // TODO: optimize with static to avoid so many arguments
-            apply_periodic(myU, upperL_u, upper_u, upperR_u, left_u,
-                           right_u, lowerL_u, lower_u, lowerR_u);
+            // TODO: optimize with static to avoid so many arguments (fatal bad_alloc error)
+            //apply_periodic(myU, upperL_u, upper_u, upperR_u, left_u,
+            //               right_u, lowerL_u, lower_u, lowerR_u);
+            
+            
             compute_fg_speeds(myU, myFluxX, myFluxY, cx, cy);
             // TODO: place barrier here to sync max speed
             // BARRIER
-            limited_derivs(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY);
             
+            // limited_derivs() is seg faulting, fatal
+            //limited_derivs(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY);
+            /**
             if (io == 0) {
                 dt = cfl / std::max(cx/dx, cy/dy);
                 if (t + 2*dt >= tfinal) {
                     dt = (tfinal-t)/2;
                     done = true;
                 }
-            }
+            }**/
+            
+            // compute_step() is seg faulting, fatal
             compute_step(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY, io, dt);
             t += dt;
         }
+        done = true;
         
-        // free fluxX, ..., myGY?
+        free(myFluxX);
+        free(myFluxY);
+        free(myUY);
+        free(myUX);
+        free(myFX);
+        free(myGY);
     }
-    **/
+    
     
     // copy subdomains back into master array
     for( int j=0; j < NUM_BLOCKS_Y; ++j ) {
