@@ -482,8 +482,9 @@ int central2d_xrun(float* restrict u, float* restrict v,
                 }
             }
             copytoregion(region,sim,thread,p);
-   
+            printf("checking %d %d\n",nthreads,niterations);
             for (int iter=0;iter<niterations;++iter){
+                printf("checking i'm %d %d\n",thread,iter);
                 central2d_step(region->u, region->v, region->scratch, region->f, region->g,
                                0, (region->nx), (region->ny), region->ng,
                                region->nfield, region->flux, region->speed,
@@ -510,7 +511,6 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
 int central2d_run(central2d_t* sim, float tfinal, int nthreads, int timef)
 {
-    printf("checking %d %d",nthreads,timef);
     return central2d_xrun(sim->u, sim->v, sim->scratch,
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
