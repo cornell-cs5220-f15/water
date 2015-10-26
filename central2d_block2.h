@@ -427,12 +427,12 @@ void Central2DBlock2<Physics, Limiter>::run_block(const int io,
     Block<Physics, Limiter> b(_u, width, height, bghosts, dx, dy, io, dt);
     b.step();
 
-    // write back from _u to u
+    // write back from _u to v
     for (int k = 0; k < num_fields; ++k) {
         real *_uk = flat_array::field(_u, width_all, height_all, k);
             for (int y = bghosts; y < height + bghosts; ++y) {
                 for (int x = bghosts; x < width + bghosts; ++x) {
-                u(k, ix-bghosts+x, iy-bghosts+y) =
+                v(k, ix-bghosts+x, iy-bghosts+y) =
                     *flat_array::at(_uk, width_all, height_all, x, y);
             }
         }
@@ -466,6 +466,15 @@ void Central2DBlock2<Physics, Limiter>::run(real tfinal)
             for (int by = 0; by < BY; ++by) {
                 for (int bx = 0; bx < BX; ++bx) {
                     run_block(io, dt, bx, by);
+                }
+            }
+
+            // Copy from v storage back to main grid
+            for (int k = 0; k < num_fields; ++k) {
+                for (int y = nghost; y < ny+nghost; ++y){
+                    for (int x = nghost; x < nx+nghost; ++x){
+                        u(k, x, y) = v(k, x, y);
+                    }
                 }
             }
 
