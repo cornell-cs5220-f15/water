@@ -195,6 +195,10 @@ private:
     int offsetg (int ix, int iy, int tno) const {
         return (iy+(tno/nodomains)*domain_ny_inc_ghost)*nx_all + (tno%nodomains)*domain_nx_inc_ghost + ix;
     }
+    
+    int offsetres (int ix, int iy) const {
+        return iy*nx+ix;
+    }
 
     vec& u(int ix, int iy, int tno)    { return u_[offset(ix, iy, tno)]; }
     vec& uf(int ix, int iy)            { return u_[offsetfull(ix, iy)];  }
@@ -207,6 +211,8 @@ private:
     vec& uy(int ix, int iy, int tno)   { return uy_[offsetg(ix, iy, tno)]; }
     vec& fx(int ix, int iy, int tno)   { return fx_[offsetg(ix, iy, tno)]; }
     vec& gy(int ix, int iy, int tno)   { return gy_[offsetg(ix, iy, tno)]; }
+    
+    vec& ures(int ix, int iy)          { return ures_[offsetres(ix, iy)];  }
 
     // Wrapped accessor (periodic BC)
     //TODO: Need to change this
@@ -468,7 +474,6 @@ template <class Physics, class Limiter>
  {
     bool done = false;
     real t = 0;
-<<<<<<< HEAD
     real dt;
     real cx[nodomains*nodomains], cy[nodomains*nodomains];
     #pragma omp parallel num_threads(nodomains*nodomains)
@@ -501,43 +506,6 @@ template <class Physics, class Limiter>
         #pragma omp barrier
         #pragma omp single
         t += 2*dt;
-=======
-    #pragma omp parallel num_threads(nodomains*nodomains) \
-    shared(done)
-    while (!done) {
-        real dt;
-        int tno = omp_get_thread_num();
-        
-        #pragma omp single
-        apply_periodic();
-        
-        for (int io = 0; io < 2; ++io) {
-            real cx[] = real[nodomains*nodomains], cy[]= real[nodomains*nodomains];
-            compute_fg_speeds(cx+tno, cy+tno, tno); 
-            limited_derivs(tno);
-            if (io == 0) {
-                #pragma omp barrier 
-                #pragma omp single
-                {
-                    real cxmax=cx[0], cymax=cy[0];
-                    for (int i=1; i<nodomains*nodomains; i++) {
-                        cxmax = (cxmax>cx[i])?cxmax:cx[i];
-                        cymax = (cymax>cy[i])?cymax:cy[i];
-                    }
-
-                    dt = cfl / (cxmax/dx > cymax/dy ? cxmax/dx : cymax/dy);
-                    
-                    if (t + 2*dt >= tfinal) {
-                        dt = (tfinal-t)/2;
-                        done = true;
-                    }
-                }
-            }
-            compute_step(io, dt, tno);
-            t += dt;
-            #pragma omp barrier
-        }
->>>>>>> b9784a560094217f25fe3da4272a3505eddb8ee7
     }
         
 //         for (int io = 0; io < 2; ++io) {
@@ -569,6 +537,14 @@ template <class Physics, class Limiter>
 //             compute_step(io, dt, tno);
 //             t += dt;
 //         }
+    for (int tno=0; tno<nodomains*nodomains; tno++)
+        for (int ix=0; ix<domain_nx; ix++)
+            for (int iy=0; iy<domain_ny; iy++) {
+                int res_iy = (tno/nodomains)*domain_ny + iy;
+                int res_ix = (tno%nodomains)*domain_nx + ix;
+                ures(res_ix, res_iy) = u(ix, iy, tno);
+            }
+
 }
 
 /**
@@ -588,11 +564,11 @@ void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = uf(nghost,nghost)[0];
+    real hmin = ures(nghost,nghost)[0];
     real hmax = hmin;
-    for (int j = nghost; j < ny+nghost; ++j)
-        for (int i = nghost; i < nx+nghost; ++i) {
-            vec& uij = uf(i,j);
+    for (int j = 0; j < ny; ++j)
+        for (int i = 0; i < nx; ++i) {
+            vec& uij = ures(i,j);
             real h = uij[0];
             h_sum += h;
             hu_sum += uij[1];
