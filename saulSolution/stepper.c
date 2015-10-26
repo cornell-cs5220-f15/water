@@ -407,8 +407,8 @@ void copytoregion(central2d_t* region, central2d_t* sim, int processor, int nthr
 {
     int vdx=(processor%nthreads) * (region->nx);
     int vdy=(processor/nthreads) * (region->ny);
-    int ny_all=(region->ny) * (2*region->ng);
-    int nx_all=(region->nx) * (2*region->ng);
+    int ny_all=(region->ny) + (2*region->ng);
+    int nx_all=(region->nx) + (2*region->ng);
     for (int k=0; k<region->nfield; ++k){
         for (int iy=0; iy<ny_all; ++iy){
             for (int ix=0; ix<nx_all; ++ix){
