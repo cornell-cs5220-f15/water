@@ -69,7 +69,7 @@ run-ampl_%: shallow_%
 	qsub run-ampl.pbs -N $*-ampl -vARG1=$<
 
 run-sweep_%: shallow_%
-	for (( i = 100; i <= 1000; i += 100 )); do \
+	for (( i = 500; i <= 1500; i += 200 )); do \
 		qsub run-sweep.pbs -N $* -vARG1=$<,ARG2=$$i; \
 	done
 
