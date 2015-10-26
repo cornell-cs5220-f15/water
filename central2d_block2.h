@@ -108,9 +108,11 @@ private:
 
 template <class Physics, class Limiter>
 void Block<Physics, Limiter>::flux() {
-    for (int iy = 0; iy < ny_all_; ++iy) {
-        for (int ix = 0; ix < nx_all_; ++ix) {
-            Physics::flux(f0(), f1(), f2(), g0(), g1(), g2(), *u0(), *u1(), *u2());
+    for (int y = 0; y < ny_all_; ++y) {
+        for (int x = 0; x < nx_all_; ++x) {
+            Physics::flux( f(0, x, y),  f(1, x, y),  f(2, x, y),
+                           g(0, x, y),  g(1, x, y),  g(2, x, y),
+                          *u(0, x, y), *u(1, x, y), *u(2, x, y));
         }
     }
 }
