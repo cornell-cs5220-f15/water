@@ -458,6 +458,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
     int thread;
     float dt;
     float cxy[2];
+    int niterations=timef;
     
     omp_set_dynamic(0);
     omp_set_num_threads(nthreads);
@@ -476,14 +477,14 @@ int central2d_xrun(float* restrict u, float* restrict v,
                 central2d_periodic(u, nx, ny, ng, nfield);
                 speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
                 dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-                if (t + 2*dt*timef >= tfinal) {
-                    dt = (tfinal-t)/(2*timef);
+                if (t + 2*dt*niterations >= tfinal) {
+                    dt = (tfinal-t)/(2*niterations);
                     done = true;
                 }
             }
             copytoregion(region,sim,thread,p);
    
-            for (int iter=0;iter<timef;++iter){
+            for (int iter=0;iter<niterations;++iter){
                 central2d_step(region->u, region->v, region->scratch, region->f, region->g,
                                0, (region->nx), (region->ny), region->ng,
                                region->nfield, region->flux, region->speed,
@@ -499,8 +500,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
             
             #pragma omp single
             {
-                t += 2*timef*dt;
-                nstep+= 2*timef;
+                t += 2*niterations*dt;
+                nstep+= 2*niterations;
             }
         }
     }
