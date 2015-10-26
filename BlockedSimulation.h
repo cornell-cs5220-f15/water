@@ -144,27 +144,28 @@ void BlockedSimulation::run(real tfinal) {
 
   #pragma omp parallel num_threads(8)
   {
-    while (!done) {
-      #pragma omp for ordered
-      for (int i = 0; i < nblocks; i++) {
-        for (int j = 0; j < nblocks; j++) {
-          // apply_periodic equivalent
-          copy_ghosts();
+    #pragma omp master
+    {
+      while (!done) {
+        for (int i = 0; i < nblocks; i++) {
+          for (int j = 0; j < nblocks; j++) {
+            #pragma omp task
+            {
+              // apply_periodic equivalent
+              copy_ghosts();
 
-          #pragma omp ordered
-          {
-            // Calculate cx, cy by calling compute_fg_speeds()
-            blocks[i][j].compute_fg_speeds(cx[i * nblocks + j], cy[i * nblocks + j]);
-            blocks[i][j].limited_derivs();
+              // Calculate cx, cy by calling compute_fg_speeds()
+              blocks[i][j].compute_fg_speeds(cx[i * nblocks + j], cy[i * nblocks + j]);
+              blocks[i][j].limited_derivs();
+            }
           }
         }
-      }
 
-      // Find the global dt (smallest allowed or something)
-      real cxmax, cymax;
+        #pragma omp taskwait
 
-      #pragma omp critical
-      {
+        // Find the global dt (smallest allowed or something)
+        real cxmax, cymax;
+
         cxmax = *std::max_element(cx.begin(), cx.end());
         cymax = *std::max_element(cy.begin(), cy.end());
 
@@ -174,47 +175,53 @@ void BlockedSimulation::run(real tfinal) {
           dt = (tfinal - t) / 2;
           done = true;
         }
-      }
 
-      // Compute step
-      #pragma omp for ordered
-      for (int i = 0; i < nblocks; i++) {
-        for (int j = 0; j < nblocks; j++) {
-          #pragma omp ordered
-          blocks[i][j].compute_step(0, dt);
-        }
-      }
-
-      // Evaluate dt
-      #pragma omp atomic
-      t += dt;
-
-      #pragma omp for ordered
-      for (int i = 0; i < nblocks; i++) {
-        for (int j = 0; j < nblocks; j++) {
-          copy_ghosts(); // this is new apply_periodic
-
-          #pragma omp ordered
-          {
-            // Calculate cx, cy calling compute_fg_speeds()
-            blocks[i][j].compute_fg_speeds(cx[i * nblocks + j], cy[i * nblocks + j]);
-            blocks[i][j].limited_derivs();
+        // Compute step
+        for (int i = 0; i < nblocks; i++) {
+          for (int j = 0; j < nblocks; j++) {
+            #pragma omp task
+            {
+              blocks[i][j].compute_step(0, dt);
+            }
           }
         }
-      }
 
-      // Compute step
-      #pragma omp for ordered
-      for (int i = 0; i < nblocks; i++) {
-        for (int j = 0; j < nblocks; j++) {
-          #pragma omp ordered
-          blocks[i][j].compute_step(1, dt);
+        #pragma omp taskwait
+
+        // Evaluate dt
+        t += dt;
+
+        for (int i = 0; i < nblocks; i++) {
+          for (int j = 0; j < nblocks; j++) {
+            #pragma omp task
+            {
+              // apply_periodic equivalent
+              copy_ghosts();
+
+              // Calculate cx, cy by calling compute_fg_speeds()
+              blocks[i][j].compute_fg_speeds(cx[i * nblocks + j], cy[i * nblocks + j]);
+              blocks[i][j].limited_derivs();
+            }
+          }
         }
-      }
 
-      // Evaluate dt
-      #pragma omp atomic
-      t += dt;
+        #pragma omp taskwait
+
+        // Compute step
+        for (int i = 0; i < nblocks; i++) {
+          for (int j = 0; j < nblocks; j++) {
+            #pragma omp task
+            {
+              blocks[i][j].compute_step(1, dt);
+            }
+          }
+        }
+
+        #pragma omp taskwait
+
+        // Evaluate dt
+        t += dt;
+      }
     }
   }
 }

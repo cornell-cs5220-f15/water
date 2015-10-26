@@ -7,16 +7,18 @@ NB: Requires a modern Matplotlib version; also needs
  either FFMPeg (for MP4) or ImageMagick (for GIF)
 """
 
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+
 import matplotlib.animation as manimation
+import matplotlib.pyplot as plt
+import numpy as np
 import sys
 
+from mpl_toolkits.mplot3d import Axes3D
 
-def main(infile="waves.out", outfile="out.mp4", startpic="start.png"):
+
+def main(infile="wave.out", outfile="wave.mp4", startpic="wave.png"):
     """Visualize shallow water simulation results.
 
     Args:
@@ -28,20 +30,20 @@ def main(infile="waves.out", outfile="out.mp4", startpic="start.png"):
     u = np.fromfile(infile, dtype=np.dtype('f4'))
     nx = int(u[0])
     ny = int(u[1])
-    x = range(0,nx)
-    y = range(0,ny)
+    x = range(0, nx)
+    y = range(0, ny)
     u = u[2:]
-    nframe = len(u) // (nx*ny)
-    stride = nx // 20
-    u = np.reshape(u, (nframe,nx,ny))
-    X, Y = np.meshgrid(x,y)
+    nframe = len(u) // (nx * ny)
+    # stride = nx // 20
+    u = np.reshape(u, (nframe, nx, ny))
+    X, Y = np.meshgrid(x, y)
 
-    fig = plt.figure(figsize=(10,10))
+    fig = plt.figure(figsize=(10, 10))
 
     def plot_frame(i, stride=5):
         ax = fig.add_subplot(111, projection='3d')
         ax.set_zlim(0, 2)
-        Z = u[i,:,:];
+        Z = u[i, :, :]
         ax.plot_surface(X, Y, Z, rstride=stride, cstride=stride)
         return ax
 
