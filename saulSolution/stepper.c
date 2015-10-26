@@ -455,7 +455,6 @@ int central2d_xrun(float* restrict u, float* restrict v,
     float t = 0;
     
     int p = (int) sqrt(nthreads);
-    int thread;
     float dt;
     float cxy[2];
     int niterations=timef;
@@ -465,7 +464,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
  
     #pragma omp parallel 
     {
-        thread = omp_get_thread_num();
+        int thread = omp_get_thread_num();
         central2d_t* region = (central2d_t*) malloc(sizeof(central2d_t));
         region=createRectangle((sim->dx)*(sim->nx)/p,(sim->dy)*(sim->ny)/p,(sim->nx)/p,(sim->ny)/p,
                                sim->nfield,sim->flux, sim->speed,sim->cfl,timef);
