@@ -204,8 +204,8 @@ public:
     static constexpr int num_fields = Physics::num_fields;
 
     Central2DBlock2(real w, real h,     // Domain width / height
-                 int nx, int ny,     // Number of cells in x/y (without ghosts)
-                 real cfl = 0.45) :  // Max allowed CFL number
+                    int nx, int ny,     // Number of cells in x/y (without ghosts)
+                    real cfl = 0.45) :  // Max allowed CFL number
         nx(nx), ny(ny),
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
@@ -267,26 +267,6 @@ private:
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
 
-    // All vectors are stored as a flattened representation of a
-    // two-dimensional array of arrays. For example, consider a 2x4 grid where
-    // each element of the grid contains a vector of length three.
-    //
-    //                        +---+---+---+---+
-    //                      1 | d | f | g | h |
-    //                        +---+---+---+---+
-    //                      0 | a | b | c | d |
-    //                        +---+---+---+---+
-    //                          0   1   2   3
-    //
-    // This grid is stored as follows:
-    //
-    //     +---+---+---+---+---+---+---+---+---+   +---+---+   +---+
-    //     |a_0|b_0|c_0|d_0|e_0|f_0|g_0|h_0|a_1|...|h_1|a_2|...|h_2|
-    //     +---+---+---+---+---+---+---+---+---+   +---+---+   +---+
-    //       0   1   2   3   4   5   6   7   8      15  16      23
-    //
-    // This representation is taken from Prof. Bindel's implementation:
-    // https://github.com/dbindel/water
     real *u_;  // Solution values
     real *f_;  // Fluxes in x
     real *g_;  // Fluxes in y
@@ -322,9 +302,6 @@ private:
     void run_block(const int io, const real dt, const int bx, const int by);
     void apply_periodic();
     void compute_max_speed(real& cx, real& cy);
-    void compute_fg_speeds(real& cx, real& cy);
-    void limited_derivs();
-    void compute_step(int io, real dt);
 };
 
 // Note that this function is not vectorized, but since `init` is only called
@@ -391,117 +368,6 @@ void Central2DBlock2<Physics, Limiter>::compute_max_speed(real& cx, real& cy) {
 
     cx = _cx;
     cy = _cy;
-}
-
-template <class Physics, class Limiter>
-void Central2DBlock2<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
-{
-    using namespace std;
-    real cx = 1.0e-15;
-    real cy = 1.0e-15;
-
-    // KINDA VEC
-    for (int iy = 0; iy < ny_all; ++iy) {
-        #pragma ivdep
-        for (int ix = 0; ix < nx_all; ++ix) {
-            real& f0 = f(0, ix, iy);
-            real& f1 = f(1, ix, iy);
-            real& f2 = f(2, ix, iy);
-            real& g0 = g(0, ix, iy);
-            real& g1 = g(1, ix, iy);
-            real& g2 = g(2, ix, iy);
-            real& h  = u(0, ix, iy);
-            real& hu = u(1, ix, iy);
-            real& hv = u(2, ix, iy);
-
-            Physics::flux(f0, f1, f2, g0, g1, g2, h, hu, hv);
-        }
-    }
-
-    // KINDA VEC
-    for (int iy = 0; iy < ny_all; ++iy) {
-        for (int ix = 0; ix < nx_all; ++ix) {
-            real cell_cx, cell_cy;
-            Physics::wave_speed(cell_cx, cell_cy,
-                                u(0, ix,iy), u(1, ix, iy), u(2, ix, iy));
-            cx = max(cx, cell_cx);
-            cy = max(cy, cell_cy);
-        }
-    }
-
-    cx_ = cx;
-    cy_ = cy;
-}
-
-template <class Physics, class Limiter>
-void Central2DBlock2<Physics, Limiter>::limited_derivs() {
-    using L = Limiter;
-    for (int k = 0; k < num_fields; ++k) {
-        for (int iy = 1; iy < ny_all-1; ++iy) {
-            for (int ix = 1; ix < nx_all-1; ++ix) {
-                // x derivs
-                ux(k, ix, iy) = L::limdiff(u(k, ix-1,iy), u(k, ix,iy), u(k, ix+1,iy));
-                fx(k, ix, iy) = L::limdiff(f(k, ix-1,iy), f(k, ix,iy), f(k, ix+1,iy));
-
-                // y derivs
-                uy(k, ix, iy) = L::limdiff(u(k, ix,iy-1), u(k, ix,iy), u(k, ix,iy+1));
-                gy(k, ix, iy) = L::limdiff(g(k, ix,iy-1), g(k, ix,iy), g(k, ix,iy+1));
-            }
-        }
-    }
-}
-
-template <class Physics, class Limiter>
-void Central2DBlock2<Physics, Limiter>::compute_step(int io, real dt)
-{
-    real dtcdx2 = 0.5 * dt / dx;
-    real dtcdy2 = 0.5 * dt / dy;
-
-    // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            real h  = u(0, ix, iy);
-            real hu = u(1, ix, iy);
-            real hv = u(2, ix, iy);
-
-            h  -= dtcdx2 * fx(0, ix, iy);
-            h  -= dtcdy2 * gy(0, ix, iy);
-            hu -= dtcdx2 * fx(1, ix, iy);
-            hu -= dtcdy2 * gy(1, ix, iy);
-            hv -= dtcdx2 * fx(2, ix, iy);
-            hv -= dtcdy2 * gy(2, ix, iy);
-
-            Physics::flux(f(0, ix,iy), f(1, ix, iy), f(2, ix, iy),
-                          g(0, ix,iy), g(1, ix, iy), g(2, ix, iy),
-                          h, hu, hv);
-        }
-
-    // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int k = 0; k < num_fields; ++k) {
-                v(k, ix,iy) =
-                    0.2500 * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
-                               u(k, ix,iy+1) + u(k, ix+1,iy+1) ) -
-                    0.0625 * ( ux(k, ix+1,iy  ) - ux(k, ix,iy  ) +
-                               ux(k, ix+1,iy+1) - ux(k, ix,iy+1) +
-                               uy(k, ix,  iy+1) - uy(k, ix,  iy) +
-                               uy(k, ix+1,iy+1) - uy(k, ix+1,iy) ) -
-                    dtcdx2 * ( f(k, ix+1,iy  ) - f(k, ix,iy  ) +
-                               f(k, ix+1,iy+1) - f(k, ix,iy+1) ) -
-                    dtcdy2 * ( g(k, ix,  iy+1) - g(k, ix,  iy) +
-                               g(k, ix+1,iy+1) - g(k, ix+1,iy) );
-            }
-        }
-
-    // Copy from v storage back to main grid
-    for (int k = 0; k < num_fields; ++k) {
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u(k, i, j) = v(k, i-io, j-io);
-            }
-        }
-    }
 }
 
 template <class Physics, class Limiter>
