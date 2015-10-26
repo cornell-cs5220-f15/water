@@ -142,7 +142,7 @@ void BlockedSimulation::run(real tfinal) {
   std::vector<real> cx(nblocks * nblocks);
   std::vector<real> cy(nblocks * nblocks);
 
-  #pragma omp parallel num_threads(8)
+  #pragma omp parallel
   {
     #pragma omp master
     {
