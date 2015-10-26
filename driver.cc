@@ -7,6 +7,7 @@
 #include "central2d_vec.h"
 #include "meshio.h"
 #include "minmod.h"
+#include "minmod_opt.h"
 #include "shallow2d.h"
 #include "shallow2d_block.h"
 #include "shallow2d_vec.h"
@@ -57,12 +58,12 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
 #if defined(VERSION_ref)
     typedef ReferenceSim Sim;
 #elif defined(VERSION_block)
-    typedef Central2DBlock<Shallow2DBlock, MinMod<Shallow2DBlock::real>> Sim;
+    typedef Central2DBlock<Shallow2DBlock, MinModOpt<Shallow2DBlock::real>> Sim;
 // TODO(wensi): this doesn't build
  #elif defined(VERSION_block_par)
      typedef Central2DBlockPar<Shallow2DBlock, MinMod<Shallow2DBlock::real>> Sim;
 #elif defined(VERSION_vec)
-    typedef Central2DVec<Shallow2DVec, MinMod<Shallow2DVec::real>> Sim;
+    typedef Central2DVec<Shallow2DVec, MinModOpt<Shallow2DVec::real>> Sim;
 #elif defined(VERSION_buggy)
     typedef Central2DBuggy<Shallow2D, MinMod<Shallow2D::real>> Sim;
 #elif defined(VERSION_copy)

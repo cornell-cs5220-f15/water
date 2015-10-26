@@ -32,6 +32,7 @@ HEADERS = \
 	flat_array.h \
 	meshio.h \
 	minmod.h \
+	minmod_opt.h \
 	shallow2d.h \
 	shallow2d_block.h \
 	shallow2d_vec.h \
@@ -54,6 +55,11 @@ shallow_%: driver.cc $(HEADERS)
 shallow-timing_%: driver.cc $(HEADERS)
 	$(CXX) $(CXXFLAGS) -DTIMING_ENABLED -o shallow_$* $< -DVERSION_$*
 
+shallow-timing_blocks: driver.cc $(HEADERS)
+	for (( i = 4; i <= 1024; i *= 2 )); do \
+		$(CXX) $(CXXFLAGS) -DTIMING_ENABLED -o shallow_block-$$i $< -DVERSION_block -DBLOCK_SIZE=$$i; \
+	done
+
 run: shallow
 	qsub run.pbs -N shallow -vARG1=shallow
 
@@ -65,6 +71,11 @@ run_%: shallow_%
 
 run-ampl_%: shallow_%
 	qsub run-ampl.pbs -N $*-ampl -vARG1=$<
+
+run-sweep_%: shallow_%
+	for (( i = 500; i <= 1500; i += 200 )); do \
+		qsub run-sweep.pbs -N $* -vARG1=$<,ARG2=$$i; \
+	done
 
 time: clean $(shell echo shallow-timing{,_vec,_block}) $(shell echo run{,_vec,_block})
 

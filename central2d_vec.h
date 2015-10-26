@@ -154,8 +154,6 @@ void Central2DVec<Physics, Limiter>::init(F f) {
     }
 }
 
-// VEC
-// TODO(mwhittaker): convert ny_all to compile time constant.
 template <class Physics, class Limiter>
 void Central2DVec<Physics, Limiter>::apply_periodic() {
     // Copy data between right and left boundaries
@@ -188,7 +186,6 @@ void Central2DVec<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     real cx = 1.0e-15;
     real cy = 1.0e-15;
 
-    // KINDA VEC
     for (int iy = 0; iy < ny_all; ++iy) {
         #pragma ivdep
         for (int ix = 0; ix < nx_all; ++ix) {
@@ -206,7 +203,6 @@ void Central2DVec<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
         }
     }
 
-    // KINDA VEC
     for (int iy = 0; iy < ny_all; ++iy) {
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
@@ -224,14 +220,22 @@ void Central2DVec<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2DVec<Physics, Limiter>::limited_derivs() {
     using L = Limiter;
+
     for (int k = 0; k < num_fields; ++k) {
         for (int iy = 1; iy < ny_all-1; ++iy) {
             #pragma vector aligned
-		for (int ix = 1; ix < nx_all-1; ++ix) {
+            #pragma ivdep
+            for (int ix = 1; ix < nx_all-1; ++ix) {
                 // x derivs
                 ux(k, ix, iy) = L::limdiff(u(k, ix-1,iy), u(k, ix,iy), u(k, ix+1,iy));
                 fx(k, ix, iy) = L::limdiff(f(k, ix-1,iy), f(k, ix,iy), f(k, ix+1,iy));
+            }
+        }
 
+        for (int ix = 1; ix < nx_all-1; ++ix) {
+            #pragma vector aligned
+            #pragma ivdep
+            for (int iy = 1; iy < ny_all-1; ++iy) {
                 // y derivs
                 uy(k, ix, iy) = L::limdiff(u(k, ix,iy-1), u(k, ix,iy), u(k, ix,iy+1));
                 gy(k, ix, iy) = L::limdiff(g(k, ix,iy-1), g(k, ix,iy), g(k, ix,iy+1));
@@ -247,7 +251,9 @@ void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
+    for (int iy = 1; iy < ny_all-1; ++iy) {
+        #pragma vector aligned
+        #pragma ivdep
         for (int ix = 1; ix < nx_all-1; ++ix) {
             real h  = u(0, ix, iy);
             real hu = u(1, ix, iy);
@@ -264,34 +270,31 @@ void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
                           g(0, ix,iy), g(1, ix, iy), g(2, ix, iy),
                           h, hu, hv);
         }
+    }
 
     // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            	#pragma vector aligned
-		for (int k = 0; k < num_fields; ++k) {
-                v(k, ix,iy) =
-                    0.2500 * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
-                               u(k, ix,iy+1) + u(k, ix+1,iy+1) ) -
-                    0.0625 * ( ux(k, ix+1,iy  ) - ux(k, ix,iy  ) +
-                               ux(k, ix+1,iy+1) - ux(k, ix,iy+1) +
-                               uy(k, ix,  iy+1) - uy(k, ix,  iy) +
-                               uy(k, ix+1,iy+1) - uy(k, ix+1,iy) ) -
-                    dtcdx2 * ( f(k, ix+1,iy  ) - f(k, ix,iy  ) +
-                               f(k, ix+1,iy+1) - f(k, ix,iy+1) ) -
-                    dtcdy2 * ( g(k, ix,  iy+1) - g(k, ix,  iy) +
-                               g(k, ix+1,iy+1) - g(k, ix+1,iy) );
-            }
-        }
-
-    // Copy from v storage back to main grid
+    int _nx = nx;
+    int _ny = ny;
+    int _nghost = nghost;
     for (int k = 0; k < num_fields; ++k) {
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u(k, i, j) = v(k, i-io, j-io);
+        for (int iy = _nghost-io; iy < _ny+_nghost-io; ++iy) {
+            for (int ix = _nghost-io; ix < _nx+_nghost-io; ++ix) {
+                v(k, ix+io, iy+io) =
+                    0.2500f * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
+                                u(k, ix,iy+1) + u(k, ix+1,iy+1) ) -
+                    0.0625f * ( ux(k, ix+1,iy  ) - ux(k, ix,iy  ) +
+                                ux(k, ix+1,iy+1) - ux(k, ix,iy+1) +
+                                uy(k, ix,  iy+1) - uy(k, ix,  iy) +
+                                uy(k, ix+1,iy+1) - uy(k, ix+1,iy) ) -
+                    dtcdx2 * (  f(k, ix+1,iy  ) - f(k, ix,iy  ) +
+                                f(k, ix+1,iy+1) - f(k, ix,iy+1) ) -
+                    dtcdy2 * (  g(k, ix,  iy+1) - g(k, ix,  iy) +
+                                g(k, ix+1,iy+1) - g(k, ix+1,iy) );
             }
         }
     }
+
+    std::swap(u_, v_);
 }
 
 template <class Physics, class Limiter>
