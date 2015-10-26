@@ -140,11 +140,11 @@ template <class Physics, class Limiter>
     
     // Read / write elements of simulation state
     vec&       operator()(int i, int j) {
-        return u_[offset(i+nghost,j+nghost)];
+        return u_[offsetfull(i+nghost,j+nghost)]; //TODO
     }
     
     const vec& operator()(int i, int j) const {
-        return u_[offset(i+nghost,j+nghost)];
+        return u_[offsetfull(i+nghost,j+nghost)]; //TODO
     }
     
 private:
@@ -225,10 +225,10 @@ private:
     }
 
     // Stages of the main algorithm
-    void apply_periodic(int tno);
-    void compute_fg_speeds(real& cx, real& cy);
-    void limited_derivs();
-    void compute_step(int io, real dt);
+    void apply_periodic();
+    void compute_fg_speeds(real& cx, real& cy, int tno);
+    void limited_derivs(int tno);
+    void compute_step(int io, real dt, int tno);
 
 };
 
@@ -248,9 +248,10 @@ template <class Physics, class Limiter>
 template <typename F>
  void Central2D<Physics, Limiter>::init(F f)
  {
-    for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
-            f(u(ix,iy), (ix+0.5)*dx, (iy+0.5)*dy);
+    for (int tno=0; tno < nodomains*nodomains; tno++)
+        for (int iy = 0; iy < ny; ++iy)
+            for (int ix = 0; ix < nx; ++ix)
+                f(u(ix,iy,tno), (ix+0.5)*dx, (iy+0.5)*dy);
     }
 
 /**
@@ -351,8 +352,8 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_, int tn
             cx = cx > cell_cx ? cx : cell_cx;
             cy = cy > cell_cy ? cy : cell_cy;
         }
-        *cx_ = cx;
-        *cy_ = cy;
+        cx_ = cx;
+        cy_ = cy;
     }
 
 /**
@@ -467,40 +468,69 @@ template <class Physics, class Limiter>
  {
     bool done = false;
     real t = 0;
+    real dt;
+    real cx[nodomains*nodomains], cy[nodomains*nodomains];
     #pragma omp parallel num_threads(nodomains*nodomains)
-    while (!done) {
-        real dt;
-        int tno = omp_get_thread_num();
-        for (int io = 0; io < 2; ++io) {
-            real cx[] = real[nodomains*nodomains], cy[]= real[nodomains*nodomains];
-            #paragma omp single
-            apply_periodic();
-            compute_fg_speeds(cx+tno, cy+tno, tno); 
-            limited_derivs(tno);
-            if (io == 0) {
-                #pragma omp barrier 
-                {
-                    #pragma omp single
-                    {
-                        real cxmax=cx[0], cymax=cy[0];
-                        for (int i=1; i<nodomains*nodomains; i++) {
-                            cxmax = (cxmax>cx[i])?cxmax:cx[i];
-                            cymax = (cymax>cy[i])?cymax:cy[i];
-                        }
-                      
-                        dt = cfl / (cxmax/dx > cymax/dy ? cxmax/dx : cymax/dy);
-                    
-                        if (t + 2*dt >= tfinal) {
-                            dt = (tfinal-t)/2;
-                            done = true;
-                        }
-                    }
+    while (!done) {        
+        int tno = omp_get_thread_num();        
+        #pragma omp single
+        apply_periodic();
+        compute_fg_speeds(cx[tno], cy[tno], tno);
+        limited_derivs(tno);
+        #pragma omp barrier
+        {
+            #pragma omp single
+            {
+                real cxmax=cx[0], cymax=cy[0];
+                for (int i=1; i<nodomains*nodomains; i++) {
+                    cxmax = (cxmax>cx[i])?cxmax:cx[i];
+                    cymax = (cymax>cy[i])?cymax:cy[i];
+                }
+          
+                dt = cfl / (cxmax/dx > cymax/dy ? cxmax/dx : cymax/dy);
+        
+                if (t + 2*dt >= tfinal) {
+                    dt = (tfinal-t)/2;
+                    done = true;
                 }
             }
-            compute_step(io, dt, tno);
-            t += dt;
-        }
+        }        
+        compute_step(0, dt, tno);
+        compute_step(1, dt, tno);
+        #pragma omp barrier
+        #pragma omp single
+        t += 2*dt;
     }
+        
+//         for (int io = 0; io < 2; ++io) {
+//             real cx[] = real[nodomains*nodomains], cy[]= real[nodomains*nodomains];
+//             #paragma omp single
+//             apply_periodic();
+//             compute_fg_speeds(cx+tno, cy+tno, tno); 
+//             limited_derivs(tno);
+//             if (io == 0) {
+//                 #pragma omp barrier 
+//                 {
+//                     #pragma omp single
+//                     {
+//                         real cxmax=cx[0], cymax=cy[0];
+//                         for (int i=1; i<nodomains*nodomains; i++) {
+//                             cxmax = (cxmax>cx[i])?cxmax:cx[i];
+//                             cymax = (cymax>cy[i])?cymax:cy[i];
+//                         }
+//                       
+//                         dt = cfl / (cxmax/dx > cymax/dy ? cxmax/dx : cymax/dy);
+//                     
+//                         if (t + 2*dt >= tfinal) {
+//                             dt = (tfinal-t)/2;
+//                             done = true;
+//                         }
+//                     }
+//                 }
+//             }
+//             compute_step(io, dt, tno);
+//             t += dt;
+//         }
 }
 
 /**
@@ -520,11 +550,11 @@ void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u(nghost,nghost)[0];
+    real hmin = uf(nghost,nghost)[0];
     real hmax = hmin;
     for (int j = nghost; j < ny+nghost; ++j)
         for (int i = nghost; i < nx+nghost; ++i) {
-            vec& uij = u(i,j);
+            vec& uij = uf(i,j);
             real h = uij[0];
             h_sum += h;
             hu_sum += uij[1];
