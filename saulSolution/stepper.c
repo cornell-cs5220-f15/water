@@ -458,7 +458,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
     float dt;
     float cxy[2];
     int niterations=timef;
-    printf("%d %d",nthreads,niterations);
+
     omp_set_dynamic(0);
     omp_set_num_threads(nthreads);
  
@@ -510,6 +510,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
 int central2d_run(central2d_t* sim, float tfinal, int nthreads, int timef)
 {
+    printf("checking %d %d",nthreads,timef);
     return central2d_xrun(sim->u, sim->v, sim->scratch,
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
