@@ -305,7 +305,7 @@ void Central2DCopy<Physics, Limiter>::limited_derivs()
  * ### Advancing a time step
  *
  * Take one step of the numerical scheme.  This consists of two pieces:
- * a first-order corrector computed at a half time step, which is used
+ * a first-oirder corrector computed at a half time step, which is used
  * to obtain new $F$ and $G$ values; and a corrector step that computes
  * the solution at the full step.  For full details, we refer to the
  * [Jiang and Tadmor paper][jt].
@@ -392,7 +392,7 @@ void Central2DCopy<Physics, Limiter>::run(real tfinal)
             real cx, cy;
             apply_periodic();
             compute_fg_speeds(cx, cy);
-            limited_derivs();
+           // limited_derivs();
             if (io == 0) {
                 dt = cfl / std::max(cx/dx, cy/dy);
                 if (t + 2*dt >= tfinal) {

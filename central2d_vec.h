@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <omp.h>
 
 template <class Physics, class Limiter>
 class Central2DVec {
@@ -225,7 +226,8 @@ void Central2DVec<Physics, Limiter>::limited_derivs() {
     using L = Limiter;
     for (int k = 0; k < num_fields; ++k) {
         for (int iy = 1; iy < ny_all-1; ++iy) {
-            for (int ix = 1; ix < nx_all-1; ++ix) {
+            #pragma vector aligned
+		for (int ix = 1; ix < nx_all-1; ++ix) {
                 // x derivs
                 ux(k, ix, iy) = L::limdiff(u(k, ix-1,iy), u(k, ix,iy), u(k, ix+1,iy));
                 fx(k, ix, iy) = L::limdiff(f(k, ix-1,iy), f(k, ix,iy), f(k, ix+1,iy));
@@ -266,7 +268,8 @@ void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
     // Corrector (finish the step)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int k = 0; k < num_fields; ++k) {
+            	#pragma vector aligned
+		for (int k = 0; k < num_fields; ++k) {
                 v(k, ix,iy) =
                     0.2500 * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
                                u(k, ix,iy+1) + u(k, ix+1,iy+1) ) -

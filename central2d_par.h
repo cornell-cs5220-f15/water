@@ -250,7 +250,7 @@ void Central2DPar<Physics, Limiter>::apply_periodic()
    // omp_set_num_threads(2);
   // #pragma omp parallel
   // { 
-   // #pragma omp parallel for
+    #pragma omp parallel for
     for (int iy = 0; iy < ny_all; ++iy)
 	//#pragma omp parallel for
  	//#pragma ivdep
@@ -260,7 +260,7 @@ void Central2DPar<Physics, Limiter>::apply_periodic()
         }
 
     // Copy data between top and bottom boundaries
-  // #pragma omp parallel for
+    #pragma omp parallel for
     for (int ix = 0; ix < nx_all; ++ix)
 	//#pragma omp parallel for
         //#pragma ivdep
@@ -290,9 +290,9 @@ void Central2DPar<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     real cy = 1.0e-15;
    
    // omp_set_num_threads(2);
-    #pragma omp parallel
-    {
-    #pragma omp parallel for
+   // #pragma omp parallel
+   // {
+   #pragma omp parallel for
     for (int iy = 0; iy < ny_all; ++iy)
 	//#pragma omp parallel for
        //#pragma ivdep
@@ -303,7 +303,7 @@ void Central2DPar<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
-    }
+    //}
     cx_ = cx;
     cy_ = cy;
 }
@@ -321,14 +321,18 @@ void Central2DPar<Physics, Limiter>::limited_derivs()
 {
 //	#pragma omp declare simd
     	//omp_set_num_threads(2);
-	#pragma omp parallel 
-	{
-	#pragma omp parallel for 	
-	for (int iy = 1; iy < ny_all-1; ++iy)
+	//#pragma omp parallel 
+	//{
+	int ixy, iy, ix
+	//#pragma omp parallel private(iy, ix)
+	//{
+	#pragma omp for 	
+	for (ixy=0; ixy<(nx_all-2)*(ny_all-2);++ixy)
        	//#pragma omp parallel for 
 	// #pragma ivdep
-	for (int ix = 1; ix < nx_all-1; ++ix) {
-
+	//for (int ix = 1; ix < nx_all-1; ++ix) {
+	   ix= ixy % (nx_all-2)+1;
+	   iy= ixy / (nx_all-2)+1;
             // x derivs
             limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
             limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
@@ -337,7 +341,7 @@ void Central2DPar<Physics, Limiter>::limited_derivs()
             limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
             limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
         }
-	}
+	//}
 }
 
 
@@ -369,11 +373,12 @@ void Central2DPar<Physics, Limiter>::compute_step(int io, real dt)
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
+	int iy, ix, m;
+
     // Predictor (flux values of f and g at half step)
- 	//omp_set_num_threads(2); 
-	#pragma omp parallel 
-	{  
-	#pragma omp parallel for 
+ 	//#pragma omp parallel private(iy, ix, uh, m)
+	//{ 
+	#pragma omp for 
 	for (int iy = 1; iy < ny_all-1; ++iy)
 	// #pragma omp parallel for  
     	for (int ix = 1; ix < nx_all-1; ++ix) {
@@ -388,7 +393,7 @@ void Central2DPar<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector (finish the step)
-    	#pragma omp parallel for 
+    	#pragma omp for 
     	for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
 	//#pragma omp parallel for 
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
@@ -407,9 +412,9 @@ void Central2DPar<Physics, Limiter>::compute_step(int io, real dt)
                                g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
             }
         }
-
+//	}
     // Copy from v storage back to main grid
-    	#pragma omp parallel for 
+    	//#pragma omp parallel for 
     	for (int j = nghost; j < ny+nghost; ++j){
 	//#pragma omp parallel for 
  	//#pragma ivdep      
@@ -417,7 +422,7 @@ void Central2DPar<Physics, Limiter>::compute_step(int io, real dt)
             u(i,j) = v(i-io,j-io);
         }
     	}
-	}
+	//}
 }
 
 
@@ -444,7 +449,7 @@ void Central2DPar<Physics, Limiter>::run(real tfinal)
         real dt;
        // #pragma omp parallel
 	//{
-	//#pragma omp parallel for
+	#pragma omp parallel for
 	for (int io = 0; io < 2; ++io) {
             real cx, cy;
             apply_periodic();
