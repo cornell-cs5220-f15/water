@@ -154,8 +154,6 @@ void Central2DVec<Physics, Limiter>::init(F f) {
     }
 }
 
-// VEC
-// TODO(mwhittaker): convert ny_all to compile time constant.
 template <class Physics, class Limiter>
 void Central2DVec<Physics, Limiter>::apply_periodic() {
     // Copy data between right and left boundaries
@@ -188,7 +186,6 @@ void Central2DVec<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     real cx = 1.0e-15;
     real cy = 1.0e-15;
 
-    // KINDA VEC
     for (int iy = 0; iy < ny_all; ++iy) {
         #pragma ivdep
         for (int ix = 0; ix < nx_all; ++ix) {
@@ -206,7 +203,6 @@ void Central2DVec<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
         }
     }
 
-    // KINDA VEC
     for (int iy = 0; iy < ny_all; ++iy) {
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
@@ -282,8 +278,6 @@ void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
     int _nghost = nghost;
     for (int k = 0; k < num_fields; ++k) {
         for (int iy = _nghost-io; iy < _ny+_nghost-io; ++iy) {
-            #pragma vector aligned
-            #pragma ivdep
             for (int ix = _nghost-io; ix < _nx+_nghost-io; ++ix) {
                 v(k, ix+io, iy+io) =
                     0.2500f * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
