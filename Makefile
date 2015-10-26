@@ -68,6 +68,11 @@ run_%: shallow_%
 run-ampl_%: shallow_%
 	qsub run-ampl.pbs -N $*-ampl -vARG1=$<
 
+run-sweep_%: shallow_%
+	for (( i = 100; i <= 1000; i += 100 )); do \
+		qsub run-sweep.pbs -N $* -vARG1=$<,ARG2=$$i; \
+	done
+
 time: clean $(shell echo shallow-timing{,_vec,_block}) $(shell echo run{,_vec,_block})
 
 big: shallow

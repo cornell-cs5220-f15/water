@@ -1,0 +1,11 @@
+#!/bin/sh -l
+
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=2:00:00
+#PBS -n
+#PBS -p 1023
+#PBS -j oe
+
+module load cs5220
+cd $PBS_O_WORKDIR
+$ARG1 -i dam_break -o dam_break.out -n $ARG2 -F 10
