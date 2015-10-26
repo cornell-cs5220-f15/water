@@ -424,6 +424,18 @@ void copytoregion(central2d_t* region, central2d_t* sim, int processor, int nthr
     
 }
 
+void printregion(central2d_t* region) {
+    int nx_all = (region->ng*2 + region->nx);
+    int ny_all = region->ng*2 + region->ny;
+    for (int iy = 0; iy < ny_all; ++iy) {
+        for(int ix = 0; ix < nx_all; ++ix) {
+            printf("%e ", region->u[central2d_offset_all(region, 0, ix, iy)]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
 /**
  * ### Advance a fixed time
  *
@@ -461,6 +473,9 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
     omp_set_dynamic(0);
     omp_set_num_threads(nthreads);
+    
+    printf("original block\n");
+    printregion(sim);
  
     #pragma omp parallel 
     {
@@ -482,9 +497,11 @@ int central2d_xrun(float* restrict u, float* restrict v,
                 }
             }
             copytoregion(region,sim,thread,p);
-            printf("checking %d %d\n",nthreads,niterations);
+            if (thread==1){
+                printf("region\n");
+                printregion(region);
+            }
             for (int iter=0;iter<niterations;++iter){
-                printf("checking i'm %d %d\n",thread,iter);
                 central2d_step(region->u, region->v, region->scratch, region->f, region->g,
                                0, (region->nx), (region->ny), region->ng,
                                region->nfield, region->flux, region->speed,
@@ -494,14 +511,20 @@ int central2d_xrun(float* restrict u, float* restrict v,
                                region->nfield, region->flux, region->speed,
                                dt, region->dx, region->dy);
             }
-
+            if (thread==1){
+                printf("region\n");
+                printregion(region);
+            }
             #pragma omp 	barrier
           copytooriginal(region,sim,thread,p);
+          
             
             #pragma omp single
             {
                 t += 2*niterations*dt;
                 nstep+= 2*niterations;
+                printf("original block\n");
+                printregion(sim);
             }
         }
     }
