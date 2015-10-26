@@ -1,13 +1,15 @@
 #include "central2d.h"
 #include "central2d_block.h"
+#include "central2d_block2.h"
 #include "central2d_buggy.h"
 #include "central2d_copy.h"
-#include "central2d_par.h"
+// #include "central2d_par.h" TODO(wensi): this doesn't build
 #include "central2d_vec.h"
 #include "meshio.h"
 #include "minmod.h"
 #include "shallow2d.h"
 #include "shallow2d_block.h"
+#include "shallow2d_block2.h"
 #include "shallow2d_vec.h"
 
 #ifdef _OPENMP
@@ -57,16 +59,20 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
     typedef ReferenceSim Sim;
 #elif defined(VERSION_block)
     typedef Central2DBlock<Shallow2DBlock, MinMod<Shallow2DBlock::real>> Sim;
-#elif defined(VERSION_block_par)
-    typedef Central2DBlockPar<Shallow2DBlockPar, MinMod<Shallow2DBlockPar::real>> Sim;
+// TODO(wensi): this doesn't build
+// #elif defined(VERSION_block_par)
+//     typedef Central2DBlockPar<Shallow2DBlockPar, MinMod<Shallow2DBlockPar::real>> Sim;
+#elif defined(VERSION_block2)
+    typedef Central2DBlock2<Shallow2DBlock2, MinMod<Shallow2DBlock2::real>> Sim;
 #elif defined(VERSION_vec)
     typedef Central2DVec<Shallow2DVec, MinMod<Shallow2DVec::real>> Sim;
 #elif defined(VERSION_buggy)
     typedef Central2DBuggy<Shallow2D, MinMod<Shallow2D::real>> Sim;
 #elif defined(VERSION_copy)
     typedef Central2DCopy<Shallow2D, MinMod<Shallow2D::real>> Sim;
-#elif defined(VERSION_par)
-    typedef Central2DPar<Shallow2D, MinMod<Shallow2D::real>> Sim;
+// TODO(wensi): this doesn't build
+// #elif defined(VERSION_par)
+//     typedef Central2DPar<Shallow2D, MinMod<Shallow2D::real>> Sim;
 #else
     static_assert(false, "Please define a valid VERSION_* macro.");
 #endif

@@ -16,24 +16,28 @@ include Makefile.in.$(PLATFORM)
 SIMULATORS = \
 	shallow \
 	shallow_block \
-	shallow_block_par\
+	shallow_block2 \
 	shallow_buggy \
 	shallow_copy \
-	shallow_par \
 	shallow_vec \
+	# shallow_par \
+	# shallow_block_par\
 
 HEADERS = \
 	central2d.h \
 	central2d_block.h \
+	central2d_block2.h \
 	central2d_block_par.h\
 	central2d_buggy.h \
 	central2d_copy.h \
 	central2d_par.h \
 	central2d_vec.h \
+	flat_array.h \
 	meshio.h \
 	minmod.h \
 	shallow2d.h \
 	shallow2d_block.h \
+	shallow2d_block2.h \
 	shallow2d_vec.h \
 
 # ===
@@ -66,10 +70,19 @@ run_%: shallow_%
 run-ampl_%: shallow_%
 	qsub run-ampl.pbs -N $*-ampl -vARG1=$<
 
-time: clean $(shell echo shallow-timing{,_vec}) $(shell echo run{,_vec})
+time: clean $(shell echo shallow-timing{,_vec,_block,_block2}) $(shell echo run{,_vec,_block,_block2})
 
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
+
+# ===
+# test cases
+TESTS = flat_array_test
+flat_array_test: flat_array_test.cc flat_array.h
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+test: $(TESTS)
+	./flat_array_test
 
 # ===
 # Example analyses
@@ -128,5 +141,6 @@ print-%: ; @echo $*=$($*)
 .PHONY: clean
 clean:
 	rm -f $(SIMULATORS)
+	rm -f $(TESTS)
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
