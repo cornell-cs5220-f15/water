@@ -261,8 +261,12 @@ public:
     }
 
 private:
+    #ifndef BLOCK_SIZE
+    #define BLOCK_SIZE ((int) 32)
+    #endif
+
     static constexpr int nghost     = 3;  // Number of ghost cells
-    static constexpr int block_size = 64; // The side length of one block
+    static constexpr int block_size = BLOCK_SIZE; // The side length of one block
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)

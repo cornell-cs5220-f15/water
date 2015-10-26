@@ -56,6 +56,11 @@ shallow_%: driver.cc $(HEADERS)
 shallow-timing_%: driver.cc $(HEADERS)
 	$(CXX) $(CXXFLAGS) -DTIMING_ENABLED -o shallow_$* $< -DVERSION_$*
 
+shallow-timing_blocks: driver.cc $(HEADERS)
+	for (( i = 4; i <= 1024; i *= 2 )); do \
+		$(CXX) $(CXXFLAGS) -DTIMING_ENABLED -o shallow_block-$$i $< -DVERSION_block -DBLOCK_SIZE=$$i; \
+	done
+
 run: shallow
 	qsub run.pbs -N shallow -vARG1=shallow
 
