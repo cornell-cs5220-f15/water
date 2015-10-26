@@ -498,6 +498,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             #pragma omp single
             {
                 t += 2*timef*dt;
+                printf("%e",t);
                 nstep+= 2*timef;
             }
         }
