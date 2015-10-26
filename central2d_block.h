@@ -142,7 +142,7 @@ void Block<Physics, Limiter>::compute_step() {
 
     // Predictor (flux values of f and g at half step)
     for (int y = 1; y < ny_all_-1; ++y) {
-        for (int x = 1; x < nx_all_-1; ++x) {
+	for (int x = 1; x < nx_all_-1; ++x) {
             real h  = *u(0, x, y);
             real hu = *u(1, x, y);
             real hv = *u(2, x, y);
@@ -163,7 +163,7 @@ void Block<Physics, Limiter>::compute_step() {
     // Corrector (finish the step)
     for (int k = 0; k < num_fields; ++k) {
         for (int y = nghost_-io_; y < ny_+nghost_-io_; ++y)
-            for (int x = nghost_-io_; x < nx_+nghost_-io_; ++x) {
+		for (int x = nghost_-io_; x < nx_+nghost_-io_; ++x) {
                 *v(k, x,y) =
                     0.2500 * ( *u(k, x,  y) + *u(k, x+1,y  ) +
                                *u(k, x,y+1) + *u(k, x+1,y+1) ) -

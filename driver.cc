@@ -3,6 +3,7 @@
 #include "central2d_buggy.h"
 #include "central2d_copy.h"
 // #include "central2d_par.h" TODO(wensi): this doesn't build
+#include "central2d_block_par.h"
 #include "central2d_vec.h"
 #include "meshio.h"
 #include "minmod.h"
@@ -58,8 +59,8 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
 #elif defined(VERSION_block)
     typedef Central2DBlock<Shallow2DBlock, MinMod<Shallow2DBlock::real>> Sim;
 // TODO(wensi): this doesn't build
-// #elif defined(VERSION_block_par)
-//     typedef Central2DBlockPar<Shallow2DBlockPar, MinMod<Shallow2DBlockPar::real>> Sim;
+ #elif defined(VERSION_block_par)
+     typedef Central2DBlockPar<Shallow2DBlock, MinMod<Shallow2DBlock::real>> Sim;
 #elif defined(VERSION_vec)
     typedef Central2DVec<Shallow2DVec, MinMod<Shallow2DVec::real>> Sim;
 #elif defined(VERSION_buggy)

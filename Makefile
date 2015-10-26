@@ -19,8 +19,7 @@ SIMULATORS = \
 	shallow_buggy \
 	shallow_copy \
 	shallow_vec \
-	# shallow_par \
-	# shallow_block_par\
+	shallow_block_par\
 
 HEADERS = \
 	central2d.h \
