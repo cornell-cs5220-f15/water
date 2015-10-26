@@ -227,7 +227,7 @@ void Central2DVec<Physics, Limiter>::limited_derivs() {
     for (int k = 0; k < num_fields; ++k) {
         for (int iy = 1; iy < ny_all-1; ++iy) {
             #pragma vector aligned
-		for (int ix = 1; ix < nx_all-1; ++ix) {
+            for (int ix = 1; ix < nx_all-1; ++ix) {
                 // x derivs
                 ux(k, ix, iy) = L::limdiff(u(k, ix-1,iy), u(k, ix,iy), u(k, ix+1,iy));
                 fx(k, ix, iy) = L::limdiff(f(k, ix-1,iy), f(k, ix,iy), f(k, ix+1,iy));
@@ -266,11 +266,11 @@ void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            	#pragma vector aligned
-		for (int k = 0; k < num_fields; ++k) {
-                v(k, ix,iy) =
+    #pragma vector aligned
+    for (int k = 0; k < num_fields; ++k) {
+        for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
+            for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+                v(k, ix+io, iy+io) =
                     0.2500 * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
                                u(k, ix,iy+1) + u(k, ix+1,iy+1) ) -
                     0.0625 * ( ux(k, ix+1,iy  ) - ux(k, ix,iy  ) +
@@ -283,15 +283,9 @@ void Central2DVec<Physics, Limiter>::compute_step(int io, real dt)
                                g(k, ix+1,iy+1) - g(k, ix+1,iy) );
             }
         }
-
-    // Copy from v storage back to main grid
-    for (int k = 0; k < num_fields; ++k) {
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u(k, i, j) = v(k, i-io, j-io);
-            }
-        }
     }
+
+    std::swap(u_, v_);
 }
 
 template <class Physics, class Limiter>
