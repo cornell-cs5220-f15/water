@@ -341,7 +341,7 @@ void central2d_step(float* restrict u, float* restrict v,
 
     central2d_correct(v+io*(nx_all+1), scratch, u, f, g, dtcdx2, dtcdy2,
                       1, nx_all,
-                      ng-io, ny_all,
+                      1, ny_all,
                       nx_all, ny_all, nfield);
     memcpy(u,
            v,
