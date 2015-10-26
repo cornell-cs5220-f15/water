@@ -404,8 +404,8 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
             int ix = (x - nghost + 1) % SIZE_WITH_GHOST;
             vec uh = castIndex(U, ix, iy);
             for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * ((vec&) FX[iy*SIZE_WITH_GHOST + ix])[m];
-                uh[m] -= dtcdy2 * ((vec&) GY[iy*SIZE_WITH_GHOST + ix])[m];
+                uh[m] -= dtcdx2 * castIndex(FX, ix, iy)[m];
+                uh[m] -= dtcdy2 * castIndex(GY, ix, iy)[m];
             }
             Physics::flux(castIndex(fluxX, ix, iy), castIndex(fluxY, ix, iy), uh);
         }
@@ -501,14 +501,14 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     // if outside domain, copy zero
                     if(xCoord < nx && yCoord < ny) {
                         vec& U = u(xCoord, yCoord);
-                        ((vec&)(subdomain_u[x*SIZE_WITH_GHOST + y]))[0] = U[0];
-                        ((vec&)(subdomain_u[x*SIZE_WITH_GHOST + y]))[1] = U[1];
-                        ((vec&)(subdomain_u[x*SIZE_WITH_GHOST + y]))[2] = U[2];
+                        castIndex(subdomain_u, y, x)[0] = U[0];
+                        castIndex(subdomain_u, y, x)[1] = U[1];
+                        castIndex(subdomain_u, y, x)[2] = U[2];
                         
                     } else {
-                        ((vec&)(subdomain_u[x*SIZE_WITH_GHOST + y]))[0] = 0.0;
-                        ((vec&)(subdomain_u[x*SIZE_WITH_GHOST + y]))[1] = 0.0;
-                        ((vec&)(subdomain_u[x*SIZE_WITH_GHOST + y]))[2] = 0.0;
+                        castIndex(subdomain_u, y, x)[0] = 0.0;
+                        castIndex(subdomain_u, y, x)[1] = 0.0;
+                        castIndex(subdomain_u, y, x)[2] = 0.0;
                     }
                 }
             }
@@ -594,15 +594,15 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     
                     if(xCoord < nx && yCoord < ny) {
                         vec& U = u(xCoord, yCoord);
-                        U[0] = ((vec&)(myU[x*SIZE_WITH_GHOST + y]))[0];
-                        U[1] = ((vec&)(myU[x*SIZE_WITH_GHOST + y]))[1];
-                        U[2] = ((vec&)(myU[x*SIZE_WITH_GHOST + y]))[2];
+                        U[0] = castIndex(myU, x, y)[0];
+                        U[1] = castIndex(myU, x, y)[1];
+                        U[2] = castIndex(myU, x, y)[2];
                         
                         /**
                         int b = 1;
-                        b = b && U[0] == ((vec&)(myU[x*SIZE_WITH_GHOST + y]))[0];
-                        b = b && U[1] == ((vec&)(myU[x*SIZE_WITH_GHOST + y]))[1];
-                        b = b && U[2] == ((vec&)(myU[x*SIZE_WITH_GHOST + y]))[2];
+                        b = b && U[0] == castIndex(myU, x, y)[0];
+                        b = b && U[1] == castIndex(myU, x, y)[1];
+                        b = b && U[2] == castIndex(myU, x, y)[2];
                         
                         if(b == 0) {
                             printf("false!\n");
