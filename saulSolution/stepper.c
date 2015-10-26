@@ -60,7 +60,7 @@ int central2d_offset(central2d_t* sim, int k, int ix, int iy)
     int nx = sim->nx, ny = sim->ny, ng = sim->ng;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
-    return (k*ny_all+(ng+iy))*nx_all+(ng+ix);
+    return (k*ny_all+(iy))*nx_all+(ix);
 }
 
 
@@ -402,8 +402,8 @@ void copytoregion(central2d_t* region, central2d_t* sim, int processor, int nthr
     //int ny_all=(region->ny) * (2*region->ng);
     // int nx_all=(region->nx) * (2*region->ng);
     for (int k=0; k<region->nfield; ++k){
-        for (int iy=0; iy<region->ny; ++iy){
-            for (int ix=0; ix<region->nx; ++ix){
+        for (int iy=0; iy<region->ny_all; ++iy){
+            for (int ix=0; ix<region->nx_all; ++ix){
                 (region->u)[central2d_offset(region,k,ix,iy)]=(sim->u)[central2d_offset(sim,k,ix+vdx,iy+vdy)];
                 (region->f)[central2d_offset(region,k,ix,iy)]=(sim->f)[central2d_offset(sim,k,ix+vdx,iy+vdy)];
                 (region->g)[central2d_offset(region,k,ix,iy)]=(sim->g)[central2d_offset(sim,k,ix+vdx,iy+vdy)];
@@ -473,7 +473,6 @@ int central2d_xrun(float* restrict u, float* restrict v,
             }
             copytoregion(region,sim,thread,p);
    
-            central2d_periodic(region->u,region->nx,region->ny,region->ng,region->nfield);
             for (iter=0;iter<timef;++iter){
                 central2d_step(region->u, region->v, region->scratch, region->f, region->g,
                                0, (region->nx), (region->ny), region->ng,
@@ -486,6 +485,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
             }
 
             #pragma omp 	barrier
+
+            central2d_periodic(region->u,region->nx,region->ny,region->ng,region->nfield);
             copytooriginal(region,sim,thread,p);
 
             #pragma omp single
