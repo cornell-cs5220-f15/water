@@ -33,6 +33,7 @@ HEADERS = \
 	flat_array.h \
 	meshio.h \
 	minmod.h \
+	minmod_opt.h \
 	shallow2d.h \
 	shallow2d_block.h \
 	shallow2d_vec.h \
