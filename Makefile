@@ -16,6 +16,7 @@ include Makefile.in.$(PLATFORM)
 SIMULATORS = \
 	shallow \
 	shallow_block \
+	shallow_block2 \
 	shallow_buggy \
 	shallow_copy \
 	shallow_par \
@@ -74,10 +75,11 @@ big: shallow
 
 # ===
 # test cases
+TESTS = flat_array_test
 flat_array_test: flat_array_test.cc flat_array.h
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
-test: flat_array_test
+test: $(TESTS)
 	./flat_array_test
 
 # ===
@@ -137,5 +139,6 @@ print-%: ; @echo $*=$($*)
 .PHONY: clean
 clean:
 	rm -f $(SIMULATORS)
+	rm -f $(TESTS)
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
