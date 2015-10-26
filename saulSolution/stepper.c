@@ -477,7 +477,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                 speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
                 dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
                 if (t + 2*dt*timef >= tfinal) {
-                    dt = (tfinal-t)/2*timef;
+                    dt = (tfinal-t)/(2*timef);
                     done = true;
                 }
             }
