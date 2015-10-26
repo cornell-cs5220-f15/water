@@ -430,8 +430,8 @@ void Central2DBlock2<Physics, Limiter>::run_block(const int io,
     // write back from _u to u
     for (int k = 0; k < num_fields; ++k) {
         real *_uk = flat_array::field(_u, width_all, height_all, k);
-        for (int x = bghosts; x < width + bghosts; ++x) {
             for (int y = bghosts; y < height + bghosts; ++y) {
+                for (int x = bghosts; x < width + bghosts; ++x) {
                 u(k, ix-bghosts+x, iy-bghosts+y) =
                     *flat_array::at(_uk, width_all, height_all, x, y);
             }
