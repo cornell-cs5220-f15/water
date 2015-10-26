@@ -9,7 +9,7 @@ pond = {
   init = function(x,y) return 1, 0, 0 end,
   out = "pond.out",
   nx = nx,
-  ntreads = nthreads,
+  nthreads = nthreads,
   timef = timef
 }
 
@@ -17,7 +17,7 @@ river = {
   init = function(x,y) return 1, 1, 0 end,
   out = "river.out",
   nx = nx,
-  ntreads = nthreads,
+  nthreads = nthreads,
   timef = timef
 }
 
@@ -31,7 +31,7 @@ dam = {
   end,
   out = "dam_break.out",
   nx = nx,
-  ntreads = nthreads,
+  nthreads = nthreads,
   timef = timef
 }
 
@@ -42,7 +42,7 @@ wave = {
   out = "wave.out",
   frames = 100,
   nx = nx,
-  ntreads = nthreads,
+  nthreads = nthreads,
   timef = timef
 }
 
