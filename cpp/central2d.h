@@ -205,6 +205,8 @@ private:
     void limited_derivs();
     void compute_step(int io, real dt);
 
+	void check_heights(int stepno);
+
 };
 
 
@@ -236,7 +238,7 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::init_as_subdomain(const std::vector<vec>& larger_u, 
 			const int x_start, const int y_start)
 {
-	printf("Copying larger_u from (%d, %d) to (%d, %d), to u from (%d, %d) to (%d, %d)\n", x_start - nghost, y_start - nghost, nx_all+x_start-nghost-1, ny_all+y_start-nghost-1, 0, 0, nx_all-1, ny_all-1);
+//	printf("Copying larger_u from (%d, %d) to (%d, %d), to u from (%d, %d) to (%d, %d)\n", x_start - nghost, y_start - nghost, nx_all+x_start-nghost-1, ny_all+y_start-nghost-1, 0, 0, nx_all-1, ny_all-1);
 	for (int y = 0; y < ny_all; ++y) {
 		for (int x = 0; x < nx_all; ++x) {
 			//Copy starting at x_start and y_start, but include neighboring cells as ghosts
@@ -252,7 +254,7 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::copy_results_out(std::vector<vec>& larger_v, 
 			const int x_start, const int y_start)
 {
-	printf("Copying out u from (%d, %d) to (%d, %d), to larger_v from (%d, %d) to (%d, %d)\n", nghost, nghost, nx-1+nghost, ny-1+nghost, x_start, y_start, nx-1+x_start, ny-1+y_start);
+//	printf("Copying out u from (%d, %d) to (%d, %d), to larger_v from (%d, %d) to (%d, %d)\n", nghost, nghost, nx-1+nghost, ny-1+nghost, x_start, y_start, nx-1+x_start, ny-1+y_start);
 	for (int y = 0; y < ny; ++y) {
 		for (int x = 0; x < nx; ++x) {
 			larger_v[offset(x + x_start, y + y_start)] = u(x+nghost,y+nghost);
@@ -421,6 +423,17 @@ void Central2D<Physics, Limiter>::compute_step(int batchnum, real dt)
     }
 }
 
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::check_heights(int stepno) {
+	for(int y = 0; y < ny_all; y++) {
+		for(int x = 0; x < nx_all; x++) {
+			if(u(x,y)[0] < 0) {
+				printf("Oh no! Step %d set a height to %f at (%d, %d)\n", stepno, u(x,y)[0], x, y);
+			}
+		}
+	}
+}
+
 /**
  * Advance the simulation by one timestep pair from its current time,
  * returning the new value of dt computed over this simulation's grid.
@@ -434,10 +447,12 @@ Central2D<Physics, Limiter>::real Central2D<Physics, Limiter>::take_timestep_pai
 		compute_fg_speeds(cx, cy);
 		limited_derivs();
 		compute_step(0, dt_prev);
+		check_heights(0);
 		//Odd step - don't need to do apply_periodic yet if there are enough ghost cells
 		compute_fg_speeds(cx, cy);
 		limited_derivs();
 		compute_step(1, dt_prev);
+		check_heights(1);
 		//Compute dt at the end instead of at the beginning. Hopefully this doesn't make a difference.
 		dt_local = cfl / std::max(cx/dx, cy/dy);
 		return dt_local;

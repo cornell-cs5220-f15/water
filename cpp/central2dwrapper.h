@@ -84,6 +84,8 @@ private:
 	//The only simulation function needed at the wrapper level
     void apply_periodic();
 
+	bool check_copyin(Central2D<Physics, Limiter>& wrappedSim);
+	bool check_copyout(Central2D<Physics, Limiter>& wrappedSim);
 };
 
 /**
@@ -156,6 +158,36 @@ Central2DWrapper<Physics, Limiter>::real Central2DWrapper<Physics, Limiter>::com
         }
 	real dt = cfl / max(cx/dx, cy/dy);
 	return dt;
+}
+
+//DEBUG: Only works when there's a single thread!
+template <class Physics, class Limiter>
+bool Central2DWrapper<Physics, Limiter>::check_copyin(Central2D<Physics, Limiter>& wrappedSim) 
+{
+	for(int x = 0; x < nx; x++) {
+		for(int y = 0; y < ny; y++) {
+			if(wrappedSim(x,y) != (*this)(x,y)) {
+				printf("Cell (%d, %d) was not equal after copy-in! Wrapper had <%f, %f, %f> but wrapped had <%f, %f, %f>\n", x, y, (*this)(x,y)[0], (*this)(x,y)[1], (*this)(x,y)[2], wrappedSim(x,y)[0], wrappedSim(x,y)[1], wrappedSim(x,y)[2]);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+//DEBUG: Only works when there's a single thread!
+template <class Physics, class Limiter>
+bool Central2DWrapper<Physics, Limiter>::check_copyout(Central2D<Physics, Limiter>& wrappedSim) 
+{
+	for(int x = 0; x < nx; x++) {
+		for(int y = 0; y < ny; y++) {
+			if(wrappedSim(x,y) != v(x+nghost, y+nghost)) {
+				printf("Cell (%d, %d) was not equal after copy-out! Wrapper had <%f, %f, %f> but wrapped had <%f, %f, %f>\n", x, y, v(x+nghost,y+nghost)[0], v(x+nghost,y+nghost)[1], v(x+nghost,y+nghost)[2], wrappedSim(x,y)[0], wrappedSim(x,y)[1], wrappedSim(x,y)[2]);
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 template <class Physics, class Limiter>
@@ -260,11 +292,13 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 				//Copy this block's data in from u, offsetting pointers by u's ghost cells
 				blockSims[b].init_as_subdomain(*large_u, 
 						nghost + blockcol * bwidth, nghost + blockrow * bheight);
+				check_copyin(blockSims[b]);
 				//Advance two timesteps locally, and put the new dt in dts_next
 				(*local_dts_next)[blocknum] = blockSims[b].take_timestep_pair(dt);
 				//Copy the results back out to v, so it can happen concurrently with reads from u
 				blockSims[b].copy_results_out(*large_v, 
 						nghost + blockcol * bwidth, nghost + blockrow * bheight);
+				check_copyout(blockSims[b]);
 			}
 //			printf("Thread %d finished with timestep pair\n", omp_get_thread_num());
 
