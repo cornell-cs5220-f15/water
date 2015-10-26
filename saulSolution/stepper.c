@@ -388,7 +388,7 @@ void copytooriginal(central2d_t* region,central2d_t* sim,int processor, int nthr
     for (int k=0; k<region->nfield; ++k){
         for (int iy=0; iy<region->ny; ++iy){
             for (int ix=0; ix<region->nx; ++ix){
-                (sim->u)[central2d_offset(region,k,ix+vdx,iy+vdy)]=(region->u)[central2d_offset(sim,k,ix,iy)];
+                (sim->u)[central2d_offset(sim,k,ix+vdx,iy+vdy)]=(region->u)[central2d_offset(region,k,ix,iy)];
             }
         }
     }
