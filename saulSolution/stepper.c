@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <omp.h>
+#include <stdio.h>
 
 #define MAX_MC_THREADS 255
 
