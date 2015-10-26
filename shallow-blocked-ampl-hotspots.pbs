@@ -2,10 +2,10 @@
 
 #PBS -l nodes=1:ppn=24
 #PBS -l walltime=0:30:00
-#PBS -N shallow-ampl
+#PBS -N shallow-blocked-ampl-hotspots
 #PBS -j oe
 
 module load cs5220
 cd $PBS_O_WORKDIR
 amplxe-cl -collect advanced-hotspots \
-./shallow -i dam_break -o dam_break.out
+./shallow-blocked -i dam_break -o dam_break.out

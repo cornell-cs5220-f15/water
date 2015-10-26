@@ -70,6 +70,7 @@ struct MinMod {
     }
 
     // Limited combined slope estimate
+    #pragma omp declare simd
     static real limdiff(real um, real u0, real up) {
         real du1 = u0-um;         // Difference to left
         real du2 = up-u0;         // Difference to right
