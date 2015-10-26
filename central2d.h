@@ -228,9 +228,11 @@ template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
 	#pragma omp parallel for
-    for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
+    for (int iy = 0; iy < ny; ++iy) {
+        for (int ix = 0; ix < nx; ++ix) {
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+        }
+    }
 }
 
 /**
@@ -471,9 +473,8 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     using namespace std;
     
     // divide domain into blocks
-    const int NUM_BLOCKS_X = (nx / SUBDOMAIN_SIZE) + (nx % SUBDOMAIN_SIZE ? 0 : 1);
-    const int NUM_BLOCKS_Y = (ny / SUBDOMAIN_SIZE) + (ny % SUBDOMAIN_SIZE ? 0 : 1);
-    //const int SIZE_WITH_GHOST = SUBDOMAIN_SIZE + 2*nghost;
+    const int NUM_BLOCKS_X = (nx / SUBDOMAIN_SIZE) + (nx % SUBDOMAIN_SIZE ? 1 : 0);
+    const int NUM_BLOCKS_Y = (ny / SUBDOMAIN_SIZE) + (ny % SUBDOMAIN_SIZE ? 1 : 0);
     
     // points at each subdomain block's start memory address
     std::vector<vec>** subDomainPointers_u = (std::vector<vec>**) malloc(NUM_BLOCKS_X * NUM_BLOCKS_Y * sizeof(std::vector<vec>*));
@@ -515,7 +516,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         }
     }
     
-    
+    /**
     bool done = false;
     real t = 0;
     while (!done) {
@@ -576,6 +577,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         
         // free fluxX, ..., myGY?
     }
+    **/
     
     // copy subdomains back into master array
     for( int j=0; j < NUM_BLOCKS_Y; ++j ) {
@@ -594,15 +596,15 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     
                     if(xCoord < nx && yCoord < ny) {
                         vec& U = u(xCoord, yCoord);
-                        U[0] = castIndex(myU, x, y)[0];
-                        U[1] = castIndex(myU, x, y)[1];
-                        U[2] = castIndex(myU, x, y)[2];
+                        U[0] = castIndex(myU, y, x)[0];
+                        U[1] = castIndex(myU, y, x)[1];
+                        U[2] = castIndex(myU, y, x)[2];
                         
                         /**
                         int b = 1;
-                        b = b && U[0] == castIndex(myU, x, y)[0];
-                        b = b && U[1] == castIndex(myU, x, y)[1];
-                        b = b && U[2] == castIndex(myU, x, y)[2];
+                        b = b && U[0] == castIndex(myU, y, x)[0];
+                        b = b && U[1] == castIndex(myU, y, x)[1];
+                        b = b && U[2] == castIndex(myU, y, x)[2];
                         
                         if(b == 0) {
                             printf("false!\n");
