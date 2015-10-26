@@ -1,6 +1,5 @@
 #include "central2d.h"
 #include "central2d_block.h"
-#include "central2d_block2.h"
 #include "central2d_buggy.h"
 #include "central2d_copy.h"
 // #include "central2d_par.h" TODO(wensi): this doesn't build
@@ -9,7 +8,6 @@
 #include "minmod.h"
 #include "shallow2d.h"
 #include "shallow2d_block.h"
-#include "shallow2d_block2.h"
 #include "shallow2d_vec.h"
 
 #ifdef _OPENMP
@@ -62,8 +60,6 @@ typedef Central2D<Shallow2D, MinMod<Shallow2D::real>> ReferenceSim;
 // TODO(wensi): this doesn't build
 // #elif defined(VERSION_block_par)
 //     typedef Central2DBlockPar<Shallow2DBlockPar, MinMod<Shallow2DBlockPar::real>> Sim;
-#elif defined(VERSION_block2)
-    typedef Central2DBlock2<Shallow2DBlock2, MinMod<Shallow2DBlock2::real>> Sim;
 #elif defined(VERSION_vec)
     typedef Central2DVec<Shallow2DVec, MinMod<Shallow2DVec::real>> Sim;
 #elif defined(VERSION_buggy)

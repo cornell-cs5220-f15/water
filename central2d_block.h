@@ -5,7 +5,199 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 
+#include "flat_array.h"
+
+////////////////////////////////////////////////////////////////////////////////
+// Block
+////////////////////////////////////////////////////////////////////////////////
+template <class Physics, class Limiter>
+class Block {
+public:
+    typedef typename Physics::real real;
+    static constexpr int num_fields = Physics::num_fields;
+
+    Block(real *u, int nx, int ny, int nghost, real dx, real dy, int io, real dt) :
+        nx_(nx),
+        ny_(ny),
+        nghost_(nghost),
+        dx_(dx),
+        dy_(dy),
+        io_(io),
+        dt_(dt),
+        nx_all_(nx_ + 2*nghost_),
+        ny_all_(ny_ + 2*nghost_),
+        u_ (u),
+        f_ (flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        g_ (flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        ux_(flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        uy_(flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        fx_(flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        gy_(flat_array::make<real>(nx_all_, ny_all_, num_fields)),
+        v_ (flat_array::make<real>(nx_all_, ny_all_, num_fields)) {}
+
+    Block(const Block&) = delete;
+    Block(Block&&)      = delete;
+
+    ~Block() {
+        free(f_);
+        free(g_);
+        free(ux_);
+        free(uy_);
+        free(fx_);
+        free(gy_);
+        free(v_);
+    }
+
+    void step();
+
+private:
+    const int nx_;
+    const int ny_;
+    const int nghost_;
+    const real dx_;
+    const real dy_;
+    const int io_;
+    const real dt_;
+    const int nx_all_;
+    const int ny_all_;
+    real *u_;
+    real *f_;
+    real *g_;
+    real *ux_;
+    real *uy_;
+    real *fx_;
+    real *gy_;
+    real *v_;
+
+    real *at(real *xs, int x, int y) {
+        return flat_array::at(xs, nx_all_, ny_all_, x, y);
+    }
+
+    real *field(real *xs, int k) {
+        return flat_array::field(xs, nx_all_, ny_all_, k);
+    }
+
+    #define BLOCK_MAP(function) \
+        function(u) \
+        function(f) \
+        function(g) \
+        function(ux) \
+        function(uy) \
+        function(fx) \
+        function(gy) \
+        function(v)
+
+    #define BLOCK_FIELDS(xs) \
+        real *xs##0() { return field(xs##_, 0); } \
+        real *xs##1() { return field(xs##_, 1); } \
+        real *xs##2() { return field(xs##_, 2); }
+
+    #define BLOCK_INDEXERS(xs) \
+        real *xs(int k, int x, int y) { return at(field(xs##_, k), x, y); }
+
+    BLOCK_MAP(BLOCK_FIELDS)
+    BLOCK_MAP(BLOCK_INDEXERS)
+
+private:
+    void flux();
+    void limited_derivs();
+    void compute_step();
+};
+
+template <class Physics, class Limiter>
+void Block<Physics, Limiter>::flux() {
+    for (int y = 0; y < ny_all_; ++y) {
+        for (int x = 0; x < nx_all_; ++x) {
+            Physics::flux( f(0, x, y),  f(1, x, y),  f(2, x, y),
+                           g(0, x, y),  g(1, x, y),  g(2, x, y),
+                          *u(0, x, y), *u(1, x, y), *u(2, x, y));
+        }
+    }
+}
+
+template <class Physics, class Limiter>
+void Block<Physics, Limiter>::limited_derivs() {
+    using L = Limiter;
+    for (int k = 0; k < num_fields; ++k) {
+        for (int y = 1; y < ny_all_-1; ++y) {
+            for (int x = 1; x < nx_all_-1; ++x) {
+                // x derivs
+                *ux(k, x, y) = L::limdiff(*u(k,x-1,y), *u(k,x,y), *u(k,x+1,y));
+                *fx(k, x, y) = L::limdiff(*f(k,x-1,y), *f(k,x,y), *f(k,x+1,y));
+
+                // y derivs
+                *uy(k, x, y) = L::limdiff(*u(k,x,y-1), *u(k,x,y), *u(k,x,y+1));
+                *gy(k, x, y) = L::limdiff(*g(k,x,y-1), *g(k,x,y), *g(k,x,y+1));
+            }
+        }
+    }
+}
+
+template <class Physics, class Limiter>
+void Block<Physics, Limiter>::compute_step() {
+    real dtcdx2 = 0.5 * dt_ / dx_;
+    real dtcdy2 = 0.5 * dt_ / dy_;
+
+    // Predictor (flux values of f and g at half step)
+    for (int y = 1; y < ny_all_-1; ++y) {
+        for (int x = 1; x < nx_all_-1; ++x) {
+            real h  = *u(0, x, y);
+            real hu = *u(1, x, y);
+            real hv = *u(2, x, y);
+
+            h  -= dtcdx2 * *fx(0, x, y);
+            h  -= dtcdy2 * *gy(0, x, y);
+            hu -= dtcdx2 * *fx(1, x, y);
+            hu -= dtcdy2 * *gy(1, x, y);
+            hv -= dtcdx2 * *fx(2, x, y);
+            hv -= dtcdy2 * *gy(2, x, y);
+
+            Physics::flux(f(0, x,y), f(1, x, y), f(2, x, y),
+                          g(0, x,y), g(1, x, y), g(2, x, y),
+                          h, hu, hv);
+        }
+    }
+
+    // Corrector (finish the step)
+    for (int k = 0; k < num_fields; ++k) {
+        for (int y = nghost_-io_; y < ny_+nghost_-io_; ++y)
+            for (int x = nghost_-io_; x < nx_+nghost_-io_; ++x) {
+                *v(k, x,y) =
+                    0.2500 * ( *u(k, x,  y) + *u(k, x+1,y  ) +
+                               *u(k, x,y+1) + *u(k, x+1,y+1) ) -
+                    0.0625 * ( *ux(k, x+1,y  ) - *ux(k, x,y  ) +
+                               *ux(k, x+1,y+1) - *ux(k, x,y+1) +
+                               *uy(k, x,  y+1) - *uy(k, x,  y) +
+                               *uy(k, x+1,y+1) - *uy(k, x+1,y) ) -
+                    dtcdx2 * ( *f(k, x+1,y  ) - *f(k, x,y  ) +
+                               *f(k, x+1,y+1) - *f(k, x,y+1) ) -
+                    dtcdy2 * ( *g(k, x,  y+1) - *g(k, x,  y) +
+                               *g(k, x+1,y+1) - *g(k, x+1,y) );
+            }
+        }
+
+    // Copy from v storage back to main grid
+    for (int k = 0; k < num_fields; ++k) {
+        for (int y = nghost_; y < ny_+nghost_; ++y){
+            for (int x = nghost_; x < nx_+nghost_; ++x){
+                *u(k, x, y) = *v(k, x-io_, y-io_);
+            }
+        }
+    }
+}
+
+template <class Physics, class Limiter>
+void Block<Physics, Limiter>::step() {
+    flux();
+    limited_derivs();
+    compute_step();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Central2D
+////////////////////////////////////////////////////////////////////////////////
 template <class Physics, class Limiter>
 class Central2DBlock {
 public:
@@ -14,8 +206,8 @@ public:
     static constexpr int num_fields = Physics::num_fields;
 
     Central2DBlock(real w, real h,     // Domain width / height
-                 int nx, int ny,     // Number of cells in x/y (without ghosts)
-                 real cfl = 0.45) :  // Max allowed CFL number
+                    int nx, int ny,     // Number of cells in x/y (without ghosts)
+                    real cfl = 0.45) :  // Max allowed CFL number
         nx(nx), ny(ny),
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
@@ -72,31 +264,11 @@ private:
     static constexpr int nghost     = 3;  // Number of ghost cells
     static constexpr int block_size = 64; // The side length of one block
 
-    const int nx, ny;           // Number of (non-ghost) cells in x/y
-    const int nx_all, ny_all;   // Total cells in x/y (including ghost)
-    const real dx, dy;          // Cell size in x/y
-    const real cfl;             // Allowed CFL number
+    const int nx, ny;          // Number of (non-ghost) cells in x/y
+    const int nx_all, ny_all;  // Total cells in x/y (including ghost)
+    const real dx, dy;         // Cell size in x/y
+    const real cfl;            // Allowed CFL number
 
-    // All vectors are stored as a flattened representation of a
-    // two-dimensional array of arrays. For example, consider a 2x4 grid where
-    // each element of the grid contains a vector of length three.
-    //
-    //                        +---+---+---+---+
-    //                      1 | d | f | g | h |
-    //                        +---+---+---+---+
-    //                      0 | a | b | c | d |
-    //                        +---+---+---+---+
-    //                          0   1   2   3
-    //
-    // This grid is stored as follows:
-    //
-    //     +---+---+---+---+---+---+---+---+---+   +---+---+   +---+
-    //     |a_0|b_0|c_0|d_0|e_0|f_0|g_0|h_0|a_1|...|h_1|a_2|...|h_2|
-    //     +---+---+---+---+---+---+---+---+---+   +---+---+   +---+
-    //       0   1   2   3   4   5   6   7   8      15  16      23
-    //
-    // This representation is taken from Prof. Bindel's implementation:
-    // https://github.com/dbindel/water
     real *u_;  // Solution values
     real *f_;  // Fluxes in x
     real *g_;  // Fluxes in y
@@ -107,91 +279,31 @@ private:
     real *v_;  // Solution values at next step
 
     // Array accessor functions
-    static int offset(int nx_all, int ny_all, int k, int ix, int iy) {
-        return (((k * ny_all) + iy) * nx_all) + ix;
-    }
-
     int offset(int k, int ix, int iy) const {
         return (((k * ny_all) + iy) * nx_all) + ix;
     }
 
     // Wrapped accessor (periodic BC)
-    static int ioffset(int nx_all, int ny_all, int nx, int ny, int nghost,
-                       int k, int ix, int iy) {
-        return offset(nx_all, ny_all, k,
-                      (ix+nx-nghost) % nx + nghost,
-                      (iy+ny-nghost) % ny + nghost);
-    }
-
     int ioffset(int k, int ix, int iy) {
         return offset(k,
                       (ix+nx-nghost) % nx + nghost,
                       (iy+ny-nghost) % ny + nghost);
     }
 
-    real& get(real *xs, int nx_all, int ny_all, int k, int ix, int iy) {
-        return xs[offset(nx_all, ny_all, k, ix, iy)];
-    }
-
-    real& u (int k, int ix, int iy) { return get(u_,  nx_all, ny_all, k, ix, iy); }
-    real& v (int k, int ix, int iy) { return get(v_,  nx_all, ny_all, k, ix, iy); }
-    real& f (int k, int ix, int iy) { return get(f_,  nx_all, ny_all, k, ix, iy); }
-    real& g (int k, int ix, int iy) { return get(g_,  nx_all, ny_all, k, ix, iy); }
-    real& ux(int k, int ix, int iy) { return get(ux_, nx_all, ny_all, k, ix, iy); }
-    real& uy(int k, int ix, int iy) { return get(uy_, nx_all, ny_all, k, ix, iy); }
-    real& fx(int k, int ix, int iy) { return get(fx_, nx_all, ny_all, k, ix, iy); }
-    real& gy(int k, int ix, int iy) { return get(gy_, nx_all, ny_all, k, ix, iy); }
-
-    real& uwrap(int k, int ix, int iy) {
-        return u_[ioffset(nx_all, ny_all, nx, ny, nghost, k, ix, iy)];
-    }
+    real& u    (int k, int ix, int iy) { return u_ [offset (k, ix, iy)]; }
+    real& v    (int k, int ix, int iy) { return v_ [offset (k, ix, iy)]; }
+    real& f    (int k, int ix, int iy) { return f_ [offset (k, ix, iy)]; }
+    real& g    (int k, int ix, int iy) { return g_ [offset (k, ix, iy)]; }
+    real& ux   (int k, int ix, int iy) { return ux_[offset (k, ix, iy)]; }
+    real& uy   (int k, int ix, int iy) { return uy_[offset (k, ix, iy)]; }
+    real& fx   (int k, int ix, int iy) { return fx_[offset (k, ix, iy)]; }
+    real& gy   (int k, int ix, int iy) { return gy_[offset (k, ix, iy)]; }
+    real& uwrap(int k, int ix, int iy) { return u_ [ioffset(k, ix, iy)]; }
 
     // Stages of the main algorithm
     void run_block(const int io, const real dt, const int bx, const int by);
-
     void apply_periodic();
-
     void compute_max_speed(real& cx, real& cy);
-    void flux(real* restrict f0, real* restrict f1, real* restrict f2,
-              real* restrict g0, real* restrict g1, real* restrict g2,
-              const real* restrict u, const real* restrict hu, const real* restrict hv,
-              const int len);
-    void flux();
-
-    void limited_derivsx(real* restrict dx,
-                         const real* restrict x,
-                         const int nx_all,
-                         const int ny_all);
-    void limited_derivsy(real* restrict dy,
-                         const real* restrict y,
-                         const int nx_all,
-                         const int ny_all);
-    void limited_derivs();
-
-    void predictor_flux(real* restrict f0, real* restrict f1, real* restrict f2,
-                        real* restrict g0, real* restrict g1, real* restrict g2,
-                        const real* restrict fx0,
-                        const real* restrict fx1,
-                        const real* restrict fx2,
-                        const real* restrict gy0,
-                        const real* restrict gy1,
-                        const real* restrict gy2,
-                        const real* restrict u0,
-                        const real* restrict u1,
-                        const real* restrict u2,
-                        const real dtcdx2, const real dtcdy2,
-                        const int len);
-    void corrector(real* restrict v,
-                   const real* restrict u,
-                   const real* restrict ux,
-                   const real* restrict uy,
-                   const real* restrict f,
-                   const real* restrict g,
-                   const real dtcdx2, const real dtcdy2,
-                   const int nx,      const int ny,
-                   const int nx_all,  const int ny_all,
-                   const int bghost,  const int io);
-    void compute_step(int io, real dt);
 };
 
 // Note that this function is not vectorized, but since `init` is only called
@@ -250,7 +362,7 @@ void Central2DBlock<Physics, Limiter>::compute_max_speed(real& cx, real& cy) {
         for (int ix = nghost; ix < nx + nghost; ++ix) {
             real cell_cx, cell_cy;
             Physics::wave_speed(cell_cx, cell_cy,
-                                u(0, ix,iy), u(1, ix, iy), u(2, ix, iy));
+                                u(0, ix, iy), u(1, ix, iy), u(2, ix, iy));
             _cx = max(_cx, cell_cx);
             _cy = max(_cy, cell_cy);
         }
@@ -258,218 +370,6 @@ void Central2DBlock<Physics, Limiter>::compute_max_speed(real& cx, real& cy) {
 
     cx = _cx;
     cy = _cy;
-}
-
-template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::flux(
-        real* restrict f0, real* restrict f1, real* restrict f2,
-        real* restrict g0, real* restrict g1, real* restrict g2,
-        const real* restrict u, const real* restrict hu, const real* restrict hv,
-        const int len) {
-    for (int i = 0; i < len; ++i) {
-        real _h  = u[i];
-        real _hu = hu[i];
-        real _hv = hv[i];
-
-        f0[i] = _hu;
-        f1[i] = _hu*_hu/_h + (0.5f*Physics::g)*_h*_h;
-        f2[i] = _hu*_hv/_h;
-
-        g0[i] = _hv;
-        g1[i] = _hu*_hv/_h;
-        g1[i] = _hv*_hv/_h + (0.5f*Physics::g)*_h*_h;
-    }
-}
-
-template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::flux() {
-    // KINDA VEC
-    for (int iy = 0; iy < ny_all; ++iy) {
-        #pragma ivdep
-        for (int ix = 0; ix < nx_all; ++ix) {
-            real& f0 = f(0, ix, iy);
-            real& f1 = f(1, ix, iy);
-            real& f2 = f(2, ix, iy);
-            real& g0 = g(0, ix, iy);
-            real& g1 = g(1, ix, iy);
-            real& g2 = g(2, ix, iy);
-            real& h  = u(0, ix, iy);
-            real& hu = u(1, ix, iy);
-            real& hv = u(2, ix, iy);
-
-            Physics::flux(f0, f1, f2, g0, g1, g2, h, hu, hv);
-        }
-    }
-}
-
-
-template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::limited_derivsx(real* restrict _dx,
-                                                      const real* restrict _x,
-                                                      const int nx_all,
-                                                      const int ny_all) {
-    for (int x = 1; x < nx_all - 1; ++x) {
-        for (int y = 1; y < ny_all - 1; ++y) {
-            _dx[offset(nx_all, ny_all, 0, x, y)] = Limiter::limdiff(
-                    _x[offset(nx_all, ny_all, 0, x-1, y)],
-                    _x[offset(nx_all, ny_all, 0, x,   y)],
-                    _x[offset(nx_all, ny_all, 0, x+1, y)]);
-        }
-    }
-}
-
-template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::limited_derivsy(real* restrict _dy,
-                                                      const real* restrict _y,
-                                                      const int nx_all,
-                                                      const int ny_all) {
-    for (int x = 1; x < nx_all - 1; ++x) {
-        for (int y = 1; y < ny_all - 1; ++y) {
-            _dy[offset(nx_all, ny_all, 0, x, y)] = Limiter::limdiff(
-                    _y[offset(nx_all, ny_all, 0, x, y-1)],
-                    _y[offset(nx_all, ny_all, 0, x, y)],
-                    _y[offset(nx_all, ny_all, 0, x, y+1)]);
-        }
-    }
-}
-
-template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::limited_derivs() {
-    using L = Limiter;
-    for (int k = 0; k < num_fields; ++k) {
-        for (int iy = 1; iy < ny_all-1; ++iy) {
-            for (int ix = 1; ix < nx_all-1; ++ix) {
-                // x derivs
-                ux(k, ix, iy) = L::limdiff(u(k, ix-1,iy), u(k, ix,iy), u(k, ix+1,iy));
-                fx(k, ix, iy) = L::limdiff(f(k, ix-1,iy), f(k, ix,iy), f(k, ix+1,iy));
-
-                // y derivs
-                uy(k, ix, iy) = L::limdiff(u(k, ix,iy-1), u(k, ix,iy), u(k, ix,iy+1));
-                gy(k, ix, iy) = L::limdiff(g(k, ix,iy-1), g(k, ix,iy), g(k, ix,iy+1));
-            }
-        }
-    }
-}
-
-
-template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::predictor_flux(
-        real* restrict f0, real* restrict f1, real* restrict f2,
-        real* restrict g0, real* restrict g1, real* restrict g2,
-        const real* restrict fx0, const real* restrict fx1, const real* restrict fx2,
-        const real* restrict gy0, const real* restrict gy1, const real* restrict gy2,
-        const real* restrict u0,  const real* restrict u1,  const real* restrict u2,
-        const real dtcdx2, const real dtcdy2, const int len) {
-    for (int i = 0; i < len; ++i) {
-        real h  = u0[i];
-        real hu = u1[i];
-        real hv = u2[i];
-
-        h  -= dtcdx2 * fx0[i];
-        h  -= dtcdy2 * gy0[i];
-        hu -= dtcdx2 * fx1[i];
-        hu -= dtcdy2 * gy1[i];
-        hv -= dtcdx2 * fx2[i];
-        hv -= dtcdy2 * gy2[i];
-
-        Physics::flux(&f0[i], &f1[i], &f2[i], &g0[i], &g1[i], &g2[i], h, hu, hv);
-    }
-}
-
-template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::corrector(
-        real* restrict v,
-        const real* restrict u,
-        const real* restrict ux,
-        const real* restrict uy,
-        const real* restrict f,
-        const real* restrict g,
-        const real dtcdx2, const real dtcdy2,
-        const int nx,      const int ny,
-        const int nx_all,  const int ny_all,
-        const int bghost,  const int io) {
-
-    for (int iy = bghost-io; iy < ny+bghost-io; ++iy) {
-        for (int ix = bghost-io; ix < nx+bghost-io; ++ix) {
-            v[offset(nx_all, ny_all, 0, ix,iy)] =
-                0.2500 * ( u[offset(nx_all, ny_all, 0, ix,   iy  )] +
-                           u[offset(nx_all, ny_all, 0, ix+1, iy  )] +
-                           u[offset(nx_all, ny_all, 0, ix,   iy+1)] +
-                           u[offset(nx_all, ny_all, 0, ix+1, iy+1)] ) -
-
-                0.0625 * ( ux[offset(nx_all, ny_all, 0, ix+1, iy  )] -
-                           ux[offset(nx_all, ny_all, 0, ix,   iy  )] +
-                           ux[offset(nx_all, ny_all, 0, ix+1, iy+1)] -
-                           ux[offset(nx_all, ny_all, 0, ix,   iy+1)] +
-                           uy[offset(nx_all, ny_all, 0, ix,   iy+1)] -
-                           uy[offset(nx_all, ny_all, 0, ix,   iy  )] +
-                           uy[offset(nx_all, ny_all, 0, ix+1, iy+1)] -
-                           uy[offset(nx_all, ny_all, 0, ix+1, iy  )] ) -
-
-                dtcdx2 * ( f[offset(nx_all, ny_all, 0,  ix+1, iy  )] -
-                           f[offset(nx_all, ny_all, 0,  ix,   iy  )] +
-                           f[offset(nx_all, ny_all, 0,  ix+1, iy+1)] -
-                           f[offset(nx_all, ny_all, 0,  ix,   iy+1)] ) -
-
-                dtcdy2 * ( g[offset(nx_all, ny_all, 0,  ix,   iy+1)] -
-                           g[offset(nx_all, ny_all, 0,  ix,   iy  )] +
-                           g[offset(nx_all, ny_all, 0,  ix+1, iy+1)] -
-                           g[offset(nx_all, ny_all, 0,  ix+1, iy  )] );
-        }
-    }
-}
-
-template <class Physics, class Limiter>
-void Central2DBlock<Physics, Limiter>::compute_step(int io, real dt)
-{
-    real dtcdx2 = 0.5 * dt / dx;
-    real dtcdy2 = 0.5 * dt / dy;
-
-    // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            real h  = u(0, ix, iy);
-            real hu = u(1, ix, iy);
-            real hv = u(2, ix, iy);
-
-            h  -= dtcdx2 * fx(0, ix, iy);
-            h  -= dtcdy2 * gy(0, ix, iy);
-            hu -= dtcdx2 * fx(1, ix, iy);
-            hu -= dtcdy2 * gy(1, ix, iy);
-            hv -= dtcdx2 * fx(2, ix, iy);
-            hv -= dtcdy2 * gy(2, ix, iy);
-
-            Physics::flux(f(0, ix,iy), f(1, ix, iy), f(2, ix, iy),
-                          g(0, ix,iy), g(1, ix, iy), g(2, ix, iy),
-                          h, hu, hv);
-        }
-
-    // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int k = 0; k < num_fields; ++k) {
-                v(k, ix,iy) =
-                    0.2500 * ( u(k, ix,  iy) + u(k, ix+1,iy  ) +
-                               u(k, ix,iy+1) + u(k, ix+1,iy+1) ) -
-                    0.0625 * ( ux(k, ix+1,iy  ) - ux(k, ix,iy  ) +
-                               ux(k, ix+1,iy+1) - ux(k, ix,iy+1) +
-                               uy(k, ix,  iy+1) - uy(k, ix,  iy) +
-                               uy(k, ix+1,iy+1) - uy(k, ix+1,iy) ) -
-                    dtcdx2 * ( f(k, ix+1,iy  ) - f(k, ix,iy  ) +
-                               f(k, ix+1,iy+1) - f(k, ix,iy+1) ) -
-                    dtcdy2 * ( g(k, ix,  iy+1) - g(k, ix,  iy) +
-                               g(k, ix+1,iy+1) - g(k, ix+1,iy) );
-            }
-        }
-
-    // Copy from v storage back to main grid
-    for (int k = 0; k < num_fields; ++k) {
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u(k, i, j) = v(k, i-io, j-io);
-            }
-        }
-    }
 }
 
 template <class Physics, class Limiter>
@@ -511,85 +411,35 @@ void Central2DBlock<Physics, Limiter>::run_block(const int io,
     const int height_all = height + 2*bghosts;
     const int size_all   = width_all * height_all;
 
-    // allocate blocks
-    real *_u  = (real *)malloc(size_all * num_fields * sizeof(real));
-    real *_f  = (real *)malloc(size_all * num_fields * sizeof(real));
-    real *_g  = (real *)malloc(size_all * num_fields * sizeof(real));
-    real *_ux = (real *)malloc(size_all * num_fields * sizeof(real));
-    real *_uy = (real *)malloc(size_all * num_fields * sizeof(real));
-    real *_fx = (real *)malloc(size_all * num_fields * sizeof(real));
-    real *_gy = (real *)malloc(size_all * num_fields * sizeof(real));
-    real *_v  = (real *)malloc(size_all * num_fields * sizeof(real));
-
-    // convenient aliases
-    real *u0  = &_u [offset(width_all, height_all, 0, 0, 0)];
-    real *u1  = &_u [offset(width_all, height_all, 1, 0, 0)];
-    real *u2  = &_u [offset(width_all, height_all, 2, 0, 0)];
-    real *f0  = &_f [offset(width_all, height_all, 0, 0, 0)];
-    real *f1  = &_f [offset(width_all, height_all, 1, 0, 0)];
-    real *f2  = &_f [offset(width_all, height_all, 2, 0, 0)];
-    real *g0  = &_g [offset(width_all, height_all, 0, 0, 0)];
-    real *g1  = &_g [offset(width_all, height_all, 1, 0, 0)];
-    real *g2  = &_g [offset(width_all, height_all, 2, 0, 0)];
-    real *ux0 = &_ux[offset(width_all, height_all, 0, 0, 0)];
-    real *ux1 = &_ux[offset(width_all, height_all, 1, 0, 0)];
-    real *ux2 = &_ux[offset(width_all, height_all, 2, 0, 0)];
-    real *uy0 = &_uy[offset(width_all, height_all, 0, 0, 0)];
-    real *uy1 = &_uy[offset(width_all, height_all, 1, 0, 0)];
-    real *uy2 = &_uy[offset(width_all, height_all, 2, 0, 0)];
-    real *fx0 = &_fx[offset(width_all, height_all, 0, 0, 0)];
-    real *fx1 = &_fx[offset(width_all, height_all, 1, 0, 0)];
-    real *fx2 = &_fx[offset(width_all, height_all, 2, 0, 0)];
-    real *gy0 = &_gy[offset(width_all, height_all, 0, 0, 0)];
-    real *gy1 = &_gy[offset(width_all, height_all, 1, 0, 0)];
-    real *gy2 = &_gy[offset(width_all, height_all, 2, 0, 0)];
-    real *v0  = &_v [offset(width_all, height_all, 0, 0, 0)];
-    real *v1  = &_v [offset(width_all, height_all, 1, 0, 0)];
-    real *v2  = &_v [offset(width_all, height_all, 2, 0, 0)];
-
-    // copy from underlying u into our block u
+    // copy from u to _u
+    real *_u  = flat_array::make<real>(width_all, height_all, num_fields);
     for (int k = 0; k < num_fields; ++k) {
+        real *_uk = flat_array::field(_u, width_all, height_all, k);
         for (int x = 0; x < width_all; ++x) {
             for (int y = 0; y < height_all; ++y) {
-                get(_u, width_all, height_all, k, x, y) = u(k, ix-1+x, iy-1+y);
+                *flat_array::at(_uk, width_all, height_all, x, y) =
+                    u(k, ix-bghosts+x, iy-bghosts+y);
             }
         }
     }
 
-    // flux
-    flux(f0, f1, f2, g0, g1, g2, u0, u1, u2, width_all * height_all);
+    // step block
+    Block<Physics, Limiter> b(_u, width, height, bghosts, dx, dy, io, dt);
+    b.step();
 
-    // limited_derivs
-    limited_derivsx(ux0, u0, width_all, height_all);
-    limited_derivsx(ux1, u1, width_all, height_all);
-    limited_derivsx(ux2, u2, width_all, height_all);
-    limited_derivsx(fx0, f0, width_all, height_all);
-    limited_derivsx(fx1, f1, width_all, height_all);
-    limited_derivsx(fx2, f2, width_all, height_all);
-
-    limited_derivsy(uy0, u0, width_all, height_all);
-    limited_derivsy(uy1, u1, width_all, height_all);
-    limited_derivsy(uy2, u2, width_all, height_all);
-    limited_derivsy(gy0, g0, width_all, height_all);
-    limited_derivsy(gy1, g1, width_all, height_all);
-    limited_derivsy(gy2, g2, width_all, height_all);
-
-    // compute_step
-    real dtcdx2 = 0.5 * dt / dx;
-    real dtcdy2 = 0.5 * dt / dy;
-    predictor_flux(f0, f1, f2, g0, g1, g2,
-                   fx0, fx1, fx2, gy0, gy1, gy2, u0, u1, u2,
-                   dtcdx2, dtcdy2, width_all * height_all);
-
+    // write back from _u to v
+    for (int k = 0; k < num_fields; ++k) {
+        real *_uk = flat_array::field(_u, width_all, height_all, k);
+            for (int y = bghosts; y < height + bghosts; ++y) {
+                for (int x = bghosts; x < width + bghosts; ++x) {
+                v(k, ix-bghosts+x, iy-bghosts+y) =
+                    *flat_array::at(_uk, width_all, height_all, x, y);
+            }
+        }
+    }
     free(_u);
-    free(_f);
-    free(_g);
-    free(_ux);
-    free(_uy);
-    free(_fx);
-    free(_gy);
-    free(_v);
 }
+
 
 template <class Physics, class Limiter>
 void Central2DBlock<Physics, Limiter>::run(real tfinal)
@@ -603,6 +453,7 @@ void Central2DBlock<Physics, Limiter>::run(real tfinal)
         real dt;
         for (int io = 0; io < 2; ++io) {
             real cx, cy;
+            apply_periodic();
             compute_max_speed(cx, cy);
             if (io == 0) {
                 dt = cfl / std::max(cx/dx, cy/dy);
@@ -615,6 +466,15 @@ void Central2DBlock<Physics, Limiter>::run(real tfinal)
             for (int by = 0; by < BY; ++by) {
                 for (int bx = 0; bx < BX; ++bx) {
                     run_block(io, dt, bx, by);
+                }
+            }
+
+            // Copy from v storage back to main grid
+            for (int k = 0; k < num_fields; ++k) {
+                for (int y = nghost; y < ny+nghost; ++y){
+                    for (int x = nghost; x < nx+nghost; ++x){
+                        u(k, x, y) = v(k, x, y);
+                    }
                 }
             }
 

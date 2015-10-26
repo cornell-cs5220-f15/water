@@ -16,7 +16,6 @@ include Makefile.in.$(PLATFORM)
 SIMULATORS = \
 	shallow \
 	shallow_block \
-	shallow_block2 \
 	shallow_buggy \
 	shallow_copy \
 	shallow_vec \
@@ -26,7 +25,6 @@ SIMULATORS = \
 HEADERS = \
 	central2d.h \
 	central2d_block.h \
-	central2d_block2.h \
 	central2d_block_par.h\
 	central2d_buggy.h \
 	central2d_copy.h \
@@ -37,7 +35,6 @@ HEADERS = \
 	minmod.h \
 	shallow2d.h \
 	shallow2d_block.h \
-	shallow2d_block2.h \
 	shallow2d_vec.h \
 
 # ===
@@ -70,7 +67,7 @@ run_%: shallow_%
 run-ampl_%: shallow_%
 	qsub run-ampl.pbs -N $*-ampl -vARG1=$<
 
-time: clean $(shell echo shallow-timing{,_vec,_block,_block2}) $(shell echo run{,_vec,_block,_block2})
+time: clean $(shell echo shallow-timing{,_vec,_block}) $(shell echo run{,_vec,_block})
 
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
