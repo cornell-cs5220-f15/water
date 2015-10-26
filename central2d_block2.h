@@ -18,10 +18,12 @@ public:
     typedef typename Physics::real real;
     static constexpr int num_fields = Physics::num_fields;
 
-    Block(real *u, int nx, int ny, int nghost, int io, real dt) :
+    Block(real *u, int nx, int ny, int nghost, real dx, real dy, int io, real dt) :
         nx_(nx),
         ny_(ny),
         nghost_(nghost),
+        dx_(dx),
+        dy_(dy),
         io_(io),
         dt_(dt),
         nx_all_(nx_ + 2*nghost_),
@@ -54,6 +56,8 @@ private:
     const int nx_;
     const int ny_;
     const int nghost_;
+    const real dx_;
+    const real dy_;
     const int io_;
     const real dt_;
     const int nx_all_;
@@ -131,7 +135,55 @@ void Block<Physics, Limiter>::limited_derivs() {
 
 template <class Physics, class Limiter>
 void Block<Physics, Limiter>::compute_step() {
-    // TODO
+    real dtcdx2 = 0.5 * dt_ / dx_;
+    real dtcdy2 = 0.5 * dt_ / dy_;
+
+    // Predictor (flux values of f and g at half step)
+    for (int y = 1; y < ny_all_-1; ++y) {
+        for (int x = 1; x < nx_all_-1; ++x) {
+            real h  = *u(0, x, y);
+            real hu = *u(1, x, y);
+            real hv = *u(2, x, y);
+
+            h  -= dtcdx2 * *fx(0, x, y);
+            h  -= dtcdy2 * *gy(0, x, y);
+            hu -= dtcdx2 * *fx(1, x, y);
+            hu -= dtcdy2 * *gy(1, x, y);
+            hv -= dtcdx2 * *fx(2, x, y);
+            hv -= dtcdy2 * *gy(2, x, y);
+
+            Physics::flux(f(0, x,y), f(1, x, y), f(2, x, y),
+                          g(0, x,y), g(1, x, y), g(2, x, y),
+                          h, hu, hv);
+        }
+    }
+
+    // Corrector (finish the step)
+    for (int k = 0; k < num_fields; ++k) {
+        for (int y = nghost_-io_; y < ny_+nghost_-io_; ++y)
+            for (int x = nghost_-io_; x < nx_+nghost_-io_; ++x) {
+                *v(k, x,y) =
+                    0.2500 * ( *u(k, x,  y) + *u(k, x+1,y  ) +
+                               *u(k, x,y+1) + *u(k, x+1,y+1) ) -
+                    0.0625 * ( *ux(k, x+1,y  ) - *ux(k, x,y  ) +
+                               *ux(k, x+1,y+1) - *ux(k, x,y+1) +
+                               *uy(k, x,  y+1) - *uy(k, x,  y) +
+                               *uy(k, x+1,y+1) - *uy(k, x+1,y) ) -
+                    dtcdx2 * ( *f(k, x+1,y  ) - *f(k, x,y  ) +
+                               *f(k, x+1,y+1) - *f(k, x,y+1) ) -
+                    dtcdy2 * ( *g(k, x,  y+1) - *g(k, x,  y) +
+                               *g(k, x+1,y+1) - *g(k, x+1,y) );
+            }
+        }
+
+    // Copy from v storage back to main grid
+    for (int k = 0; k < num_fields; ++k) {
+        for (int y = nghost_; y < ny_+nghost_; ++y){
+            for (int x = nghost_; x < nx_+nghost_; ++x){
+                *u(k, x, y) = *v(k, x-io_, y-io_);
+            }
+        }
+    }
 }
 
 template <class Physics, class Limiter>
@@ -504,7 +556,7 @@ void Central2DBlock2<Physics, Limiter>::run_block(const int io,
     }
 
     // step block
-    Block<Physics, Limiter> b(_u, width, height, bghosts, io, dt);
+    Block<Physics, Limiter> b(_u, width, height, bghosts, dx, dy, io, dt);
     b.step();
 
     // write back from _u to u
