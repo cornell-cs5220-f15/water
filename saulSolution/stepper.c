@@ -455,7 +455,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
     float t = 0;
     
     int p = (int) sqrt(nthreads);
-    int thread,iter;
+    int thread;
     float dt;
     float cxy[2];
     
@@ -483,7 +483,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             }
             copytoregion(region,sim,thread,p);
    
-            for (iter=0;iter<timef;++iter){
+            for (int iter=0;iter<timef;++iter){
                 central2d_step(region->u, region->v, region->scratch, region->f, region->g,
                                0, (region->nx), (region->ny), region->ng,
                                region->nfield, region->flux, region->speed,
