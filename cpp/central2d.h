@@ -139,6 +139,16 @@ public:
 	void copy_results_out(std::vector<vec>& larger_v,
 			const int larger_nx_all, const int x_start, const int y_start);
 
+	// Copy cells to the vertical ghost region of the larger domain
+	void copy_vert_ghosts(std::vector<vec>& larger_v,
+			const int larger_nx_all, const int larger_nx,  
+			const int y_start, const bool target_left);
+
+	// Copy cells to the horizontal ghost region of the larger domain 		
+	void copy_horiz_ghosts(std::vector<vec>& larger_v,
+			const int larger_nx_all, const int larger_ny, 
+			const int x_start, const bool target_top);
+
     // Diagnostics
     void solution_check();
 
@@ -276,6 +286,45 @@ void Central2D<Physics, Limiter>::copy_results_out(std::vector<vec>& larger_v,
 			}
 		}
 	}
+}
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::copy_vert_ghosts(std::vector<vec>& larger_v,
+		const int larger_nx_all, const int larger_nx, 
+		const int y_start, const bool target_left)
+{
+	for (int y = 0; y < ny; ++y) {
+		for (int x = 0; x < nghost; ++x) {
+			if(target_left) {
+				//For left ghost cells, copy from the right edge of the local (non-ghost) board
+				//Conveniently, advancing by nx is the same as advancing by nx+nghost (to the right edge) and then backing up by nghost (to the beginning of the region to be copied)
+				larger_v[(y+y_start) * larger_nx_all + x] = u(x+nx, y+nghost);
+			} else {
+				//For right ghost cells, copy from the left edge of the local (non-ghost) board
+				larger_v[(y+y_start) * larger_nx_all + (larger_nx+nghost+x)] = u(x+nghost, y+nghost);
+			}
+		}
+	}
+}
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::copy_horiz_ghosts(std::vector<vec>& larger_v,
+		const int larger_nx_all, const int larger_ny, 
+		const int x_start, const bool target_top)
+{
+	for (int x = 0; x < nx; ++x) {
+		for(int y = 0; y < nghost; ++y) {
+			if(target_top) {
+				//For top ghost cells, copy from the bottom edge of the local (non-ghost) board
+				//Conveniently, advancing by ny is the same as advancing by ny+nghost (to the last row) and then backing up by nghost (to the beginning of the region to be copied)
+				larger_v[y * larger_nx_all + (x+x_start)] = u(x+nghost, y+ny);
+			} else {
+				//For bottom ghost cells, copy from the top edge of the local (non-ghost) board
+				larger_v[(larger_ny+nghost+y) * larger_nx_all + (x+x_start)] = u(x+nghost, y+nghost);
+			}
+		}
+	}
+
 }
 
 

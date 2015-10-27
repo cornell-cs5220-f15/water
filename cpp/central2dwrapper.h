@@ -16,8 +16,6 @@ public:
     typedef typename Physics::real real;
     typedef typename Physics::vec  vec;
 
-	static constexpr int nbatch = 2; // Number of steps in a batch before synchronizing
-
     Central2DWrapper(real w, real h,     // Domain width / height
               int nx, int ny,     // Number of cells in x/y (without ghosts)
               real cfl = 0.45) :  // Max allowed CFL number
@@ -58,7 +56,10 @@ public:
     }
 
 private:
-	static constexpr int nghost = 4;
+	//Large board must use the same number of ghost cells as the small boards
+	static constexpr int nghost = Central2D<Physics, Limiter>::nghost;
+
+	static constexpr int nbatch = 2; // Number of steps in a batch before synchronizing
 
 	const real dx, dy;         // Cell size in x/y
     const int nx, ny;          // Number of (non-ghost) cells in x/y
@@ -205,7 +206,7 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 	std::vector<real>* local_dts_curr = new std::vector<real>();
 	std::vector<real>* local_dts_next = new std::vector<real>();
 	//DEBUG
-//	omp_set_num_threads(1);
+	omp_set_num_threads(1);
 	#pragma omp parallel firstprivate(tfinal, large_u, large_v, local_dts_curr,local_dts_next) default(none) 
 	{
 //		printf("Thread sees Central2DWrapper's nx = %d, ny = %d, nx_all = %d, ny_all = %d \n", nx, ny, nx_all, ny_all);
@@ -261,6 +262,14 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		#pragma omp single
 		{
 			apply_periodic();
+			//DEBUG
+			printf("Board after initial apply_periodic:\n");	
+			for(int y = 0; y < ny_all; y++) {
+				for(int x = 0; x < nx_all; x++) {
+					printf("%.3f ", u(x,y)[0]);
+				}
+				printf("\n");
+			}
 			real init_dt = compute_current_dt();
 			for(int i = 0; i < nblocks; i++) 
 				(*local_dts_curr)[i] = init_dt;
@@ -275,13 +284,13 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		bool done = false;
 		bool first = true;
 		while (!done) {
-			#pragma omp single 
-			if (!first) {
-				std::swap(u_, v_);
-				apply_periodic();
-				//There's another barrier here implicitly. Instead, we need to have each block
-				//do its section of apply_periodic when it copies results back out to v.
-			}
+// 			#pragma omp single 
+//    		if (!first) {
+//   			std::swap(u_, v_);
+//    			apply_periodic();
+//    			//There's another barrier here implicitly. Instead, we need to have each block
+//    			//do its section of apply_periodic when it copies results back out to v.
+//    		}
 			
 			//Take the minimum of the dt's reported by the previous iteration as the dt for this iteration
 			dt = tfinal; //largest value it could be
@@ -308,8 +317,29 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 				//Copy the results back out to v, so it can happen concurrently with reads from u
 				blockSims[b].copy_results_out(*large_v, nx_all,
 						nghost + blockcol * bwidth, nghost + blockrow * bheight);
+				//If this block is on an edge, also copy out ghost cells
+    			if(blockcol == 0) {
+    				printf("Thread %d copying out vertical ghosts starting at (%d, %d)\n", omp_get_thread_num(), 0, nghost + blockrow * bheight);
+    				blockSims[b].copy_vert_ghosts(*large_v, nx_all, nx,
+    						nghost + blockrow * bheight, false); 
+    			}
+    			//This must be checked in sequence, not with ||, because there might be only one column of blocks
+    			if(blockcol == nblocksx-1) {
+    				printf("Thread %d copying out vertical ghosts starting at (%d, %d)\n", omp_get_thread_num(), 0, nghost + blockrow * bheight);
+    				blockSims[b].copy_vert_ghosts(*large_v, nx_all, nx,
+    						nghost + blockrow * bheight, true); 
+    			}
+    			if(blockrow == 0) {
+    				printf("Thread %d copying out horizontal ghosts starting at (%d, %d)\n", omp_get_thread_num(), nghost+blockcol*bwidth, 0);
+    				blockSims[b].copy_horiz_ghosts(*large_v, nx_all, ny,
+    						nghost + blockcol * bwidth, false); 
+    			}
+    			if(blockrow == nblocksy-1) {
+    				printf("Thread %d copying out horizontal ghosts starting at (%d, %d)\n", omp_get_thread_num(), nghost+blockcol*bwidth, 0);
+    				blockSims[b].copy_horiz_ghosts(*large_v, nx_all, ny,
+    						nghost + blockcol * bwidth, true); 
+    			}
 			}
-//			printf("Thread %d finished with timestep pair\n", omp_get_thread_num());
 
 			//Local blocks have now advanced by dt, nbatch times
 			curtime += dt*nbatch;
@@ -318,9 +348,17 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 			#pragma omp barrier
 			std::swap(large_u, large_v);
 			std::swap(local_dts_curr, local_dts_next);
+			//DEBUG
+			printf("Board after copying out ghosts:\n");	
+			for(int y = 0; y < ny_all; y++) {
+				for(int x = 0; x < nx_all; x++) {
+					printf("%.3f ", (*large_u)[offset(x,y)][0]);
+				}
+				printf("\n");
+			}
 			first = false;
-		}
-    }
+		} //end while
+    } //end omp parallel
 	delete(local_dts_curr);
 	delete(local_dts_next);
 }
