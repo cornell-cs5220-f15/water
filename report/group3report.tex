@@ -117,7 +117,6 @@ Weak scaling was only calculated for a problem size per processor of 360-by-360.
 
 \subsection{Xeon E5 Performance}
 
-%All these figures are wrong. Working on updating them now
 \begin{figure}[h!]
 \includegraphics[width=0.5\linewidth]{e5_strong_bindel_baseline.pdf}
 \caption{Strong scaling speedup for running on the Xeon E5 2620s. Baseline for calculating speedup is Professor Bindel's code from the point at which we forked it.}
@@ -128,8 +127,6 @@ Weak scaling was only calculated for a problem size per processor of 360-by-360.
 \caption{Strong scaling speedup for running on the Xeon E5 2620s. Baseline for calculating speedup is our code running a single thread on the main node (Xeon E5 2620s).}
 \end{figure}
 
-
-%Ben: I'm going to change these to only show N = 360. Also the values are wrong.
 \subsubsection{Weak Scaling}
 \begin{figure}[h!]
 \includegraphics[width=0.5\linewidth]{e5_weak_bindel_baseline.pdf}
@@ -150,25 +147,14 @@ Weak scaling was only calculated for a problem size per processor of 360-by-360.
 \end{figure}
 
 \begin{figure}[h!]
-\includegraphics[width=0.5\linewidth]{mic_strong_e5_baseline.pdf}
-\caption{Strong scaling speedup for our offloaded Phi code. Baseline for calculating speedup is our code running a single thread on the main node (Xeon E5 2620s).}
-\end{figure}
-
-\begin{figure}[h!]
 \includegraphics[width=0.5\linewidth]{mic_strong_mic_baseline.pdf}
 \caption{Strong scaling speedup for our offloaded Phi code. Baseline for calculating speedup is our code running a single thread offloaded to the Phis.}
 \end{figure}
 
-%Ben: I'm going to change these to only show N = 360.
 \subsubsection{Weak Scaling}
 \begin{figure}[h!]
 \includegraphics[width=0.5\linewidth]{mic_weak_bindel_baseline.pdf}
 \caption{Weak scaling speedup for our offloaded Phi code. Baseline for calculating speedup is Professor Bindel's code from the point at which we forked it.}
-\end{figure}
-
-\begin{figure}[h!]
-\includegraphics[width=0.5\linewidth]{mic_weak_e5_baseline.pdf}
-\caption{Weak scaling speedup for our offloaded Phi code. Baseline for calculating speedup is our code running a single thread on the main node (Xeon E5 2620s).}
 \end{figure}
 
 \begin{figure}[h!]
