@@ -17,11 +17,11 @@
 
 #ifndef NWATER
     #define NWATER
-    #define NX 320
+    #define NX 400
     #define BLOCKS 2
-    #define NBLOCK 160
+    #define NBLOCK 200
     #define NPAD 8
-    #define NBLOCKALL 176
+    #define NBLOCKALL 216
     #define NSTRIDE 3
 #endif
 
@@ -66,12 +66,9 @@ private:
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
     
-    real u1_[NX*NX];            // Solution values
-    real u2_[NX*NX];
-    real u3_[NX*NX];
-
-    // Stages of the main algorithm
-    inline __declspec(target (mic)) void corrector(int io, real* v, real* u, real* ux, real* uy, real* f, real* g, real dtcdx2, real dtcdy2);
+    real * u1_ = new real[NX*NX];            // Solution values
+    real * u2_ = new real[NX*NX];
+    real * u3_ = new real[NX*NX];
 };
 
 
@@ -96,100 +93,11 @@ void Central2D<Physics, Limiter>::init()
             real y = (iy+0.5)*dy;
             x -= 1;
             y -= 1;
-            u1_[ix+iy*NX] = 1.0 + 0.5*(x*x + y*y < 0.25+1e-5);
+            u1_[ix+iy*NX] = 1.0 + 0.5 * (((x*x + y*y) < 0.25) + 1e-5);
             u2_[ix+iy*NX] = 0;
             u3_[ix+iy*NX] = 0;
         }
     }
-}
-
-template <class Physics, class Limiter>
-inline __declspec(target (mic)) void Central2D<Physics, Limiter>
-::corrector(int io, real v[], real u[], real ux[], real uy[], real f[], real g[], real dtcdx2, real dtcdy2)
-{
-    #ifdef __MIC__
-    
-    int ix, iy;
-    __m512 u00, u10, u01, u11, ux00, ux10, ux01, ux11;
-    __m512 uy00, uy10, uy01, uy11, f00, f01, f10, f11;
-    __m512 g00, g01, g10, g11, vr;
-    
-    // Corrector (finish the step)
-    for (int iy = NPAD-io; iy < NBLOCK+NPAD-io; ++iy) {
-    //for (int iy = 0; iy < NBLOCKALL; ++iy) {
-        //unrolling loop x by stride will be inefficient at the lower egdes of the grid
-        for (int ix = NPAD-io; ix < NBLOCK+NPAD-io; ix++) {
-            int off0 = ix+iy*NBLOCKALL;
-            int off1 = (ix+1)+iy*NBLOCKALL;
-            int off2 = ix+(iy+1)*NBLOCKALL;
-            int off3 = ix+1+(iy+1)*NBLOCKALL;
-            
-            v[off0] =
-                0.2500 * (  u[off0] +  u[off1] +  u[off2] +  u[off3] ) -
-                0.0625 * ( ux[off1] - ux[off0] + ux[off3] - ux[off2]   +
-                           uy[off2] - uy[off0] + uy[off3] - uy[off1] ) -
-                dtcdx2 * (  f[off1] -  f[off0] +  f[off3] -  f[off2] ) -
-                dtcdy2 * (  g[off2] -  g[off0] +  g[off3] -  g[off1] );
-            
-            /*
-            u00 = _mm512_load_ps(u + off0);
-            u10 = _mm512_load_ps(u + off1);
-            u01 = _mm512_load_ps(u + off2);
-            u11 = _mm512_load_ps(u + off3);
-            
-            ux00 = _mm512_load_ps(ux + off0);
-            ux10 = _mm512_load_ps(ux + off1);
-            ux01 = _mm512_load_ps(ux + off2);
-            ux11 = _mm512_load_ps(ux + off3);
-            
-            uy00 = _mm512_load_ps(uy + off0);
-            uy10 = _mm512_load_ps(uy + off1);
-            uy01 = _mm512_load_ps(uy + off2);
-            uy11 = _mm512_load_ps(uy + off3);
-            
-            f00 = _mm512_load_ps(f + off0);
-            f10 = _mm512_load_ps(f + off1);
-            f01 = _mm512_load_ps(f + off2);
-            f11 = _mm512_load_ps(f + off3);
-            
-            g00 = _mm512_load_ps(g + off0);
-            g10 = _mm512_load_ps(g + off1);
-            g01 = _mm512_load_ps(g + off2);
-            g11 = _mm512_load_ps(g + off3);
-            
-            u00 = _mm512_add_ps(u00, u10);
-            u00 = _mm512_add_ps(u00, u01);
-            u00 = _mm512_add_ps(u00, u11);
-            u00 = _mm512_mul_ps(u00, _mm512_set1_ps(0.2500f));
-            
-            ux00 = _mm512_sub_ps(ux10, ux00);
-            ux00 = _mm512_add_ps(ux00, ux11);
-            ux00 = _mm512_sub_ps(ux00, ux01);
-            ux00 = _mm512_add_ps(ux00, uy01);
-            ux00 = _mm512_sub_ps(ux00, uy00);
-            ux00 = _mm512_add_ps(ux00, uy11);
-            ux00 = _mm512_sub_ps(ux00, uy10);
-            ux00 = _mm512_mul_ps(ux00, _mm512_set1_ps(0.0625f));
-            
-            f00 = _mm512_sub_ps(f10, f00);
-            f00 = _mm512_add_ps(f00, f11);
-            f00 = _mm512_sub_ps(f00, f01);
-            f00 = _mm512_mul_ps(f00, _mm512_set1_ps(dtcdx2));
-            
-            g00 = _mm512_sub_ps(g01, g00);
-            g00 = _mm512_add_ps(g00, g11);
-            g00 = _mm512_sub_ps(g00, g10);
-            g00 = _mm512_mul_ps(g00, _mm512_set1_ps(dtcdy2));
-            
-            vr = _mm512_sub_ps(u00, ux00);
-            vr = _mm512_sub_ps(vr, f00);
-            vr = _mm512_sub_ps(vr, g00);
-            
-            _mm512_store_ps(v, vr);
-            */
-        }
-    }
-    #endif
 }
 
 /**
@@ -210,58 +118,62 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
     printf("Run\n");
-    float * su1 = u1_;
-    float * su2 = u2_;
-    float * su3 = u3_;
+    real * su1 = u1_;
+    real * su2 = u2_;
+    real * su3 = u3_;
+    
+    // Result buffer
+    real * res1 = new real[NX*NX];
+    real * res2 = new real[NX*NX];
+    real * res3 = new real[NX*NX];
+    
     printf("Ready\n");
-    #pragma offload target(mic) \
-        in(dx), in(dy), \
-        in(su1 : length(NX*NX)), in(su2 : length(NX*NX)), in(su3 : length(NX*NX))
+    //#pragma offload target(mic) \
+        in(dx), in(dy), in(tfinal), \
+        in(su1 : length(NX*NX)), in(su2 : length(NX*NX)), in(su3 : length(NX*NX)) \
+        in(res1 : length(NX*NX)), in(res2 : length(NX*NX)), in(res3 : length(NX*NX))
     {
-        printf("Offload\n");
         bool done = false;
         real currtime = 0;
         real endtime = tfinal;
-        printf("Loop\n");
-        while (!done) {
-            printf("Allocate\n");
+        
+        // Begin parallel section, share the current grid state
+        #pragma omp parallel shared(currtime, endtime, done, su1, su2, su3, res1, res2, res3)
+        {
+            //printf("Allocate\n");
             
-            // OpenMP sucks and doesn't allow members to be shared
-            real res1[NX*NX];
-            real res2[NX*NX];
-            real res3[NX*NX];
+            // Create private instances
+            real * pu1  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+            real * pu2  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+            real * pu3  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
             
-            // Begin parallel section, share the current grid state
-            #pragma omp parallel shared(currtime, endtime, su1, su2, su3, res1, res2, res3)
-            {
+            while (!done) {
                 // Copy the current time
                 real t = currtime;
                 
-                // Create private instances
-                real pu1 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pu2 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pu3 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pv1 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pv2 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pv3 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pf1 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pf2 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pf3 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pg1 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pg2 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pg3 [NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pux1[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pux2[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pux3[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real puy1[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real puy2[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real puy3[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pfx1[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pfx2[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pfx3[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pgy1[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pgy2[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-                real pgy3[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                // Keep a personal done
+                bool pdone = false;
+                real * pv1  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pv2  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pv3  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pf1  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pf2  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pf3  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pg1  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pg2  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pg3  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pux1 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pux2 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pux3 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * puy1 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * puy2 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * puy3 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pfx1 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pfx2 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pfx3 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pgy1 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pgy2 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pgy3 = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
                 
                 // Split work by domain
                 #pragma omp for
@@ -277,17 +189,17 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     for (int j = 0; j < NBLOCKALL; j++) {
                         for (int i = 0; i < NBLOCKALL; i++) {
                             // Map to indices on grid
-                            int wi = (i + bxo - NPAD) % NX;
-                            int wj = (j + byo - NPAD) % NX;
+                            int wi = (i + bxo - NPAD + NX) % NX;
+                            int wj = (j + byo - NPAD + NX) % NX;
                             
-                            pu1[j*NBLOCKALL+i] = su1[wj*NX+wj];
-                            pu2[j*NBLOCKALL+i] = su2[wj*NX+wj];
-                            pu3[j*NBLOCKALL+i] = su3[wj*NX+wj];
+                            pu1[j*NBLOCKALL+i] = su1[wj*NX+wi];
+                            pu2[j*NBLOCKALL+i] = su2[wj*NX+wi];
+                            pu3[j*NBLOCKALL+i] = su3[wj*NX+wi];
                         }
                     }
                     
                     // Run instances for as many steps as possible
-                    for (int step = 0; step < NPAD - 3 && !done; step++) {
+                    for (int step = 0; step < NPAD - 3 && !pdone; step++) {
                         real dt;
                         real cx = 1.0e-15;
                         real cy = 1.0e-15;
@@ -305,6 +217,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                                     real h  = pu1[ix+iy*NBLOCKALL];
                                     real hu = pu2[ix+iy*NBLOCKALL];
                                     real hv = pu3[ix+iy*NBLOCKALL];
+                                    
                                     pf1[ix+iy*NBLOCKALL] = hu;
                                     pf2[ix+iy*NBLOCKALL] = hu*hu/h + grav *(0.5)*h*h;
                                     pf3[ix+iy*NBLOCKALL] = hu*hv/h;
@@ -347,11 +260,12 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                                 dt = cfl / std::max(cx/dx, cy/dy);
                                 if (t + 2*dt >= endtime) {
                                     dt = (endtime-t)/2;
-                                    done = true;
+                                    pdone = true;
                                 }
+                                
+                                //printf("%f %f %f %f %f %f\n", dt, cfl, cx, cy, dx, dy);
                             }
                             
-                            // compute_fg_speeds
                             real dtcdx2 = 0.5 * dt / dx;
                             real dtcdy2 = 0.5 * dt / dy;
                             // Predictor (flux values of f and g at half step)
@@ -416,12 +330,40 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                             }
                             
                             // Corrector (finish the step)
-                            corrector(io, pv1, pu1, pux1, puy1, pf1, pg1, dtcdx2, dtcdy2);
-                            corrector(io, pv2, pu2, pux2, puy2, pf2, pg2, dtcdx2, dtcdy2);
-                            corrector(io, pv3, pu3, pux3, puy3, pf3, pg3, dtcdx2, dtcdy2);
+                            for (int iy = 1-io; iy < NBLOCKALL-1-io; ++iy) {
+                            //for (int iy = 0; iy < NBLOCKALL; ++iy) {
+                                //unrolling loop x by stride will be inefficient at the lower egdes of the grid
+                                for (int ix = 1-io; ix < NBLOCKALL-1-io; ++ix) {
+                                    int off0 = ix+iy*NBLOCKALL;
+                                    int off1 = (ix+1)+iy*NBLOCKALL;
+                                    int off2 = ix+(iy+1)*NBLOCKALL;
+                                    int off3 = ix+1+(iy+1)*NBLOCKALL;
+                                    
+                                    pv1[off0] =
+                                        0.2500 * ( pu1 [off0] + pu1 [off1] + pu1 [off2] + pu1 [off3] ) -
+                                        0.0625 * ( pux1[off1] - pux1[off0] + pux1[off3] - pux1[off2]   +
+                                                   puy1[off2] - puy1[off0] + puy1[off3] - puy1[off1] ) -
+                                        dtcdx2 * ( pf1 [off1] - pf1 [off0] + pf1 [off3] - pf1 [off2] ) -
+                                        dtcdy2 * ( pg1 [off2] - pg1 [off0] + pg1 [off3] - pg1 [off1] );
+                                    
+                                    pv2[off0] =
+                                        0.2500 * ( pu2 [off0] + pu2 [off1] + pu2 [off2] + pu2 [off3] ) -
+                                        0.0625 * ( pux2[off1] - pux2[off0] + pux2[off3] - pux2[off2]   +
+                                                   puy2[off2] - puy2[off0] + puy2[off3] - puy2[off1] ) -
+                                        dtcdx2 * ( pf2 [off1] - pf2 [off0] + pf2 [off3] - pf2 [off2] ) -
+                                        dtcdy2 * ( pg2 [off2] - pg2 [off0] + pg2 [off3] - pg2 [off1] );
+                                    
+                                    pv3[off0] =
+                                        0.2500 * ( pu3 [off0] + pu3 [off1] + pu3 [off2] + pu3 [off3] ) -
+                                        0.0625 * ( pux3[off1] - pux3[off0] + pux3[off3] - pux3[off2]   +
+                                                   puy3[off2] - puy3[off0] + puy3[off3] - puy3[off1] ) -
+                                        dtcdx2 * ( pf3 [off1] - pf3 [off0] + pf3 [off3] - pf3 [off2] ) -
+                                        dtcdy2 * ( pg3 [off2] - pg3 [off0] + pg3 [off3] - pg3 [off1] );
+                                }
+                            }
                             
                              // Copy from v storage back to main grid
-                            for (int j = NPAD; j < NBLOCK+NPAD; ++j){
+                            for (int j = NPAD; j < NBLOCK+NPAD; ++j) {
                                 for (int i = NPAD; i < NBLOCK+NPAD; ++i){
                                     pu1[i+j*NBLOCKALL] = pv1[i-io+(j-io)*NBLOCKALL];
                                     pu2[i+j*NBLOCKALL] = pv2[i-io+(j-io)*NBLOCKALL];
@@ -429,6 +371,8 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                                 }
                             }
                             t += dt;
+                            
+                            //printf("t %f %f\n", t, dt);
                         }
                     }
                     
@@ -442,29 +386,32 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                             int wi = (i + bxo);
                             int wj = (j + byo);
                             
-                            res1[wj*NX+wj] = pu1[pj*NBLOCKALL+pi];
-                            res2[wj*NX+wj] = pu2[pj*NBLOCKALL+pi];
-                            res3[wj*NX+wj] = pu3[pj*NBLOCKALL+pi];
+                            res1[wj*NX+wi] = pu1[pj*NBLOCKALL+pi];
+                            res2[wj*NX+wi] = pu2[pj*NBLOCKALL+pi];
+                            res3[wj*NX+wi] = pu3[pj*NBLOCKALL+pi];
                         }
                     }
                 }
                 
                 #pragma omp critical
-                currtime = t;
+                {
+                    currtime = t;
+                    //printf("%f %f\n", currtime, endtime);
+                    done = done || pdone;
+                    //done = true;
+                }
                 
                 // Wait for all to finish
                 #pragma omp barrier
+                
+                //printf("Copy\n");
+                // Copy result grid to original grid
+                for (int i = 0; i < NX*NX; i++) {
+                    su1[i] = res1[i];
+                    su2[i] = res2[i];
+                    su3[i] = res3[i];
+                }
             }
-            
-            printf("Copy\n");
-            // Copy result grid to original grid
-            for (int i = 0; i < NX*NX; i++) {
-                su1[i] = res1[i];
-                su2[i] = res2[i];
-                su3[i] = res3[i];
-            }
-            
-            done = true;
         }
     }
 }

@@ -110,21 +110,24 @@ int main(int argc, char** argv)
     double t0 = omp_get_wtime();
     
     Sim sim(width,width, NX,NX);
-    SimViz<Sim> viz("dam_break", sim);
+    SimViz<Sim> viz("dam_break.out", sim);
     printf("Init\n");
     sim.init();
     printf("First check\n");
     sim.solution_check();
     printf("Write\n");
     viz.write_frame();
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < frames; ++i) {
+        double s0 = omp_get_wtime();
         printf("Frame %d\n", i);
         sim.run(ftime);
         printf("Check %d\n", i);
-        //sim.solution_check();
+        sim.solution_check();
         printf("Write %d\n", i);
-        //viz.write_frame();
+        viz.write_frame();
         printf("Done %d\n", i);
+        double s1 = omp_get_wtime();
+        printf("Time: %e\n", s1-s0);
     }
     double t1 = omp_get_wtime();
     printf("Time: %e\n", t1-t0);
