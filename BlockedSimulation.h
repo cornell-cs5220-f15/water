@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
+#include <immintrin.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -65,14 +66,22 @@ class BlockedSimulation {
     private:
       std::vector< std::vector<SimBlock> > blocks;
 
-      static constexpr int nghost = 3;   // Number of ghost cells
+      // Number of ghost cells
+      static constexpr int nghost = 3;
 
-      const int nblocks = floor(sqrt(omp_get_max_threads()));   // Number of blocks in each dimension
-      const int nx, ny;                // Number of (non-ghost) cells in x/y
-      const int nx_block, ny_block;    // Cells in a block
+      // Number of blocks in each dimension
+      const int blockCount = (int) (sqrt(omp_get_max_threads()) / 2) * 2;
+      const int nblocks = blockCount > 0 ? blockCount : 1;
+
+      // Number of (non-ghost) cells in x/y
+      const int nx, ny;
+
+      // Cells in a block
+      const int nx_block, ny_block;
       const real blockWidth, blockHeight, dx, dy;
 
-      const real cfl;                  // Allowed CFL number
+      // Allowed CFL number
+      const real cfl;
 
       // Call copy operations for each block
       void copy_ghosts();
@@ -145,7 +154,7 @@ void BlockedSimulation::run(real tfinal) {
   std::vector<real> cy(nblocks * nblocks);
 
   // Only spin up as many threads as the loops require
-  #pragma omp parallel num_threads(nblocks * nblocks + 1)
+  #pragma omp parallel num_threads(nblocks * nblocks)
   {
     // Constrain while loop execution to the main thread frame
     #pragma omp master

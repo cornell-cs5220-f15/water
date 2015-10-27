@@ -275,7 +275,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-
+    
     for (int iy = 0; iy < ny_all; ++iy) {
       #pragma ivdep
       for (int ix = 0; ix < nx_all; ++ix) {

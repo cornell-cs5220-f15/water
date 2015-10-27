@@ -22,18 +22,20 @@ class SimBlock : public Sim
       friend class BlockedSimulation;
 
     private:
+      __declspec(target(mic)) static constexpr int nghost = 3;
+
       // Remove the original apply_periodic by replacing it with empty function
       void apply_periodic(){}
 
       // Define new copy operations for ghost cells, this got tedious
-      void copy_ghosts_from_left(const SimBlock&);
-      void copy_ghosts_from_topleft(const SimBlock&);
-      void copy_ghosts_from_bottomleft(const SimBlock&);
-      void copy_ghosts_from_right(const SimBlock&);
-      void copy_ghosts_from_topright(const SimBlock&);
-      void copy_ghosts_from_bottomright(const SimBlock&);
-      void copy_ghosts_from_top(const SimBlock&);
-      void copy_ghosts_from_bot(const SimBlock&);
+      __declspec(target(mic)) void copy_ghosts_from_left (const SimBlock&);
+      __declspec(target(mic)) void copy_ghosts_from_topleft (const SimBlock&);
+      __declspec(target(mic)) void copy_ghosts_from_bottomleft (const SimBlock&);
+      __declspec(target(mic)) void copy_ghosts_from_right (const SimBlock&);
+      __declspec(target(mic)) void copy_ghosts_from_topright (const SimBlock&);
+      __declspec(target(mic)) void copy_ghosts_from_bottomright (const SimBlock&);
+      __declspec(target(mic)) void copy_ghosts_from_top (const SimBlock&);
+      __declspec(target(mic)) void copy_ghosts_from_bot (const SimBlock&);
 };
 
 void SimBlock::copy_ghosts_from_left(const SimBlock& source) {
