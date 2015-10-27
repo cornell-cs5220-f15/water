@@ -16,10 +16,11 @@ include Makefile.in.$(PLATFORM)
 SIMULATORS = \
 	shallow \
 	shallow_block \
+	shallow_block_par\
 	shallow_buggy \
 	shallow_copy \
+	shallow_opt \
 	shallow_vec \
-	shallow_block_par\
 
 HEADERS = \
 	central2d.h \
@@ -27,6 +28,7 @@ HEADERS = \
 	central2d_block_par.h\
 	central2d_buggy.h \
 	central2d_copy.h \
+	central2d_opt.h \
 	central2d_par.h \
 	central2d_vec.h \
 	flat_array.h \
@@ -77,7 +79,7 @@ run-sweep_%: shallow_%
 		qsub run-sweep.pbs -N $* -vARG1=$<,ARG2=$$i; \
 	done
 
-time: clean $(shell echo shallow-timing{,_vec,_block}) $(shell echo run{,_vec,_block})
+time: clean $(shell echo shallow-timing{,_vec,_block,_block_par,_opt}) $(shell echo run{,_vec,_block,_block_par,_opt})
 
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
