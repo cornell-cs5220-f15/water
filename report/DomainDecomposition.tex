@@ -1,0 +1,33 @@
+\section{Domain Decomposition}
+
+Given the local nature of the shallow water physics, this simulation is an ideal candidate for domain decomposition. Because calculating the water height and momentum at each cell depends only on nearby cells, this problem can be broken into subdomains, which processors can compute independently for several steps before needing to synchronize. In order to make implementing domain decomposition easier, we made some basic simplifying assumptions:
+
+\begin{itemize}
+	\item All simulations take place on a square grid of size $n \times n$.
+	\item The number of processors $p$ is a perfect square.
+	\item $n$ is divisible by $\sqrt{p}$
+\end{itemize}
+
+We will also use $b$ to refer to the batch size, meaning that $2b$ is the number of timesteps computed by each processor between synchronizations. (Note that we compute $2b$ instead of $b$ steps because of the grid offset in the Jiang-Tadmor central difference scheme being used).
+
+For our implementation of domain decomposition, we maintained a global copy of the domain which is used to store the current state of the entire simulation. We then divide the domain into $p$ equally sized subdomains, with one processor being responsible for each. There were two approaches we considered for allowing each processor to compute the subdomain it was responsible for. The first approach is to keep only one copy of the whole domain and each processor will read and write to this shared memory. The second approach would be to have each processor maintain a copy of its subdomain and periodically synchronize up with the global copy of the domain. The first approach requires less copying of memory back and forth. However, since the subdomains overlap with each other, it requires us to guarantee thread safety for the shared global domain. The second approach requires more copying of memory but it can be done without needing to worry about thread safety. In addition to decreasing implementation complexity, the second approach is able to use the cache more efficiently. Since each subdomain will now be stored in a contiguous region of memory, this allows us to make more efficient use of spatial locality. 
+
+Using this approach, we developed the following algorithm (written here in pseudocode):
+
+\begin{algorithm}
+\begin{algorithmic}[1]
+\item Apply periodic boundary conditions to \ttt{domain}
+\item Find $\ttt{max\_speed}$ in \ttt{domain}
+\State $\ttt{dt} \gets 0.9*\ttt{cfl} / \ttt{max\_speed}$
+\For {each processor}
+	\State \ttt{subdomain} $\gets$ relevant part of \ttt{domain}
+	\For {i = 1,2,...,b}
+		\State \ttt{subdomain} $\gets$ \Call{compute\_step}{0} 
+		\State \ttt{subdomain} $\gets$ \Call{compute\_step}{1}
+	\EndFor
+	\State \ttt{domain} $\gets$ \ttt{subdomain}
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+We note that we have had to decrease the size of the time step $\ttt{dt}$ as we are now computing multiple time steps between each calculation of $\ttt{dt}$. While decreasing the time step increases the amount of computational time for simulations, decreasing the time step can lead to instability of the numerical method. Our current choice of $0.9$ times the CFL condition of $0.45$ is heuristic, and could very likely be improved.
