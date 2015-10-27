@@ -106,9 +106,9 @@ template <class Physics, class Limiter>
               real cfl = 0.45) :  // Max allowed CFL number
     nodomains(nodomains),
     nx(nx), ny(ny),
-    domain_nx((int) (ceil((real) nx / nodomains))),
-    domain_ny((int) (ceil((real) ny / nodomains))),
-    nx_all(nodomains * (domain_nx + 2 * nghost)),
+    domain_nx( (int) ( ceil( (real) nx / nodomains) + 1.0e-5)),
+    domain_ny( (int) ( ceil( (real) ny / nodomains) + 1.0e-5)),
+    nx_all( nodomains * (domain_nx + 2 * nghost)),
     ny_all(nodomains * (domain_ny + 2 * nghost)),
     domain_nx_inc_ghost( domain_nx + 2 * nghost),
     domain_ny_inc_ghost( domain_ny + 2 * nghost),
@@ -117,12 +117,37 @@ template <class Physics, class Limiter>
     u_ (nx_all * ny_all),
     f_ (nx_all * ny_all),
     g_ (nx_all * ny_all),
-    ux_(nx_all * ny_all),
-    uy_(nx_all * ny_all),
-    fx_(nx_all * ny_all),
-    gy_(nx_all * ny_all),
+    ux_ (nx_all * ny_all),
+    uy_ (nx_all * ny_all),
+    fx_ (nx_all * ny_all),
+    gy_ (nx_all * ny_all),
     v_ (nx_all * ny_all),
-    ures_ (nx * ny) {}
+    ures_ (nx * ny)
+    {   
+        /*nodomains = nodomains;
+        this.nx = nx;
+        this.ny = ny;
+        domain_nx = (int) (ceil((real) nx / nodomains));
+        domain_ny = (int) (ceil((real) ny / nodomains));
+        domain_nx_inc_ghost = domain_nx + 2 * nghost;
+        domain_ny_inc_ghost = domain_ny + 2 * nghost;
+        nx_all = nodomains * (domain_nx + 2 * nghost);
+        ny_all = nodomains * (domain_ny + 2 * nghost);
+        dx = w/nx;
+        dy = h/ny;
+        cfl = cfl;
+        ures_(nx * ny);
+        u_(nx_all * ny_all);
+        f_(nx_all * ny_all);
+        g_(nx_all * ny_all);
+        ux_(nx_all * ny_all);
+        uy_(nx_all * ny_all);
+        fx_(nx_all * ny_all);
+        gy_(nx_all * ny_all);
+        v_(nx_all * ny_all);*/
+
+        
+    }
 
     // Advance from time 0 to time tfinal
     void run(real tfinal);
@@ -218,7 +243,7 @@ private:
     //TODO: Need to change this
     int ioffset(int ix, int iy) {
         return offset( (ix+nx-nghost) % nx + nghost,
-         (iy+ny-nghost) % ny + nghost );
+           (iy+ny-nghost) % ny + nghost );
     }
 
     //TODO: Remove this because this is not required
@@ -258,7 +283,7 @@ template <typename F>
         for (int iy = 0; iy < ny; ++iy)
             for (int ix = 0; ix < nx; ++ix)
                 f(u(ix,iy,tno), (ix+0.5)*dx, (iy+0.5)*dy);
-    }
+        }
 
 /**
  * ## Time stepper implementation
@@ -434,15 +459,15 @@ template <class Physics, class Limiter>
                 for (int m = 0; m < v(ix,iy,tno).size(); ++m) {
                     v(ix,iy,tno)[m] =
                     0.2500 * ( ug(ix,iy,tno)[m] + ug(ix+1,iy,tno)[m] +
-                     ug(ix,iy+1,tno)[m] + ug(ix+1,iy+1,tno)[m] ) -
+                       ug(ix,iy+1,tno)[m] + ug(ix+1,iy+1,tno)[m] ) -
                     0.0625 * ( ux(ix+1,iy,tno)[m] - ux(ix,iy,tno)[m] +
-                     ux(ix+1,iy+1,tno)[m] - ux(ix,iy+1,tno)[m] +
-                     uy(ix,  iy+1,tno)[m] - uy(ix,  iy,tno)[m] +
-                     uy(ix+1,iy+1,tno)[m] - uy(ix+1,iy,tno)[m] ) -
+                       ux(ix+1,iy+1,tno)[m] - ux(ix,iy+1,tno)[m] +
+                       uy(ix,  iy+1,tno)[m] - uy(ix,  iy,tno)[m] +
+                       uy(ix+1,iy+1,tno)[m] - uy(ix+1,iy,tno)[m] ) -
                     dtcdx2 * ( f(ix+1,iy,tno)[m] - f(ix,iy,tno)[m] +
-                     f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
+                       f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
                     dtcdy2 * ( g(ix,  iy+1,tno)[m] - g(ix,  iy,tno)[m] +
-                     g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
+                       g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
                 }
             }
 
@@ -492,9 +517,9 @@ template <class Physics, class Limiter>
                     cxmax = (cxmax>cx[i])?cxmax:cx[i];
                     cymax = (cymax>cy[i])?cymax:cy[i];
                 }
-          
+
                 dt = cfl / (cxmax/dx > cymax/dy ? cxmax/dx : cymax/dy);
-        
+
                 if (t + 2*dt >= tfinal) {
                     dt = (tfinal-t)/2;
                     done = true;
@@ -507,7 +532,7 @@ template <class Physics, class Limiter>
         #pragma omp single
         t += 2*dt;
     }
-        
+
 //         for (int io = 0; io < 2; ++io) {
 //             real cx[] = real[nodomains*nodomains], cy[]= real[nodomains*nodomains];
 //             #paragma omp single
@@ -545,7 +570,7 @@ template <class Physics, class Limiter>
                 ures(res_ix, res_iy) = u(ix, iy, tno);
             }
 
-}
+        }
 
 /**
  * ### Diagnostics
@@ -582,7 +607,7 @@ void Central2D<Physics, Limiter>::solution_check()
         hu_sum *= cell_area;
         hv_sum *= cell_area;
         printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-         h_sum, hu_sum, hv_sum, hmin, hmax);
+           h_sum, hu_sum, hv_sum, hmin, hmax);
     }
 
 //ldoc off
