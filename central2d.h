@@ -17,11 +17,11 @@
 
 #ifndef NWATER
     #define NWATER
-    #define NX 400
-    #define BLOCKS 2
-    #define NBLOCK 200
-    #define NPAD 8
-    #define NBLOCKALL 216
+    #define NX 200
+    #define BLOCKS 4
+    #define NBLOCK 50
+    #define NPAD 4
+    #define NBLOCKALL 58
     #define NSTRIDE 3
 #endif
 
@@ -66,9 +66,9 @@ private:
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
     
-    real * u1_ = new real[NX*NX];            // Solution values
-    real * u2_ = new real[NX*NX];
-    real * u3_ = new real[NX*NX];
+    real * u1_ = new real[NX*NX] __attribute__((aligned(32)));            // Solution values
+    real * u2_ = new real[NX*NX] __attribute__((aligned(32)));
+    real * u3_ = new real[NX*NX] __attribute__((aligned(32)));
 };
 
 
@@ -117,42 +117,38 @@ void Central2D<Physics, Limiter>::init()
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
+    const real grav = 9.8f;
+    
     printf("Run\n");
     real * su1 = u1_;
     real * su2 = u2_;
     real * su3 = u3_;
     
-    // Result buffer
-    real * res1 = new real[NX*NX];
-    real * res2 = new real[NX*NX];
-    real * res3 = new real[NX*NX];
-    
     printf("Ready\n");
-    //#pragma offload target(mic) \
+    #pragma offload target(mic) \
         in(dx), in(dy), in(tfinal), \
-        in(su1 : length(NX*NX)), in(su2 : length(NX*NX)), in(su3 : length(NX*NX)) \
-        in(res1 : length(NX*NX)), in(res2 : length(NX*NX)), in(res3 : length(NX*NX))
+        inout(su1 : length(NX*NX)), inout(su2 : length(NX*NX)), inout(su3 : length(NX*NX))
     {
         bool done = false;
-        real currtime = 0;
-        real endtime = tfinal;
+        
+        // Result buffer
+        real * res1 = new real[NX*NX];
+        real * res2 = new real[NX*NX];
+        real * res3 = new real[NX*NX];
+        
+        real dt = tfinal;
         
         // Begin parallel section, share the current grid state
-        #pragma omp parallel shared(currtime, endtime, done, su1, su2, su3, res1, res2, res3)
+        #pragma omp parallel shared(dt, tfinal, done, su1, su2, su3, res1, res2, res3)
         {
             //printf("Allocate\n");
-            
-            // Create private instances
-            real * pu1  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-            real * pu2  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
-            real * pu3  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+            real t = 0.f;
             
             while (!done) {
-                // Copy the current time
-                real t = currtime;
-                
-                // Keep a personal done
-                bool pdone = false;
+                // Create private instances
+                real * pu1  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pu2  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
+                real * pu3  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
                 real * pv1  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
                 real * pv2  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
                 real * pv3  = new real[NBLOCKALL*NBLOCKALL] __attribute__((aligned(32)));
@@ -198,9 +194,54 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                         }
                     }
                     
+                    // Compute cx and cy
+                    real cx = 0.f, cy = 0.f;
+                    for (int iy = 0; iy < NBLOCKALL; ++iy) {
+                        for (int ix = 0; ix < NBLOCKALL; ++ix) {
+                            real cell_cx, cell_cy;
+
+                            //calculate flux
+                            real h  = pu1[ix+iy*NBLOCKALL];
+                            real hu = pu2[ix+iy*NBLOCKALL];
+                            real hv = pu3[ix+iy*NBLOCKALL];
+
+                            real root_gh = sqrt(grav * h);  // NB: Don't let h go negative!
+                            cell_cx = std::abs(hu/h) + root_gh;
+                            cell_cy = std::abs(hv/h) + root_gh;
+                            cx = std::max(cx, cell_cx);
+                            cy = std::max(cy, cell_cy);
+                        }
+                    }
+                    real thisdt = cfl / std::max(cx/dx, cy/dy);
+                    
+                    // Select min dt > 0
+                    #pragma omp critical
+                    {
+                        if (thisdt > 1e-5 && thisdt < dt) {
+                            dt = thisdt;
+                        }
+                        if (t + (NPAD-3)*2*dt >= tfinal) {
+                            dt = (tfinal-t)/((NPAD-3)*2);
+                            done = true;
+                        }
+                    }
+                }
+                    
+                // Use dt
+                #pragma omp barrier
+                
+                // Split work by domain
+                #pragma omp for
+                for (int p = 0; p < BLOCKS * BLOCKS; p++) {
+                    // Block x
+                    int bx = p / BLOCKS;
+                    int bxo = bx * NBLOCK;
+                    // Block y
+                    int by = p % BLOCKS;
+                    int byo = by * NBLOCK;
+                    
                     // Run instances for as many steps as possible
-                    for (int step = 0; step < NPAD - 3 && !pdone; step++) {
-                        real dt;
+                    for (int step = 0; step < NPAD - 3; step++) {
                         real cx = 1.0e-15;
                         real cy = 1.0e-15;
                         for (int io = 0; io < 2; ++io) {
@@ -208,29 +249,20 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                             // apply_periodic();
                             
                             // compute_fg_speeds
-                            const real grav = 9.8;
                             for (int iy = 0; iy < NBLOCKALL; ++iy) {
                                 for (int ix = 0; ix < NBLOCKALL; ++ix) {
-                                    real cell_cx, cell_cy;
-
                                     //calculate flux
                                     real h  = pu1[ix+iy*NBLOCKALL];
                                     real hu = pu2[ix+iy*NBLOCKALL];
                                     real hv = pu3[ix+iy*NBLOCKALL];
                                     
                                     pf1[ix+iy*NBLOCKALL] = hu;
-                                    pf2[ix+iy*NBLOCKALL] = hu*hu/h + grav *(0.5)*h*h;
+                                    pf2[ix+iy*NBLOCKALL] = hu*hu/h + grav*(0.5f)*h*h;
                                     pf3[ix+iy*NBLOCKALL] = hu*hv/h;
 
                                     pg1[ix+iy*NBLOCKALL] = hv;
                                     pg2[ix+iy*NBLOCKALL] = hu*hv/h;
-                                    pg3[ix+iy*NBLOCKALL] = hv*hv/h + grav *(0.5)*h*h;
-
-                                    real root_gh = sqrt(grav * h);  // NB: Don't let h go negative!
-                                    cell_cx = std::abs(hu/h) + root_gh;
-                                    cell_cy = std::abs(hv/h) + root_gh;
-                                    cx = std::max(cx, cell_cx);
-                                    cy = std::max(cy, cell_cy);
+                                    pg3[ix+iy*NBLOCKALL] = hv*hv/h + grav*(0.5f)*h*h;
                                 }
                             }
                             
@@ -253,17 +285,6 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                                     puy3[ix+iy*NBLOCKALL] = Limiter::limdiff( pu3[ix+(iy-1)*NBLOCKALL], pu3[ix+(iy)*NBLOCKALL], pu3[ix+(iy+1)*NBLOCKALL] );
                                     pgy3[ix+iy*NBLOCKALL] = Limiter::limdiff( pg3[ix+(iy-1)*NBLOCKALL], pg3[ix+(iy)*NBLOCKALL], pg3[ix+(iy+1)*NBLOCKALL] );
                                 }
-                            }
-                            
-                            // Time step
-                            if (io == 0) {
-                                dt = cfl / std::max(cx/dx, cy/dy);
-                                if (t + 2*dt >= endtime) {
-                                    dt = (endtime-t)/2;
-                                    pdone = true;
-                                }
-                                
-                                //printf("%f %f %f %f %f %f\n", dt, cfl, cx, cy, dx, dy);
                             }
                             
                             real dtcdx2 = 0.5 * dt / dx;
@@ -331,7 +352,6 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                             
                             // Corrector (finish the step)
                             for (int iy = 1-io; iy < NBLOCKALL-1-io; ++iy) {
-                            //for (int iy = 0; iy < NBLOCKALL; ++iy) {
                                 //unrolling loop x by stride will be inefficient at the lower egdes of the grid
                                 for (int ix = 1-io; ix < NBLOCKALL-1-io; ++ix) {
                                     int off0 = ix+iy*NBLOCKALL;
@@ -370,7 +390,6 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                                     pu3[i+j*NBLOCKALL] = pv3[i-io+(j-io)*NBLOCKALL];
                                 }
                             }
-                            t += dt;
                             
                             //printf("t %f %f\n", t, dt);
                         }
@@ -391,14 +410,13 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                             res3[wj*NX+wi] = pu3[pj*NBLOCKALL+pi];
                         }
                     }
+                    
+                    t += (NPAD-3)*2*dt;
                 }
                 
                 #pragma omp critical
                 {
-                    currtime = t;
-                    //printf("%f %f\n", currtime, endtime);
-                    done = done || pdone;
-                    //done = true;
+                    dt = tfinal;
                 }
                 
                 // Wait for all to finish
