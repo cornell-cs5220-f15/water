@@ -95,33 +95,99 @@ Using this approach, we developed the following algorithm (written here in pseud
 
 We note that we have had to decrease the size of the time step $\ttt{dt}$ as we are now computing multiple time steps between each calculation of $\ttt{dt}$. While decreasing the time step increases the amount of computational time for simulations, decreasing the time step can lead to instability of the numerical method. Our current choice of $0.9$ times the CFL condition of $0.45$ is heuristic, and could very likely be improved.
 
+\section{Offloading to The Phis}
+
+Though the main processors on our cluster allow for high flop rate per thread, they do not support high parallelism as there are 24 possible threads per node. The shallow water simulation is ideal for a high level of parallelism due to the local nature of calculating the next timestep for each cell.
+
+Offloading to a co-processor with a high number of threads (236 per node), makes sense when we are able to parallelize previously global computation such as the speed calculation for the entire simulation (see the previous section). Because of this there is no bottleneck where a single thread is solving a large problem on a single slow core of the co-processor. Finally, rather than having to move memory back and forth to do single large computations on the E5 processors and the highly parallelizable computations on the Phis, we can simply offload the entire problem to the Phis. This simplifies both the implementation of offloading and the potentially high latency costs that come with moving data between co-processors and the main processors.
+
+Our implementation of offloading is rather simple, after generating the initial global simulation state, all work is passed off to the Phi accelerators. This works because all future work simply involves parallelizable work and the only data which needs to be copied over is the initial global simulation state, and some minor meta-data such as how long the simulation is to run for. The simulation is then run for its entirety by the Phi accelerator boards and then the results are copied back to the main processors memory for frame visualization, etc.
+
+Though our implementation of offloading Phis involves only a single pragma to do all the work, it did require restructuring our code. For one offloading data to the phis which includes structs of pointers or arrays of pointers is complicated because the simple offload pragmas do not recursively follow pointers to copy all data each pointer points to.\footnote{https://software.intel.com/en-us/articles/effective-use-of-the-intel-compilers-offload-features} Thus naively this will result in accesses to invalid pointers which point to the Xeon E5 memory rather than the co-processor memory. To mitigate this problem we deconstructed all data passed to the co-processors such that no pointers were necessary. In particular, instead of having function pointers to flux and speed functions, we simply called the exact function we want, as there is only a single flux and speed function each. Finally we only passed in the $u$ part of the global simulation as that is the only necessary part for start and finishing the simulation. In this way we only pass floats, ints and an array of floats to the co-processors, which avoids the struct of pointers or array of pointers issue.
+
+Another challenge with offloading to the Phis is that we cannot use aligned vector instructions (or allow the compiler to generate them), unless all arrays are padded to be have a multiple of 16.\footnote{https://software.intel.com/en-us/forums/intel-many-integrated-core/topic/509037} Because this doing this is a significant increase in code complexity and results in larger arrays we chose not to deal with this and simply allow the compiler to vectorize arrays as if they were unaligned only (by removing \#pragma vector aligned from our for loops).
 
 \section{Results}
 
-We have not yet done an in-depth performance analysis of our domain decomposition code. Initial rough estimates show that we do get a speedup of our own code as the number of processors increases but only to a certain point, at which the overhead makes it no longer worth it. However, this speedup is not linear in the number of processors (perhaps it is logarithmic?).
+To understand how much more performance we were getting out of our parallel implementations of the shallow water problem we ran strong and weak scaling studies of our code when run on the Xeon E5. For strong scaling studies we ran a number of problem sizes (square problems, this is side length): 360, 720, 1080, 1440, 1800, 2160, 2520, 2880. We chose multiples of 360 as it is the LCM of the square roots of the number of threads we planned on running. For the Xeon E5 2620s we ran each n for $1^2,~2^2,~3^2,~4^2,~5^2$ threads. For the Xeon Phi Accelerator boards we ran each n for $1^2,~2^2,~3^2,~4^2,~5^2,~6^2,~8^2,~9^2,~10^2,~12^2,~15^2$ threads.
 
-\section{Future Work}
+To generate speedup we compared performance of the E5s versus Professor Bindel's code from the point at which we forked it, and also against a single thread of our code running on the E5. We did the same for the Phis as we did for the E5s, but also calculated speedup against a single thread of our code offloaded to the Phis.
 
+Weak scaling was only calculated for a problem size per processor of 360-by-360. We once again used the baselines described in the previous paragraph to calculate speedup for the E5s and the Phis.
 
+\subsection{Xeon E5 Performance}
 
-While we were able to develop a working version of domain decomposition, we have quite a bit of further work to do, as well as areas to improve our current code:
-\begin{itemize}
-	\item Profile our code to determine where most of the time is spent, and whether we are fully utilizing all of our parallel cores
-	\item Use these profiling results to improve the performance of our code
-	\item Try using one \ttt{omp parallel} pragma with barriers for synchronization (and possibly a master thread) instead of using multiple \ttt{omp parallel for} pragmas.
-	\item Calculate the time step \ttt{dt} in a more intelligent way
-	\item Offloading computation to the Phi accelerator boards rather than just using the Xeon E5 cores
-	\item Completing weak and strong scaling studies and comparing these results to performance models
-\end{itemize}
+%All these figures are wrong. Working on updating them now
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{e5_strong_bindel_baseline.pdf}
+\caption{Strong scaling speedup for running on the Xeon E5 2620s. Baseline for calculating speedup is Professor Bindel's code from the point at which we forked it.}
+\end{figure}
 
-
-
-
-
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{e5_strong_e5_baseline.pdf}
+\caption{Strong scaling speedup for running on the Xeon E5 2620s. Baseline for calculating speedup is our code running a single thread on the main node (Xeon E5 2620s).}
+\end{figure}
 
 
+%Ben: I'm going to change these to only show N = 360. Also the values are wrong.
+\subsubsection{Weak Scaling}
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{e5_weak_bindel_baseline.pdf}
+\caption{Weak scaling speedup for running on the Xeon E5 2620s. Baseline for calculating speedup is Professor Bindel's code from the point at which we forked it.}
+\end{figure}
 
-\end{document}  
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{e5_weak_e5_baseline.pdf}
+\caption{Weak scaling speedup for our parallel code running on the Xeon E5 2620s. Baseline for calculating speedup is our code running a single thread on the main node (Xeon E5 2620s).}
+\end{figure}
+
+\subsection{Xeon Phi Performance}
+
+\subsubsection{Strong Scaling}
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{mic_strong_bindel_baseline.pdf}
+\caption{Strong scaling speedup for our offloaded Phi code. Baseline for calculating speedup is Professor Bindel's code from the point at which we forked it.}
+\end{figure}
+
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{mic_strong_e5_baseline.pdf}
+\caption{Strong scaling speedup for our offloaded Phi code. Baseline for calculating speedup is our code running a single thread on the main node (Xeon E5 2620s).}
+\end{figure}
+
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{mic_strong_mic_baseline.pdf}
+\caption{Strong scaling speedup for our offloaded Phi code. Baseline for calculating speedup is our code running a single thread offloaded to the Phis.}
+\end{figure}
+
+%Ben: I'm going to change these to only show N = 360.
+\subsubsection{Weak Scaling}
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{mic_weak_bindel_baseline.pdf}
+\caption{Weak scaling speedup for our offloaded Phi code. Baseline for calculating speedup is Professor Bindel's code from the point at which we forked it.}
+\end{figure}
+
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{mic_weak_e5_baseline.pdf}
+\caption{Weak scaling speedup for our offloaded Phi code. Baseline for calculating speedup is our code running a single thread on the main node (Xeon E5 2620s).}
+\end{figure}
+
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{mic_weak_mic_baseline.pdf}
+\caption{Weak scaling speedup for our offloaded Phi code. Baseline for calculating speedup is our code running a single thread offloaded to the Phis.}
+\end{figure}
+
+\subsection{Batch size Performance}
+
+We were also interested in how our code performed when we increased batch size on the Xeon Phi boards. We found that when we increased batch size to two rather than 1 (so 4 steps rather than 2 steps), that our total time was actually slightly worse. This is likely because there are few barriers in our code (one after our speed calculation, one after our copy and compute steps calculation, one after our synchronize section) and no single-threaded sections which take large computation time. Thus synchronization wasn't all the expensive and the extra work (in terms of more ghost cells that have to be calculated for) does not outweigh the decreased synchronization frequency.
+
+Furthermore it is likely that because we have to back-off our dt when doing a batch size of moer than 1 in order to be conservative and not violate the CFL constraint we must do more steps total for our simulatino to complete which is more work. Further a larger batch size potentially leads to many extra steps taken near the end of a simulation when a smaller number of steps would suffice.
+
+\begin{figure}[h!]
+\includegraphics[width=0.5\linewidth]{mic_strong_bindel_baseline_batchsize2.pdf}
+\caption{Strong scaling speedup for our offloaded Phi code with a batch size of 2. Baseline for calculating speedup is Professor Bindel's code at the point where we forked it. We can see that speedup is slightly worse than our speedup for batch size of 1.}
+\end{figure}
+
+\end{document}
 
 
 
