@@ -264,7 +264,7 @@ int main(int argc, char** argv)
             sim.run(ftime);
         }
         double t1 = omp_get_wtime();
-        printf("Time: %e\n", (t1 - t0));
+        printf("Time: %f\n", (t1 - t0));
     #else
         // Initialize reference simulator
         ReferenceSim ref_sim(width, width, nx, nx);
@@ -277,7 +277,7 @@ int main(int argc, char** argv)
                 double t0 = omp_get_wtime();
                 sim.run(ftime);
                 double t1 = omp_get_wtime();
-                printf("Time: %e\n", t1-t0);
+                printf("Time: %f\n", t1-t0);
             #else
                 sim.run(ftime);
             #endif

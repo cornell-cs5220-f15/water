@@ -90,7 +90,8 @@ def parse_qsub_result(runs):
     file_name="timing-"+str(arg.split('.o')[0])+".csv"
     f=open(file_name, 'a')
     for i in xrange(0, len(parse_lines)-1):
-      times = parse_float(arg, "Time: (-?[\d.]+(?:e-?\d+)?)",
+      #times = parse_float(arg, "Time: (-?[\d.]+(?:e-?\d+)?)",
+      times = parse_float(arg, "Time: ([0-9\.]+)",
           start=parse_lines[i], end=parse_lines[i+1])
       #frames = parse_int(arg, "frames: ([0-9\.]+)",
       #    start=parse_lines[i], end=parse_lines[i+1])
@@ -105,6 +106,10 @@ def parse_qsub_result(runs):
       elif options.types == "2":
         f.write(str(nx[0])+','+str(times[0])+'\n') 
   f.close()
+  
+  cmd="cp %s %s" %(file_name, "original_"+file_name)
+  print cmd
+  os.system(cmd)
 
   # Insert header into first line
   args=[]
@@ -112,7 +117,7 @@ def parse_qsub_result(runs):
     if not str(arg.split('.o')[0]) in args:
       args.append(str(arg.split('.o')[0]))
       file_name="timing-"+str(arg.split('.o')[0])+".csv"
-      os.system("sort -n "+file_name+" -o "+file_name)
+      #os.system("sort -n "+file_name+" -o "+file_name)
       with open(file_name, 'r') as original: data = original.read()
       with open(file_name, 'w') as modified: modified.write("nx,time\n"+ data)
 
