@@ -49,23 +49,25 @@ class BlockedSimulation {
 
       // Read / write elements of simulation state
       vec&       operator()(int i, int j) {
-          const int ith_block = i / ny_block;
-          const int jth_block = j / nx_block;
-          return blocks[ith_block][jth_block](i % ny_block, j % nx_block);
+        const int ith_block = i / ny_block;
+        const int jth_block = j / nx_block;
+
+        return blocks[ith_block][jth_block](i % ny_block, j % nx_block);
       }
 
       const vec& operator()(int i, int j) const {
-          const int ith_block = i / ny_block;
-          const int jth_block = j / nx_block;
-          return blocks[ith_block][jth_block](i % ny_block, j % nx_block);
+        const int ith_block = i / ny_block;
+        const int jth_block = j / nx_block;
+
+        return blocks[ith_block][jth_block](i % ny_block, j % nx_block);
       }
 
     private:
       std::vector< std::vector<SimBlock> > blocks;
 
       static constexpr int nghost = 3;   // Number of ghost cells
-      static constexpr int nblocks = 2;   // Number of blocks in each dimension ->sqrt(nthreads)
 
+      const int nblocks = floor(sqrt(omp_get_max_threads()));   // Number of blocks in each dimension
       const int nx, ny;                // Number of (non-ghost) cells in x/y
       const int nx_block, ny_block;    // Cells in a block
       const real blockWidth, blockHeight, dx, dy;
@@ -131,7 +133,7 @@ void BlockedSimulation::solution_check() {
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
-    printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n", h_sum, hu_sum, hv_sum, hmin, hmax);
+    // printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n", h_sum, hu_sum, hv_sum, hmin, hmax);
 }
 
 void BlockedSimulation::run(real tfinal) {
@@ -142,8 +144,10 @@ void BlockedSimulation::run(real tfinal) {
   std::vector<real> cx(nblocks * nblocks);
   std::vector<real> cy(nblocks * nblocks);
 
-  #pragma omp parallel
+  // Only spin up as many threads as the loops require
+  #pragma omp parallel num_threads(nblocks * nblocks + 1)
   {
+    // Constrain while loop execution to the main thread frame
     #pragma omp master
     {
       while (!done) {
@@ -163,14 +167,15 @@ void BlockedSimulation::run(real tfinal) {
 
         #pragma omp taskwait
 
-        // Find the global dt (smallest allowed or something)
         real cxmax, cymax;
 
+        // Find the global dt
         cxmax = *std::max_element(cx.begin(), cx.end());
         cymax = *std::max_element(cy.begin(), cy.end());
 
         dt = cfl / std::max(cxmax/dx, cymax/dy);
 
+        // Evaluate termination conditions
         if (t + 2*dt >= tfinal) {
           dt = (tfinal - t) / 2;
           done = true;
@@ -180,9 +185,7 @@ void BlockedSimulation::run(real tfinal) {
         for (int i = 0; i < nblocks; i++) {
           for (int j = 0; j < nblocks; j++) {
             #pragma omp task
-            {
-              blocks[i][j].compute_step(0, dt);
-            }
+            blocks[i][j].compute_step(0, dt);
           }
         }
 
@@ -211,9 +214,7 @@ void BlockedSimulation::run(real tfinal) {
         for (int i = 0; i < nblocks; i++) {
           for (int j = 0; j < nblocks; j++) {
             #pragma omp task
-            {
-              blocks[i][j].compute_step(1, dt);
-            }
+            blocks[i][j].compute_step(1, dt);
           }
         }
 

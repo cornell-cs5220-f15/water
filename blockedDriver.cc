@@ -1,4 +1,3 @@
-// #include "central2d.h"
 #include "shallow2d.h"
 #include "minmod.h"
 #include "meshio.h"
@@ -121,39 +120,44 @@ int main(int argc, char** argv)
         case 'f':  ftime  = atof(optarg);    break;
         case 'F':  frames = atoi(optarg);    break;
         default:
-            fprintf(stderr, "Unknown option (-%c)\n", c);
-            return -1;
+          fprintf(stderr, "Unknown option (-%c)\n", c);
+          return -1;
         }
     }
 
     void (*icfun)(Sim::vec& u, double x, double y) = dam_break;
     if (ic == "dam_break") {
-        icfun = dam_break;
+      icfun = dam_break;
     } else if (ic == "pond") {
-        icfun = pond;
+      icfun = pond;
     } else if (ic == "river") {
-        icfun = river;
+      icfun = river;
     } else if (ic == "wave") {
-        icfun = wave;
+      icfun = wave;
     } else {
-        fprintf(stderr, "Unknown initial conditions\n");
+      fprintf(stderr, "Unknown initial conditions\n");
     }
 
-    BlockedSimulation sim(width,width, nx,nx);
+    BlockedSimulation sim(width, width, nx, nx);
     SimViz<BlockedSimulation> viz(fname.c_str(), sim);
     sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
+
+    printf("-n %d, -F %d\n\n", nx, frames);
+
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
-        double t0 = omp_get_wtime();
-        sim.run(ftime);
-        double t1 = omp_get_wtime();
-        printf("\tTime: %e\n", t1-t0);
+      double t0 = omp_get_wtime();
+      sim.run(ftime);
+      double t1 = omp_get_wtime();
+
+      printf("%e\n", t1 - t0);
+      // printf("\tTime: %e\n", t1-t0);
 #else
-        sim.run(ftime);
+      sim.run(ftime);
 #endif
-        sim.solution_check();
-        viz.write_frame();
+      sim.solution_check();
+      viz.write_frame();
     }
 }

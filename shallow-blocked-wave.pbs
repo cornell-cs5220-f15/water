@@ -2,7 +2,7 @@
 
 #PBS -l nodes=1:ppn=24
 #PBS -l walltime=0:30:00
-#PBS -N shallow-blocked
+#PBS -N shallow-blocked-wave
 #PBS -j oe
 
 module load cs5220
