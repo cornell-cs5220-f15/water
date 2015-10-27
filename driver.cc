@@ -143,16 +143,72 @@ int main(int argc, char** argv)
     sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
+
+    int nproc=4;
+    int nprocx=2;
+    int nprocy=2;
+    double cfl=0.45;
+    double dx=width/nx;
+    double t0 , t1;
+    double cx, cy;
+    t0 = omp_get_wtime();
+#pragma omp parallel num_threads(nproc)
+  {
+
+    Sim sim_(width/nprocx,width/nprocy, nx/nprocx,nx/nprocy);
+
+    int rankx,ranky;
+    int rank = omp_get_thread_num();
+    ranky = rank/nprocx;
+    rankx = rank%nprocx;
+ 
+    sim_.init2(sim,rankx,ranky,nprocx,nprocy);
     for (int i = 0; i < frames; ++i) {
-#ifdef _OPENMP
-        double t0 = omp_get_wtime();
-        sim.run(ftime);
-        double t1 = omp_get_wtime();
-        printf("Time: %e\n", t1-t0);
-#else
-        sim.run(ftime);
-#endif
+    
+      bool done = false;
+      double t = 0;
+      while (!done) {
+          double dt;
+          for (int io = 0; io < 2; ++io) {
+#pragma omp master
+              {
+                sim.apply_periodic();
+              }
+
+#pragma omp barrier
+           
+              sim_.copyfrom(sim,rankx,ranky,nprocx,nprocy);
+
+#pragma omp parallel reduction(max : cx,cy)
+              {
+                sim_.compute_fg_speeds(cx, cy);
+              }
+              sim_.limited_derivs();
+              if (io == 0) {
+                  dt = cfl / std::max(cx/dx, cy/dx);
+                  if (t + 2*dt >= ftime) {
+                      dt = (ftime-t)/2;
+                      done = true;
+                  }
+              }
+              sim_.compute_step(io, dt);
+              t += dt;
+              sim_.copyto(sim,rankx,ranky);
+          }
+
+      }
+    
+
+#pragma omp master
+      {
         sim.solution_check();
         viz.write_frame();
+      }
+
     }
+
+  }    
+
+  t1 = omp_get_wtime();
+  printf("Time: %e\n", t1-t0);
 }
