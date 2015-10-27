@@ -8,17 +8,26 @@
 #include <iostream>
 
 #include "flat_array.h"
-
 ////////////////////////////////////////////////////////////////////////////////
 // Block
 ////////////////////////////////////////////////////////////////////////////////
+// Block is a friend of Central2DBlock and Block objects take in Central2DBlock
+// objects, so we have a cyclic dependency. We break it with a forward
+// declaration of Central2DBlock.
+template <class Physics, class Limiter>
+class Central2DBlock;
+
 template <class Physics, class Limiter>
 class Block {
 public:
     typedef typename Physics::real real;
     static constexpr int num_fields = Physics::num_fields;
 
-    Block(real *u, int nx, int ny, int nghost, real dx, real dy, int io, real dt) :
+    Block(Central2DBlock<Physics, Limiter> *parent, const int ix, const int iy,
+           real *u, int nx, int ny, int nghost, real dx, real dy, int io, real dt) :
+        parent_(parent),
+        ix_(ix),
+        iy_(iy),
         nx_(nx),
         ny_(ny),
         nghost_(nghost),
@@ -41,6 +50,7 @@ public:
     Block(Block&&)      = delete;
 
     ~Block() {
+        free(u_);
         free(f_);
         free(g_);
         free(ux_);
@@ -53,6 +63,9 @@ public:
     void step();
 
 private:
+    Central2DBlock<Physics, Limiter> *parent_;
+    const int ix_;
+    const int iy_;
     const int nx_;
     const int ny_;
     const int nghost_;
@@ -170,27 +183,22 @@ void Block<Physics, Limiter>::compute_step() {
 
     // Corrector (finish the step)
     for (int k = 0; k < num_fields; ++k) {
-        for (int y = nghost_-io_; y < ny_+nghost_-io_; ++y)
-		for (int x = nghost_-io_; x < nx_+nghost_-io_; ++x) {
-                *v(k, x,y) =
-                    0.2500 * ( *u(k, x,  y) + *u(k, x+1,y  ) +
-                               *u(k, x,y+1) + *u(k, x+1,y+1) ) -
-                    0.0625 * ( *ux(k, x+1,y  ) - *ux(k, x,y  ) +
-                               *ux(k, x+1,y+1) - *ux(k, x,y+1) +
-                               *uy(k, x,  y+1) - *uy(k, x,  y) +
-                               *uy(k, x+1,y+1) - *uy(k, x+1,y) ) -
-                    dtcdx2 * ( *f(k, x+1,y  ) - *f(k, x,y  ) +
-                               *f(k, x+1,y+1) - *f(k, x,y+1) ) -
-                    dtcdy2 * ( *g(k, x,  y+1) - *g(k, x,  y) +
-                               *g(k, x+1,y+1) - *g(k, x+1,y) );
-            }
-        }
-
-    // Copy from v storage back to main grid
-    for (int k = 0; k < num_fields; ++k) {
-        for (int y = nghost_; y < ny_+nghost_; ++y){
-            for (int x = nghost_; x < nx_+nghost_; ++x){
-                *u(k, x, y) = *v(k, x-io_, y-io_);
+        real *vk = flat_array::field(parent_->v_,
+                                     parent_->nx_all, parent_->ny_all, k);
+        for (int y = nghost_-io_; y < ny_+nghost_-io_; ++y) {
+            for (int x = nghost_-io_; x < nx_+nghost_-io_; ++x) {
+                *flat_array::at(vk, parent_->nx_all, parent_->ny_all,
+                                ix_-nghost_+x+io_, iy_-nghost_+y+io_) =
+                        0.2500 * ( *u(k, x,  y) + *u(k, x+1,y  ) +
+                                   *u(k, x,y+1) + *u(k, x+1,y+1) ) -
+                        0.0625 * ( *ux(k, x+1,y  ) - *ux(k, x,y  ) +
+                                   *ux(k, x+1,y+1) - *ux(k, x,y+1) +
+                                   *uy(k, x,  y+1) - *uy(k, x,  y) +
+                                   *uy(k, x+1,y+1) - *uy(k, x+1,y) ) -
+                        dtcdx2 * ( *f(k, x+1,y  ) - *f(k, x,y  ) +
+                                   *f(k, x+1,y+1) - *f(k, x,y+1) ) -
+                        dtcdy2 * ( *g(k, x,  y+1) - *g(k, x,  y) +
+                                   *g(k, x+1,y+1) - *g(k, x+1,y) );
             }
         }
     }
@@ -269,6 +277,8 @@ public:
     }
 
 private:
+    friend class Block<Physics, Limiter>;
+
     #ifndef BLOCK_SIZE
     #define BLOCK_SIZE ((int) 32)
     #endif
@@ -436,20 +446,8 @@ void Central2DBlock<Physics, Limiter>::run_block(const int io,
     }
 
     // step block
-    Block<Physics, Limiter> b(_u, width, height, bghosts, dx, dy, io, dt);
+    Block<Physics, Limiter> b(this, ix, iy, _u, width, height, bghosts, dx, dy, io, dt);
     b.step();
-
-    // write back from _u to v
-    for (int k = 0; k < num_fields; ++k) {
-        real *_uk = flat_array::field(_u, width_all, height_all, k);
-            for (int y = bghosts; y < height + bghosts; ++y) {
-                for (int x = bghosts; x < width + bghosts; ++x) {
-                v(k, ix-bghosts+x, iy-bghosts+y) =
-                    *flat_array::at(_uk, width_all, height_all, x, y);
-            }
-        }
-    }
-    free(_u);
 }
 
 
@@ -480,15 +478,7 @@ void Central2DBlock<Physics, Limiter>::run(real tfinal)
                     run_block(io, dt, bx, by);
                 }
             }
-
-            // Copy from v storage back to main grid
-            for (int k = 0; k < num_fields; ++k) {
-                for (int y = nghost; y < ny+nghost; ++y){
-                    for (int x = nghost; x < nx+nghost; ++x){
-                        u(k, x, y) = v(k, x, y);
-                    }
-                }
-            }
+            std::swap(u_, v_);
 
             t += dt;
         }
