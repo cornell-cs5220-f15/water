@@ -555,8 +555,9 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         // Break out of the loop after this super-step if we have
         // simulated at least tfinal seconds.
         real dt = cfl / std::max(cx/dx, cy/dy);
+        int  modified_nbatch = nbatch;
         if (t + 2*nbatch*dt >= tfinal) {
-            dt = (tfinal-t)/(2*nbatch);
+            modified_nbatch = ceil((tfinal-t)/(2*dt));
             done = true;
         }
 
@@ -569,7 +570,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
           copy_to_local(tid);
 
           // Batch multiple timesteps
-          for (int bi = 0; bi < nbatch; ++bi) {
+          for (int bi = 0; bi < modified_nbatch; ++bi) {
 
             // Execute the even and odd sub-steps for each super-step
             for (int io = 0; io < 2; ++io) {
@@ -585,7 +586,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         }
 
         // Update simulated time
-        t += 2*nbatch*dt;
+        t += 2*modified_nbatch*dt;
     }
 }
 
