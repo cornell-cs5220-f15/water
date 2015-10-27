@@ -561,8 +561,6 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         }
 
         // Parallelize computation across partitioned blocks
-        // TODO(ji): Currently only supports square block sizes (i.e.,
-        // nthreads = {1,4,16,64,...}).
         #pragma omp parallel num_threads(nthreads)
         {
           int tid = omp_get_thread_num();

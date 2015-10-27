@@ -68,7 +68,7 @@ struct Shallow2D {
 
     // Type parameters for solver
     typedef float real;
-    typedef std::array<real,4> vec;
+    typedef std::array<real,3> vec;
 
     // Gravitational force (compile time constant)
     #if defined _PARALLEL_DEVICE
@@ -93,6 +93,9 @@ struct Shallow2D {
     }
 
     // Compute shallow water wave speed
+    #if defined _PARALLEL_DEVICE
+    __declspec(target(mic))
+    #endif
     static void wave_speed(real& cx, real& cy, const vec& U) {
         using namespace std;
         real h = U[0], hu = U[1], hv = U[2];
