@@ -26,8 +26,13 @@ public:
 		nx_all(nx + 2*nghost),
 		ny_all(ny + 2*nghost),
 		cfl(cfl),
-		u_ (nx_all * ny_all),
-		v_ (nx_all * ny_all) {}
+		u_ (new std::vector<vec>(nx_all * ny_all)),
+		v_ (new std::vector<vec>(nx_all * ny_all)) {}
+
+	~Central2DWrapper() {
+		delete(u_);
+		delete(v_);
+	}
 
     // Advance from time 0 to time tfinal
 	void run(const real tfinal);
@@ -45,11 +50,11 @@ public:
     
     // Read / write elements of simulation state
     vec&       operator()(int i, int j) {
-        return u_[offset(i+nghost,j+nghost)];
+        return (*u_)[offset(i+nghost,j+nghost)];
     }
     
     const vec& operator()(int i, int j) const {
-        return u_[offset(i+nghost,j+nghost)];
+        return (*u_)[offset(i+nghost,j+nghost)];
     }
 
 private:
@@ -60,15 +65,17 @@ private:
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
     const real cfl;            // Allowed CFL number
 
-    std::vector<vec> u_;            // Solution values
-    std::vector<vec> v_;            // Solution values at next step
+	//Note that these are now stored on the heap so that we can swap
+	//the pointers to them between steps, instead of copying from v to u
+    std::vector<vec>* u_;            // Solution values
+    std::vector<vec>* v_;            // Solution values at next step
 
     // Array accessor functions
 
     int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
-    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
-    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
+    vec& u(int ix, int iy)    { return (*u_)[offset(ix,iy)]; }
+    vec& v(int ix, int iy)    { return (*v_)[offset(ix,iy)]; }
 
     // Wrapped accessor (periodic BC)
     int ioffset(int ix, int iy) {
@@ -76,7 +83,7 @@ private:
                        (iy+ny-nghost) % ny + nghost );
     }
 
-    vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
+    vec& uwrap(int ix, int iy)  { return (*u_)[ioffset(ix,iy)]; }
 
 	// Compute the wave speeds and choose a timestep, without advancing time
 	real compute_current_dt();
@@ -84,8 +91,8 @@ private:
 	//The only simulation function needed at the wrapper level
     void apply_periodic();
 
-	bool check_copyin(Central2D<Physics, Limiter>& wrappedSim);
-	bool check_copyout(Central2D<Physics, Limiter>& wrappedSim);
+	void check_copyin(Central2D<Physics, Limiter>& wrappedSim, std::vector<vec>* large_u);
+	void check_copyout(Central2D<Physics, Limiter>& wrappedSim, std::vector<vec>* large_v);
 };
 
 /**
@@ -162,54 +169,52 @@ Central2DWrapper<Physics, Limiter>::real Central2DWrapper<Physics, Limiter>::com
 
 //DEBUG: Only works when there's a single thread!
 template <class Physics, class Limiter>
-bool Central2DWrapper<Physics, Limiter>::check_copyin(Central2D<Physics, Limiter>& wrappedSim) 
+void Central2DWrapper<Physics, Limiter>::check_copyin(Central2D<Physics, Limiter>& wrappedSim, std::vector<vec>* large_u) 
 {
-	for(int x = 0; x < nx; x++) {
-		for(int y = 0; y < ny; y++) {
-			if(wrappedSim(x,y) != (*this)(x,y)) {
-				printf("Cell (%d, %d) was not equal after copy-in! Wrapper had <%f, %f, %f> but wrapped had <%f, %f, %f>\n", x, y, (*this)(x,y)[0], (*this)(x,y)[1], (*this)(x,y)[2], wrappedSim(x,y)[0], wrappedSim(x,y)[1], wrappedSim(x,y)[2]);
-				return false;
+	for(int x = 0; x < nx_all; x++) {
+		for(int y = 0; y < ny_all; y++) {
+			if(wrappedSim.u(x,y) != (*large_u)[offset(x, y)]) {
+				printf("Cell (%d, %d) was not equal after copy-in! Central2DWrapper had <%f, %f, %f> but wrapped Central2D had <%f, %f, %f>\n", x, y, (*large_u)[offset(x, y)][0], (*large_u)[offset(x, y)][1], (*large_u)[offset(x, y)][2], wrappedSim.u(x,y)[0], wrappedSim.u(x,y)[1], wrappedSim.u(x,y)[2]);
 			}
 		}
 	}
-	return true;
 }
 
 //DEBUG: Only works when there's a single thread!
 template <class Physics, class Limiter>
-bool Central2DWrapper<Physics, Limiter>::check_copyout(Central2D<Physics, Limiter>& wrappedSim) 
+void Central2DWrapper<Physics, Limiter>::check_copyout(Central2D<Physics, Limiter>& wrappedSim, std::vector<vec>* large_v) 
 {
 	for(int x = 0; x < nx; x++) {
 		for(int y = 0; y < ny; y++) {
-			if(wrappedSim(x,y) != v(x+nghost, y+nghost)) {
-				printf("Cell (%d, %d) was not equal after copy-out! Wrapper had <%f, %f, %f> but wrapped had <%f, %f, %f>\n", x, y, v(x+nghost,y+nghost)[0], v(x+nghost,y+nghost)[1], v(x+nghost,y+nghost)[2], wrappedSim(x,y)[0], wrappedSim(x,y)[1], wrappedSim(x,y)[2]);
-				return false;
+			if(wrappedSim.u(x+nghost,y+nghost) != (*large_v)[offset(x+nghost, y+nghost)]) {
+				printf("Cell (%d, %d) was not equal after copy-out! Central2DWrapper had <%f, %f, %f> but wrapped Central2D had <%f, %f, %f>\n", x+nghost, y+nghost, (*large_v)[offset(x+nghost, y+nghost)][0], (*large_v)[offset(x+nghost, y+nghost)][1], (*large_v)[offset(x+nghost, y+nghost)][2], wrappedSim.u(x+nghost,y+nghost)[0], wrappedSim.u(x+nghost,y+nghost)[1], wrappedSim.u(x+nghost,y+nghost)[2]);
+				return;
 			}
 		}
 	}
-	return true;
 }
 
 template <class Physics, class Limiter>
 void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 {
 	typedef Central2D<Physics, Limiter> Central2D_t;
-	//OpenMP won't allow you to share member variables, so give each thread a pointer to u and v
-	std::vector<vec>* large_u = &u_;
-	std::vector<vec>* large_v = &v_;
+	//OpenMP won't allow you to share member variables, so copy the pointers to u and v into local variables
+	std::vector<vec>* large_u = u_;
+	std::vector<vec>* large_v = v_;
 	//Shared arrays for combining maximum dt values, but can't be initialized until we know the number of threads
 	std::vector<real>* local_dts_curr = new std::vector<real>();
 	std::vector<real>* local_dts_next = new std::vector<real>();
 	//DEBUG
-	omp_set_num_threads(1);
+//	omp_set_num_threads(1);
 	#pragma omp parallel firstprivate(tfinal, large_u, large_v, local_dts_curr,local_dts_next) default(none) 
 	{
+//		printf("Thread sees Central2DWrapper's nx = %d, ny = %d, nx_all = %d, ny_all = %d \n", nx, ny, nx_all, ny_all);
 		const int nthreads = omp_get_num_threads();
 		//Now that we know how many threads there are, split the board into
 		//approximately that many blocks. It would be nice if we could nicely 
 		//factor nthreads into two dimensions instead of just taking the square
 		//root and rounding down, but that's beyond the scope of my math knowledge.
-		const int blocksperside = (int) std::sqrt(nthreads);
+		const int blocksperside = (int) std::ceil(std::sqrt(nthreads));
 		const int bwidth = nx / blocksperside;
 		const int bheight = ny / blocksperside;
 		const int nblocksx = nx / bwidth + (nx % bwidth ? 1 : 0);
@@ -221,13 +226,21 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 			local_dts_curr->resize(nblocks);
 			local_dts_next->resize(nblocks);
 		}
-		//Number of blocks each processor actually gets, >1 since we rounded up the number of blocks
+		//Compute the number of blocks each processor actually gets,
+		//which could be >1 since we rounded up the number of blocks
 		const int blockspp = nblocks / nthreads;
 		const bool one_extra = nblocks % nthreads != 0;
 		//Use a Central2D instance for each block; the last thread may get one extra block
 		std::vector<Central2D_t> blockSims;
 		const int my_numblocks = blockspp + 
 			(omp_get_thread_num() == nthreads-1 && one_extra ? 1 : 0);
+		#pragma omp single 
+		{
+			printf("nthreads = %d\n", nthreads);
+			printf("nblocks = %d\n", nblocks);
+			printf("blockspp = %d\n", blockspp);
+			printf("one_extra = %d\n", one_extra);
+		}
 		for(int b = 0; b < my_numblocks; b++) {
 			//Blocks are counted in row-major order across the grid
 			const int blocknum = b;
@@ -249,7 +262,6 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		{
 			apply_periodic();
 			real init_dt = compute_current_dt();
-			printf("Starting dt is %f\n", init_dt);
 			for(int i = 0; i < nblocks; i++) 
 				(*local_dts_curr)[i] = init_dt;
 		}
@@ -265,6 +277,7 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		while (!done) {
 			#pragma omp single 
 			if (!first) {
+				std::swap(u_, v_);
 				apply_periodic();
 				//There's another barrier here implicitly. Instead, we need to have each block
 				//do its section of apply_periodic when it copies results back out to v.
@@ -276,12 +289,10 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 				if ((*local_dts_curr)[i] < dt)
 					dt = (*local_dts_curr)[i];
 			}
-			printf("Updated dt to %f\n", dt);
 			//Every thread will reach the same conclusion here, since they have the same dt and curtime
 			if (curtime + nbatch*dt >= tfinal) {
 				dt = (tfinal-curtime)/nbatch;
 				done = true;
-				printf("Last iteration, dt set to %f\n", dt);
 			}
 
 			//Hopefully this loop only runs once or twice at each thread
@@ -290,15 +301,13 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 				const int blockrow = blocknum / nblocksx;
 				const int blockcol = blocknum % nblocksx;
 				//Copy this block's data in from u, offsetting pointers by u's ghost cells
-				blockSims[b].init_as_subdomain(*large_u, 
+				blockSims[b].init_as_subdomain(*large_u, nx_all, 
 						nghost + blockcol * bwidth, nghost + blockrow * bheight);
-				check_copyin(blockSims[b]);
 				//Advance two timesteps locally, and put the new dt in dts_next
 				(*local_dts_next)[blocknum] = blockSims[b].take_timestep_pair(dt);
 				//Copy the results back out to v, so it can happen concurrently with reads from u
-				blockSims[b].copy_results_out(*large_v, 
+				blockSims[b].copy_results_out(*large_v, nx_all,
 						nghost + blockcol * bwidth, nghost + blockrow * bheight);
-				check_copyout(blockSims[b]);
 			}
 //			printf("Thread %d finished with timestep pair\n", omp_get_thread_num());
 
@@ -309,11 +318,11 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 			#pragma omp barrier
 			std::swap(large_u, large_v);
 			std::swap(local_dts_curr, local_dts_next);
-			//DEBUG
-			solution_check();
 			first = false;
 		}
     }
+	delete(local_dts_curr);
+	delete(local_dts_next);
 }
 
 /**

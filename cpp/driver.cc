@@ -94,8 +94,8 @@ int main(int argc, char** argv)
     std::string ic = "dam_break";
     int    nx = 200;
     double width = 2.0;
-    double ftime = 0.01;
-    int    frames = 50;
+    double ftime = 0.05;
+    int    frames = 20;
     
     int c;
     extern char* optarg;

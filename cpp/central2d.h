@@ -7,6 +7,9 @@
 #include <vector>
 #include <omp.h>
 
+//Forward declaration, because including central2dwrapper.h would be a circular dependency
+template <class Physics, class Limiter> class Central2DWrapper;
+
 //ldoc on
 /**
  * # Jiang-Tadmor central difference scheme
@@ -130,11 +133,11 @@ public:
 
 	// Initializes cells by copying a block of cells from larger_u
 	void init_as_subdomain(const std::vector<vec>& larger_u, 
-			const int x_start, const int y_start);
+			const int larger_nx_all, const int x_start, const int y_start);
 
 	// Copy cells to the larger domain that this simulator is a subdomain of
-	void copy_results_out(std::vector<vec>& larger_v, 
-			const int x_start, const int y_start);
+	void copy_results_out(std::vector<vec>& larger_v,
+			const int larger_nx_all, const int x_start, const int y_start);
 
     // Diagnostics
     void solution_check();
@@ -205,7 +208,12 @@ private:
     void limited_derivs();
     void compute_step(int io, real dt);
 
+	// Debugging
 	void check_heights(int stepno);
+	void print_board();
+
+	//Let Central2DWrapper touch my private members (mostly for debugging)
+	friend class Central2DWrapper<Physics, Limiter>;
 
 };
 
@@ -235,14 +243,18 @@ void Central2D<Physics, Limiter>::init(F f)
  * offset start_x, start_y.
  */
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::init_as_subdomain(const std::vector<vec>& larger_u, 
-			const int x_start, const int y_start)
+void Central2D<Physics, Limiter>::init_as_subdomain(const std::vector<vec>& larger_u,
+		const int larger_nx_all, const int x_start, const int y_start)
 {
 //	printf("Copying larger_u from (%d, %d) to (%d, %d), to u from (%d, %d) to (%d, %d)\n", x_start - nghost, y_start - nghost, nx_all+x_start-nghost-1, ny_all+y_start-nghost-1, 0, 0, nx_all-1, ny_all-1);
 	for (int y = 0; y < ny_all; ++y) {
 		for (int x = 0; x < nx_all; ++x) {
 			//Copy starting at x_start and y_start, but include neighboring cells as ghosts
-			u(x,y) = larger_u[offset(x + x_start - nghost, y + y_start - nghost)];
+			//Based on offset function, to access larger_u(x,y), I use larger_u[y*larger_nx_all + x]
+			u(x,y) = larger_u[(y + y_start - nghost) * larger_nx_all + (x + x_start - nghost)];
+			if(u(x,y)[0] == 0) {
+				printf("Oh no! Set cell (%d, %d)'s height to 0 when copying in! Copied from larger_u[(%d * %d + %d)]\n", x, y, (y + y_start - nghost), larger_nx_all, (x + x_start - nghost));
+			}
 		}
 	}
 }
@@ -251,13 +263,17 @@ void Central2D<Physics, Limiter>::init_as_subdomain(const std::vector<vec>& larg
  * Copy cells to the larger domain that this simulator is a subdomain of
  */
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::copy_results_out(std::vector<vec>& larger_v, 
-			const int x_start, const int y_start)
+void Central2D<Physics, Limiter>::copy_results_out(std::vector<vec>& larger_v,
+		const int larger_nx_all, const int x_start, const int y_start)
 {
 //	printf("Copying out u from (%d, %d) to (%d, %d), to larger_v from (%d, %d) to (%d, %d)\n", nghost, nghost, nx-1+nghost, ny-1+nghost, x_start, y_start, nx-1+x_start, ny-1+y_start);
 	for (int y = 0; y < ny; ++y) {
 		for (int x = 0; x < nx; ++x) {
-			larger_v[offset(x + x_start, y + y_start)] = u(x+nghost,y+nghost);
+			//Based on offset function, to access larger_v(x,y), I use larger_v[y*larger_nx_all + x]
+			larger_v[(y + y_start) * larger_nx_all + (x + x_start)] = u(x+nghost,y+nghost);
+			if(u(x+nghost,y+nghost)[0] == 0) {
+				printf("Oh no! Copied out a height of 0 on cell (%d, %d)\n", x+nghost, y+nghost);
+			}
 		}
 	}
 }
@@ -423,16 +439,33 @@ void Central2D<Physics, Limiter>::compute_step(int batchnum, real dt)
     }
 }
 
+/*************************DEBUGGING FUNCTIONS******************************/
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::check_heights(int stepno) {
+void Central2D<Physics, Limiter>::check_heights(int stepno)
+{
 	for(int y = 0; y < ny_all; y++) {
 		for(int x = 0; x < nx_all; x++) {
-			if(u(x,y)[0] < 0) {
+			if(!(u(x,y)[0] >= 0)) {
 				printf("Oh no! Step %d set a height to %f at (%d, %d)\n", stepno, u(x,y)[0], x, y);
 			}
 		}
 	}
 }
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::print_board() 
+{
+	for(int c = 0; c < u(0,0).size(); c++) {
+		for(int y = 0; y < ny_all; y++) {
+			for(int x = 0; x < nx_all; x++) {
+				printf("%f ", u(x,y)[c]);
+			}
+			printf("\n");
+		}
+		printf("\n");
+	}
+}
+/**************************************************************************/
 
 /**
  * Advance the simulation by one timestep pair from its current time,
@@ -447,12 +480,10 @@ Central2D<Physics, Limiter>::real Central2D<Physics, Limiter>::take_timestep_pai
 		compute_fg_speeds(cx, cy);
 		limited_derivs();
 		compute_step(0, dt_prev);
-		check_heights(0);
 		//Odd step - don't need to do apply_periodic yet if there are enough ghost cells
 		compute_fg_speeds(cx, cy);
 		limited_derivs();
 		compute_step(1, dt_prev);
-		check_heights(1);
 		//Compute dt at the end instead of at the beginning. Hopefully this doesn't make a difference.
 		dt_local = cfl / std::max(cx/dx, cy/dy);
 		return dt_local;
