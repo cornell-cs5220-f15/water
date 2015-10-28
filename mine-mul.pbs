@@ -1,0 +1,16 @@
+#!/bin/sh -l
+
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=0:60:00
+#PBS -N mine-mul
+#PBS -j oe
+
+module load cs5220
+cd $PBS_O_WORKDIR
+for scale_num in 2 4 8 16
+do
+        ./lshallow tests.lua dam $(($scale_num * 100)) > ./lshallow_run_$(($scale_num * 100))
+done
+
+#amplxe-cl -collect advanced-hotspots\
+        #./lshallow tests.lua dam 100
