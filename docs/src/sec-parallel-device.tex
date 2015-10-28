@@ -26,12 +26,12 @@ parallel section of the code and pass in the dimensions of the global
 grid and the blocks, as well as a pointer to the global grid
 itself. Inside the offloaded kernel, we still spawn off the specified
 number of threads normally, except that instead of using pre-allocated
-member LocalState objects, each thread creates its own LocalState object
+member \texttt{LocalState} objects, each thread creates its own \texttt{LocalState} object
 on the stack. The \texttt{copy\_to\_local()} and
 \texttt{copy\_from\_local()} functions were modified to copy the
 flattened elements of the global grid passed in by the host to the local
 grid vectors. Once the copy is complete, the other functions in the
-offloaded kernel can take a pointer to the per-thread LocalState object
+offloaded kernel can take a pointer to the per-thread \texttt{LocalState} object
 as an argument and access the vectors in this object similar to before.
 
 Although this naive implementation requires us to offload computation
