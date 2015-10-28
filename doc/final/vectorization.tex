@@ -95,7 +95,7 @@ the use of \cppvec{} and \cpparr{} entirely.
   }\label{fig:vec-to-arr}
 \end{figure}
 
-In addition to using flat arrays, we are also in the process of modifying loop
-orderings, using \ttt{\#pragma ivdep} annotations, and generally rearranging
-code in order to increase vectorization. We have already vectorized a fair
-number of the loops, but some remain to be vectorized.
+In addition to using flat arrays, we modified loop orderings, used
+\ttt{\#pragma ivdep} annotations, and generally rearranged code in order to
+increase vectorization. Ultimately, we were able to vectorize almost all
+critical loops in our simulators.

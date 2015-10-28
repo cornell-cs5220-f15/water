@@ -18,5 +18,16 @@ we run something similar to \ttt{icpc -DVERSION\_b -o shallow\_b driver.cc}.
 Moreover, we abstract these commands using the Makefile so that we only have to
 run \ttt{make shallow\_a} or \ttt{make shallow\_b}.
 
-This improved build system makes it much easier to develop and evaluate many
-versions of simulators simultaneously.
+We also modified our build system to make it easy to enable and disable the
+verification presented in \secref{verification}. We enable verification when
+debugging and developing our applications. However, since verification involves
+executing two simulators and repeatedly checking for grid equivalence, it is
+expensive. Thus, when we time and evaluate our simulators, we disable
+verification.
+
+Our build system also involves commands for profiling simulators, running
+multiple simulators at once, running a simulator with various values of $nx$,
+etc.
+
+Overall, the improved build system makes it much easier to develop and evaluate
+many versions of simulators simultaneously.
