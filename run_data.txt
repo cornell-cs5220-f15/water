@@ -1,0 +1,375 @@
+		compute_step predictor: 13
+		compute_step corrector: 44
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 19
+	limited_derivs: 72
+	compute_step: 61
+		compute_step predictor: 13
+		compute_step corrector: 44
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 63
+	compute_step: 60
+for loop: 298
+		compute_step predictor: 10
+		compute_step corrector: 38
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 18
+	limited_derivs: 62
+	compute_step: 52
+		compute_step predictor: 10
+		compute_step corrector: 38
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 29
+	limited_derivs: 71
+	compute_step: 51
+for loop: 285
+		compute_step predictor: 10
+		compute_step corrector: 38
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 16
+	limited_derivs: 71
+	compute_step: 52
+		compute_step predictor: 12
+		compute_step corrector: 39
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 70
+	compute_step: 56
+for loop: 288
+		compute_step predictor: 10
+		compute_step corrector: 41
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 69
+	compute_step: 54
+		compute_step predictor: 13
+		compute_step corrector: 36
+		compute_step copy back to main grid: 4
+	apply_periodic: 0
+	compute_fg_speeds: 18
+	limited_derivs: 69
+	compute_step: 54
+for loop: 288
+		compute_step predictor: 9
+		compute_step corrector: 28
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 20
+	limited_derivs: 70
+	compute_step: 40
+		compute_step predictor: 10
+		compute_step corrector: 28
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 15
+	limited_derivs: 70
+	compute_step: 41
+for loop: 259
+		compute_step predictor: 13
+		compute_step corrector: 35
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 17
+	limited_derivs: 65
+	compute_step: 52
+		compute_step predictor: 10
+		compute_step corrector: 32
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 71
+	compute_step: 47
+for loop: 276
+		compute_step predictor: 13
+		compute_step corrector: 42
+		compute_step copy back to main grid: 4
+	apply_periodic: 0
+	compute_fg_speeds: 20
+	limited_derivs: 73
+	compute_step: 60
+		compute_step predictor: 13
+		compute_step corrector: 38
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 18
+	limited_derivs: 71
+	compute_step: 55
+for loop: 299
+		compute_step predictor: 12
+		compute_step corrector: 35
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 15
+	limited_derivs: 70
+	compute_step: 51
+		compute_step predictor: 11
+		compute_step corrector: 37
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 67
+	compute_step: 52
+for loop: 279
+		compute_step predictor: 12
+		compute_step corrector: 45
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 17
+	limited_derivs: 70
+	compute_step: 61
+		compute_step predictor: 9
+		compute_step corrector: 37
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 19
+	limited_derivs: 62
+	compute_step: 49
+for loop: 282
+		compute_step predictor: 13
+		compute_step corrector: 34
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 19
+	limited_derivs: 71
+	compute_step: 50
+		compute_step predictor: 12
+		compute_step corrector: 46
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 14
+	limited_derivs: 69
+	compute_step: 63
+for loop: 290
+		compute_step predictor: 13
+		compute_step corrector: 36
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 20
+	limited_derivs: 63
+	compute_step: 53
+		compute_step predictor: 10
+		compute_step corrector: 43
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 22
+	limited_derivs: 71
+	compute_step: 57
+for loop: 288
+		compute_step predictor: 14
+		compute_step corrector: 44
+		compute_step copy back to main grid: 4
+	apply_periodic: 0
+	compute_fg_speeds: 17
+	limited_derivs: 70
+	compute_step: 62
+		compute_step predictor: 12
+		compute_step corrector: 31
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 16
+	limited_derivs: 78
+	compute_step: 48
+for loop: 295
+		compute_step predictor: 13
+		compute_step corrector: 54
+		compute_step copy back to main grid: 4
+	apply_periodic: 0
+	compute_fg_speeds: 16
+	limited_derivs: 68
+	compute_step: 72
+		compute_step predictor: 11
+		compute_step corrector: 34
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 24
+	limited_derivs: 64
+	compute_step: 49
+for loop: 296
+		compute_step predictor: 14
+		compute_step corrector: 41
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 22
+	limited_derivs: 71
+	compute_step: 58
+		compute_step predictor: 11
+		compute_step corrector: 42
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 20
+	limited_derivs: 69
+	compute_step: 55
+for loop: 298
+		compute_step predictor: 11
+		compute_step corrector: 47
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 16
+	limited_derivs: 73
+	compute_step: 62
+		compute_step predictor: 13
+		compute_step corrector: 38
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 22
+	limited_derivs: 71
+	compute_step: 55
+for loop: 302
+		compute_step predictor: 14
+		compute_step corrector: 42
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 22
+	limited_derivs: 69
+	compute_step: 59
+		compute_step predictor: 13
+		compute_step corrector: 37
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 15
+	limited_derivs: 73
+	compute_step: 53
+for loop: 293
+		compute_step predictor: 13
+		compute_step corrector: 34
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 16
+	limited_derivs: 62
+	compute_step: 50
+		compute_step predictor: 11
+		compute_step corrector: 41
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 15
+	limited_derivs: 75
+	compute_step: 55
+for loop: 277
+		compute_step predictor: 13
+		compute_step corrector: 49
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 19
+	limited_derivs: 73
+	compute_step: 66
+		compute_step predictor: 13
+		compute_step corrector: 42
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 74
+	compute_step: 58
+for loop: 312
+		compute_step predictor: 11
+		compute_step corrector: 41
+		compute_step copy back to main grid: 4
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 83
+	compute_step: 57
+		compute_step predictor: 13
+		compute_step corrector: 31
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 17
+	limited_derivs: 68
+	compute_step: 47
+for loop: 296
+		compute_step predictor: 13
+		compute_step corrector: 47
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 20
+	limited_derivs: 68
+	compute_step: 63
+		compute_step predictor: 14
+		compute_step corrector: 34
+		compute_step copy back to main grid: 5
+	apply_periodic: 0
+	compute_fg_speeds: 16
+	limited_derivs: 70
+	compute_step: 54
+for loop: 293
+		compute_step predictor: 14
+		compute_step corrector: 40
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 18
+	limited_derivs: 80
+	compute_step: 58
+		compute_step predictor: 13
+		compute_step corrector: 38
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 61
+	compute_step: 54
+for loop: 295
+		compute_step predictor: 12
+		compute_step corrector: 29
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 75
+	compute_step: 44
+		compute_step predictor: 9
+		compute_step corrector: 41
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 18
+	limited_derivs: 63
+	compute_step: 55
+for loop: 278
+		compute_step predictor: 11
+		compute_step corrector: 40
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 22
+	limited_derivs: 66
+	compute_step: 55
+		compute_step predictor: 11
+		compute_step corrector: 32
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 73
+	compute_step: 46
+for loop: 287
+		compute_step predictor: 9
+		compute_step corrector: 51
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 19
+	limited_derivs: 75
+	compute_step: 64
+		compute_step predictor: 13
+		compute_step corrector: 32
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 67
+	compute_step: 48
+for loop: 298
+		compute_step predictor: 10
+		compute_step corrector: 38
+		compute_step copy back to main grid: 3
+	apply_periodic: 0
+	compute_fg_speeds: 16
+	limited_derivs: 69
+	compute_step: 52
+		compute_step predictor: 13
+		compute_step corrector: 31
+		compute_step copy back to main grid: 2
+	apply_periodic: 0
+	compute_fg_speeds: 21
+	limited_derivs: 65
+	compute_step: 47
+for loop: 274

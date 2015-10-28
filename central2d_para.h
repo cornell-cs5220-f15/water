@@ -3,11 +3,9 @@
 
 #include <cstdio>
 #include <cmath>
+#include <omp.h>
 #include <cassert>
 #include <vector>
-#include <iostream>
-#include <fstream>
-#include <chrono>
 
 //ldoc on
 /**
@@ -182,6 +180,7 @@ private:
 
     // Apply limiter to all components in a vector
     static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
+        #pragma ivdep
         for (int m = 0; m < du.size(); ++m)
             du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
     }
@@ -190,7 +189,7 @@ private:
     void apply_periodic();
     void compute_fg_speeds(real& cx, real& cy);
     void limited_derivs();
-    void compute_step(int io, real dt, std::ofstream &timing_data);
+    void compute_step(int io, real dt);
 
 };
 
@@ -210,6 +209,7 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
+    #pragma omp parallel for collapse(2)
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
@@ -236,6 +236,7 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
 {
     // Copy data between right and left boundaries
+    #pragma omp parallel for collapse(2)
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nghost; ++ix) {
             u(ix,          iy) = uwrap(ix,          iy);
@@ -243,6 +244,7 @@ void Central2D<Physics, Limiter>::apply_periodic()
         }
 
     // Copy data between top and bottom boundaries
+    #pragma omp parallel for collapse(2)
     for (int ix = 0; ix < nx_all; ++ix)
         for (int iy = 0; iy < nghost; ++iy) {
             u(ix,          iy) = uwrap(ix,          iy);
@@ -267,7 +269,8 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < ny_all; ++iy) {
+    #pragma omp parallel for collapse(2)
+    for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
@@ -275,7 +278,6 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
-    }
     cx_ = cx;
     cy_ = cy;
 }
@@ -291,7 +293,8 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
-    for (int iy = 1; iy < ny_all-1; ++iy) {
+    #pragma omp parallel for collapse(2)
+    for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
 
             // x derivs
@@ -302,7 +305,6 @@ void Central2D<Physics, Limiter>::limited_derivs()
             limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
             limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
         }
-    }
 }
 
 
@@ -329,13 +331,13 @@ void Central2D<Physics, Limiter>::limited_derivs()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_step(int io, real dt, std::ofstream &timing_data)
+void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 {
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    auto t1 = std::chrono::high_resolution_clock::now();
+    #pragma omp parallel for collapse(2)
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             vec uh = u(ix,iy);
@@ -345,14 +347,9 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt, std::ofstream &t
             }
             Physics::flux(f(ix,iy), g(ix,iy), uh);
         }
-    auto t2 = std::chrono::high_resolution_clock::now();
-    
-    timing_data << "\t\tcompute_step predictor: "
-                << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()
-                << "\n";
 
     // Corrector (finish the step)
-    t1 = std::chrono::high_resolution_clock::now();
+    #pragma omp parallel for collapse(2)
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
             for (int m = 0; m < v(ix,iy).size(); ++m) {
@@ -369,25 +366,13 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt, std::ofstream &t
                                g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
             }
         }
-    t2 = std::chrono::high_resolution_clock::now();
-                    
-    timing_data << "\t\tcompute_step corrector: "
-                << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()
-                << "\n";
 
     // Copy from v storage back to main grid
-    t1 = std::chrono::high_resolution_clock::now();
     for (int j = nghost; j < ny+nghost; ++j){
         for (int i = nghost; i < nx+nghost; ++i){
             u(i,j) = v(i-io,j-io);
         }
     }
-     t2 = std::chrono::high_resolution_clock::now();
-    
-    timing_data << "\t\tcompute_step copy back to main grid: "
-                << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()
-                << "\n";
-
 }
 
 
@@ -408,23 +393,15 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt, std::ofstream &t
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
-    std::ofstream run_data;
-    run_data.open("run_data.txt");
-    
     bool done = false;
     real t = 0;
     while (!done) {
         real dt;
-        auto t1_for = std::chrono::high_resolution_clock::now();
         for (int io = 0; io < 2; ++io) {
             real cx, cy;
-            auto t1 = std::chrono::high_resolution_clock::now();
             apply_periodic();
-            auto t2 = std::chrono::high_resolution_clock::now();
             compute_fg_speeds(cx, cy);
-            auto t3 = std::chrono::high_resolution_clock::now();
             limited_derivs();
-            auto t4 = std::chrono::high_resolution_clock::now();
             if (io == 0) {
                 dt = cfl / std::max(cx/dx, cy/dy);
                 if (t + 2*dt >= tfinal) {
@@ -432,30 +409,10 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     done = true;
                 }
             }
-            auto t_pre_compute = std::chrono::high_resolution_clock::now();
-            compute_step(io, dt, run_data);
-            auto t_post_compute = std::chrono::high_resolution_clock::now();
+            compute_step(io, dt);
             t += dt;
-            run_data << "\tapply_periodic: "
-                     << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()
-                     << "\n";
-            run_data << "\tcompute_fg_speeds: "
-                     << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count()
-                     << "\n";
-            run_data << "\tlimited_derivs: "
-                     << std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count()
-                     << "\n";
-            run_data << "\tcompute_step: "
-                     << std::chrono::duration_cast<std::chrono::milliseconds>(t_post_compute-t_pre_compute).count()
-                     << "\n";
         }
-        auto t2_for = std::chrono::high_resolution_clock::now();
-        run_data << "for loop: "
-                 << std::chrono::duration_cast<std::chrono::milliseconds>(t2_for-t1_for).count()
-                 << "\n";
     }
-    
-    run_data.close();
 }
 
 /**
