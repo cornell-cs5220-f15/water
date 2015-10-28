@@ -277,6 +277,14 @@ template <typename F>
             f(u(d_nx,d_ny,tno), (ix+0.5)*dx, (iy+0.5)*dy);
         }
     }
+
+    for (int tno=0; tno<nodomains*nodomains; tno++)
+        for (int ix=0; ix<domain_nx; ix++)
+            for (int iy=0; iy<domain_ny; iy++) {
+                int res_iy = (tno/nodomains)*domain_ny + iy;
+                int res_ix = (tno%nodomains)*domain_nx + ix;
+                ures(res_ix, res_iy) = u(ix, iy, tno);
+            }
     #ifdef DEBUG
     std::cout<<"Exiting init\n";
     #endif
