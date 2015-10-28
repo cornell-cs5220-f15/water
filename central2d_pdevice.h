@@ -409,6 +409,7 @@ void Central2D<Physics, Limiter>::compute_flux(
     int nx_per_block = local->get_nx();
 
     for (int iy = 0; iy < ny_per_block; ++iy)
+      #pragma ivdep
         for (int ix = 0; ix < nx_per_block; ++ix)
             Physics::flux(local->f(ix,iy),
                           local->g(ix,iy),
@@ -431,6 +432,7 @@ void Central2D<Physics, Limiter>::limited_derivs(
     int nx_per_block = local->get_nx();
 
     for (int iy = 1; iy < ny_per_block-1; ++iy)
+        #pragma ivdep
         for (int ix = 1; ix < nx_per_block-1; ++ix) {
 
             // x derivs
