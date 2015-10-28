@@ -10,9 +10,9 @@
 
 using namespace std;
 
-const int num_thread = 5;
+const int num_thread = 4;
 // needs to divide nx and ny evenly
-const int SUBDOMAIN_SIZE = 10;
+const int SUBDOMAIN_SIZE = 100;
 
 
 //ldoc on
@@ -234,6 +234,8 @@ void Central2D<Physics, Limiter>::init(F f)
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix) {
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            vec& v = u(nghost+ix,nghost+iy);
+            //printf("(%i,%i) holds %f, %f, %f\n",nghost+ix, nghost+iy, v[0],v[1],v[2]);
         }
     }
 }
@@ -496,7 +498,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             // to read from original grid, offset to block start location
             int xBlockOffset = i * SUBDOMAIN_SIZE;
             
-            printf("Block (%i,%i)\n",i,j);
+            //printf("Block (%i,%i)\n",i,j);
             
 			const int index =  j * NUM_BLOCKS_X + i;
             subDomainPointers_u[index] = new std::vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
@@ -511,7 +513,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     
                     // if outside domain, copy zero
                     if(xCoord < nx && yCoord < ny) {
-						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y] = u(xCoord, yCoord);
+						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y] = u(nghost+xCoord, nghost+yCoord);
                         
                     } else {
                         // should never get in here
@@ -519,7 +521,8 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][1] = 0;
 						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][2] = 0;
                     }
-                    //printf("Initial (%i,%i): %f, %f, %f\n", x, y, (*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][0],(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][1],(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][2]);
+                    //printf("(%i,%i)\n", xCoord, yCoord);
+                    //printf("Initial (%i,%i): %f, %f, %f\n", xCoord, yCoord, (*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][0],(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][1],(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][2]);
                 }
             }
         }
@@ -530,102 +533,92 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     while (!done) {
         real dt;
         
-        // thread start
-        int myXBlock = 0;
-        int myYBlock = 0;
-        std::vector<vec>* myU = subDomainPointers_u[computeBlockOffset(myXBlock, myYBlock, NUM_BLOCKS_X)];
+        real maxCx = 1.0e-15;
+        real maxCy = 1.0e-15;
         
-        
-        // these are generated during the loop, no need to pre-allocate
-        std::vector<vec>* myFluxX = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
-        std::vector<vec>* myFluxY = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
-        std::vector<vec>* myUX = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
-        std::vector<vec>* myUY = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
-        std::vector<vec>* myFX = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
-        std::vector<vec>* myGY = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
-        
-        for (int io = 0; io < 1; ++io) {
-            real cx, cy;
+        #pragma omp parallel num_threads(num_thread)
+        {
+            // thread start
+            int myID = omp_get_thread_num();
+            int totalThreads = omp_get_num_threads();
             
-            // grab adjacent block arrays, needed for ghost cell copying
-            int upBlock = (myYBlock - 1 + NUM_BLOCKS_Y) % NUM_BLOCKS_Y;
-            int leftBlock = (myXBlock - 1 + NUM_BLOCKS_X) % NUM_BLOCKS_X;
-            int rightBlock = (myXBlock + 1) % NUM_BLOCKS_X;
-            int downBlock = (myYBlock + 1) % NUM_BLOCKS_Y;
-            
-            std::vector<vec>* upperL_u = subDomainPointers_u[computeBlockOffset(leftBlock, upBlock, NUM_BLOCKS_X)];
-            std::vector<vec>* upper_u = subDomainPointers_u[computeBlockOffset(myXBlock, upBlock, NUM_BLOCKS_X)];
-            std::vector<vec>* upperR_u = subDomainPointers_u[computeBlockOffset(rightBlock, upBlock, NUM_BLOCKS_X)];
-            std::vector<vec>* left_u = subDomainPointers_u[computeBlockOffset(leftBlock, myYBlock, NUM_BLOCKS_X)];
-            std::vector<vec>* right_u = subDomainPointers_u[computeBlockOffset(rightBlock, myYBlock, NUM_BLOCKS_X)];
-            std::vector<vec>* lowerL_u = subDomainPointers_u[computeBlockOffset(leftBlock, downBlock, NUM_BLOCKS_X)];
-            std::vector<vec>* lower_u = subDomainPointers_u[computeBlockOffset(myXBlock, downBlock, NUM_BLOCKS_X)];
-            std::vector<vec>* lowerR_u = subDomainPointers_u[computeBlockOffset(rightBlock, downBlock, NUM_BLOCKS_X)];
-            
-            // with one single (total) block, it will grab itself (good sign!)
-            //printf("Addresses\n%i\n%i\n%i\n",&(*upperL_u), &(*left_u), &(*myU));
-            
-            // TODO: handle case where nx % SUBDOMAIN_SIZE > 0
-            // this is difficult when copying ghost cells
-            
-            // TODO: optimize with static to avoid so many arguments (fatal bad_alloc error)
-            apply_periodic(myU, upperL_u, upper_u, upperR_u, left_u,
-                           right_u, lowerL_u, lower_u, lowerR_u);
+            int myXBlock = myID / 2;
+            int myYBlock = myID % 2;
+            //printf("Thread ID: %i\t(%i,%i)\n",myID, myXBlock, myYBlock);
+            std::vector<vec>* myU = subDomainPointers_u[computeBlockOffset(myXBlock, myYBlock, NUM_BLOCKS_X)];
             
             
-            compute_fg_speeds(myU, myFluxX, myFluxY, cx, cy);
-            //printf("cx and cy:\t%f\t%f\n", cx, cy);
+            // these are generated during the loop, no need to pre-allocate
+            std::vector<vec>* myFluxX = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myFluxY = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myUX = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myUY = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myFX = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myGY = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
             
-            printf("------------\nfluxX\n");
-    
-            for( int ix = 0; ix < SIZE_WITH_GHOST; ++ix ) {
-                int xOffset = SUBDOMAIN_SIZE + ix;
+            for (int io = 0; io < 1; ++io) {
+                real cx, cy;
                 
-                for( int iy = 0; iy < SIZE_WITH_GHOST; ++iy ) {
-                    int yOffset = (SUBDOMAIN_SIZE + iy) * SIZE_WITH_GHOST;
-                    vec& v = (*myFluxX)[yOffset + xOffset];
-                    printf("(%i,%i) holds %f, %f, %f\n", ix, iy, v[0], v[1], v[2]);
-                }
-            }
-            
-            printf("------------\nfluxY\n");
-    
-            for( int ix = 0; ix < SIZE_WITH_GHOST; ++ix ) {
-                int xOffset = SUBDOMAIN_SIZE + ix;
+                // grab adjacent block arrays, needed for ghost cell copying
+                int upBlock = (myYBlock - 1 + NUM_BLOCKS_Y) % NUM_BLOCKS_Y;
+                int leftBlock = (myXBlock - 1 + NUM_BLOCKS_X) % NUM_BLOCKS_X;
+                int rightBlock = (myXBlock + 1) % NUM_BLOCKS_X;
+                int downBlock = (myYBlock + 1) % NUM_BLOCKS_Y;
+                //printf("NUM_BLOCKS_X = %i\tNUM_BLOCKS_Y = %i\n", NUM_BLOCKS_X, NUM_BLOCKS_Y);
+                //printf("ThreadID: %i\t(%i,%i)\nupBlock = %i\nleftBlock = %i\nrightBlock = %i\ndownBlock = %i\n", myID, myXBlock, myYBlock, upBlock, leftBlock, rightBlock, downBlock);
                 
-                for( int iy = 0; iy < SIZE_WITH_GHOST; ++iy ) {
-                    int yOffset = (SUBDOMAIN_SIZE + iy) * SIZE_WITH_GHOST;
-                    vec& v = (*myFluxY)[yOffset + xOffset];
-                    printf("(%i,%i) holds %f, %f, %f\n", ix, iy, v[0], v[1], v[2]);
+                std::vector<vec>* upperL_u = subDomainPointers_u[computeBlockOffset(leftBlock, upBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* upper_u = subDomainPointers_u[computeBlockOffset(myXBlock, upBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* upperR_u = subDomainPointers_u[computeBlockOffset(rightBlock, upBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* left_u = subDomainPointers_u[computeBlockOffset(leftBlock, myYBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* right_u = subDomainPointers_u[computeBlockOffset(rightBlock, myYBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* lowerL_u = subDomainPointers_u[computeBlockOffset(leftBlock, downBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* lower_u = subDomainPointers_u[computeBlockOffset(myXBlock, downBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* lowerR_u = subDomainPointers_u[computeBlockOffset(rightBlock, downBlock, NUM_BLOCKS_X)];
+                
+                // TODO: handle case where nx % SUBDOMAIN_SIZE > 0
+                // this is difficult when copying ghost cells
+                
+                // TODO: optimize with static to avoid so many arguments (fatal bad_alloc error)
+                apply_periodic(myU, upperL_u, upper_u, upperR_u, left_u,
+                               right_u, lowerL_u, lower_u, lowerR_u);
+                
+                
+                compute_fg_speeds(myU, myFluxX, myFluxY, cx, cy);
+                
+                #pragma omp critical
+                {
+                    maxCx = max(maxCx, cx);
+                    maxCy = max(maxCy, cx);
                 }
-            }
-            
-            /**
-            // TODO: place barrier here to sync max speed
-            // BARRIER
-            
-            limited_derivs(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY);
-            if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
+                // TODO: place barrier here to sync max speed
+                #pragma omp barrier
+                
+                //printf("(%i,%i) is max (cx,cy)\n",maxCx, maxCy);
+                //cout << "thread " << maxCx << "\t" << maxCy << "\n";
+                
+                limited_derivs(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY);
+                if (io == 0) {
+                    dt = cfl / std::max(cx/dx, cy/dy);
+                    if (t + 2*dt >= tfinal) {
+                        dt = (tfinal-t)/2;
+                        done = true;
+                    }
                 }
+                
+                compute_step(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY, io, dt);
+                t += dt;
             }
-            
-            compute_step(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY, io, dt);
-            t += dt;**/
+            free(myFluxX);
+            free(myFluxY);
+            free(myUY);
+            free(myUX);
+            free(myFX);
+            free(myGY);
+            //done = true;
         }
-        free(myFluxX);
-        free(myFluxY);
-        free(myUY);
-        free(myUX);
-        free(myFX);
-        free(myGY);
-        done = true;
     }
     
-    printf("LOOPED\n\n");
     // copy subdomains back into master array
     for( int j=0; j < NUM_BLOCKS_Y; ++j ) {
         int yBlockOffset = j * SUBDOMAIN_SIZE;
@@ -646,7 +639,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     
                     // ignore ghost cells
                     if(xCoord < nx && yCoord < ny) {
-                        u(xCoord, yCoord) = myU[x * SIZE_WITH_GHOST + y];
+                        u(nghost+xCoord, nghost+yCoord) = myU[x * SIZE_WITH_GHOST + y];
                     }
                     
                     //printf("Final (%i,%i): %f, %f, %f\n", x, y, u(xCoord, yCoord)[0],u(xCoord, yCoord)[1],u(xCoord, yCoord)[2]);
@@ -691,8 +684,8 @@ void Central2D<Physics, Limiter>::solution_check()
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
-    /**printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-           h_sum, hu_sum, hv_sum, hmin, hmax);**/
+    printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
+           h_sum, hu_sum, hv_sum, hmin, hmax);
 }
 
 //ldoc off
