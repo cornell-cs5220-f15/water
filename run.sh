@@ -1,0 +1,2 @@
+make
+qsub mine.pbs
