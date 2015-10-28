@@ -23,7 +23,7 @@ class BlockedSimulation {
         cfl(cfl),
         blockWidth(w/nblocks),
         blockHeight(h/nblocks)
-      {
+      { printf("nblocks: %d\n", nblocks);
         for (int i=0; i < nblocks; ++i) {
           blocks.push_back(std::vector<SimBlock>());
 
@@ -65,8 +65,6 @@ class BlockedSimulation {
     private:
       std::vector< std::vector<SimBlock> > blocks;
 
-      static constexpr int nghost = 3;   // Number of ghost cells
-
       const int nblocks = floor(sqrt(omp_get_max_threads()));   // Number of blocks in each dimension
       const int nx, ny;                // Number of (non-ghost) cells in x/y
       const int nx_block, ny_block;    // Cells in a block
@@ -75,7 +73,7 @@ class BlockedSimulation {
       const real cfl;                  // Allowed CFL number
 
       // Call copy operations for each block
-      void copy_ghosts();
+      void copy_ghosts(int, int);
 };
 
 template<typename F>
@@ -87,9 +85,7 @@ void BlockedSimulation::init(F f) {
   }
 }
 
-void BlockedSimulation::copy_ghosts() {
-  for (int i = 0; i < nblocks; i++) {
-    for (int j = 0; j < nblocks; j++) {
+void BlockedSimulation::copy_ghosts(int i, int j) {
       int i_top = (i - 1 + nblocks) % nblocks;
       int i_bot = (i + 1) % nblocks;
       int j_left = j == 0 ? nblocks-1 : j-1;
@@ -105,8 +101,6 @@ void BlockedSimulation::copy_ghosts() {
       self.copy_ghosts_from_bottomright(blocks[i_bot][j_right]);
       self.copy_ghosts_from_top(blocks[i_top][j]);
       self.copy_ghosts_from_bot(blocks[i_bot][j]);
-    }
-  }
 }
 
 void BlockedSimulation::solution_check() {
@@ -156,11 +150,10 @@ void BlockedSimulation::run(real tfinal) {
             #pragma omp task
             {
               // apply_periodic equivalent
-              copy_ghosts();
+              copy_ghosts(i, j);
 
               // Calculate cx, cy by calling compute_fg_speeds()
               blocks[i][j].compute_fg_speeds(cx[i * nblocks + j], cy[i * nblocks + j]);
-              blocks[i][j].limited_derivs();
             }
           }
         }
@@ -181,47 +174,22 @@ void BlockedSimulation::run(real tfinal) {
           done = true;
         }
 
-        // Compute step
-        for (int i = 0; i < nblocks; i++) {
-          for (int j = 0; j < nblocks; j++) {
-            #pragma omp task
-            blocks[i][j].compute_step(0, dt);
-          }
-        }
-
-        #pragma omp taskwait
-
-        // Evaluate dt
-        t += dt;
-
+        // Compute steps (take two time steps at once before the barrier)
         for (int i = 0; i < nblocks; i++) {
           for (int j = 0; j < nblocks; j++) {
             #pragma omp task
             {
-              // apply_periodic equivalent
-              copy_ghosts();
-
-              // Calculate cx, cy by calling compute_fg_speeds()
-              blocks[i][j].compute_fg_speeds(cx[i * nblocks + j], cy[i * nblocks + j]);
-              blocks[i][j].limited_derivs();
+             blocks[i][j].limited_derivs();
+             blocks[i][j].compute_step(0, dt);
+             blocks[i][j].compute_fg_speeds(cx[i * nblocks + j], cy[i * nblocks + j]);
+             blocks[i][j].limited_derivs();
+             blocks[i][j].compute_step(1, dt);
             }
           }
         }
 
         #pragma omp taskwait
-
-        // Compute step
-        for (int i = 0; i < nblocks; i++) {
-          for (int j = 0; j < nblocks; j++) {
-            #pragma omp task
-            blocks[i][j].compute_step(1, dt);
-          }
-        }
-
-        #pragma omp taskwait
-
-        // Evaluate dt
-        t += dt;
+        t += dt*2;
       }
     }
   }
