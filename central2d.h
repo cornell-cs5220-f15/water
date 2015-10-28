@@ -293,6 +293,7 @@ void Central2D<Physics, Limiter>::apply_periodic(std::vector<vec>* U,
             (*U)[yOffset + ix + nghost*SIZE_WITH_GHOST] = (*upper_u)[ix + yOffset - nghost*SIZE_WITH_GHOST];
         }
     
+    #pragma omp parallel for
     // copy data from corners
     for( int ix = 0; ix < nghost; ++ix ) {
         int xOffset = SUBDOMAIN_SIZE + ix;
@@ -330,6 +331,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(std::vector<vec>* U,
     // was previously looping through everything including ghost cells?
     // if broken, change loop bounds to include ghost cells
 	#pragma omp parallel for
+    #pragma simd
     for (int iy = 0; iy < SIZE_WITH_GHOST; ++iy)
         for (int ix = 0; ix < SIZE_WITH_GHOST; ++ix) {
             real cell_cx, cell_cy;
@@ -409,6 +411,7 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
     // if broken, revisit loop bounds 1 to (ny/x_all-1)
     // Predictor (flux values of f and g at half step)
 	#pragma omp parallel for
+    #pragma simd
     for (int y = 0; y < SIZE_WITH_GHOST - 2; ++y) {
         int iy = (y - nghost + 1 + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
         for (int x = 0; x < SIZE_WITH_GHOST - 2; ++x) {
@@ -427,6 +430,7 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
     // if broken, revisit loop bounds (nghost-io) to (ny+nghost-io)
     // Corrector (finish the step)
 	#pragma omp parallel for
+    #pragma simd
     for (int y = 0; y < SUBDOMAIN_SIZE; ++y) {
         int iy = (y - io + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
         for (int x = 0; x < SUBDOMAIN_SIZE; ++x) {
@@ -450,6 +454,7 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
     // if broken, loop bounds were nghost to (nx/y + nghost)
     // Copy from v storage back to main grid
 	#pragma omp parallel for
+    #pragma simd
     for (int iy = 0; iy < SUBDOMAIN_SIZE; ++iy){
         for (int ix = 0; ix < SUBDOMAIN_SIZE; ++ix){
             int y = (iy-io+SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
