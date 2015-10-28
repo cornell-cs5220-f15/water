@@ -20,7 +20,7 @@ def average_results(data, baseline=False):
 
 
 
-results = np.genfromtxt('results.csv', delimiter=',', names=True)
+results = np.genfromtxt('mic1/results.csv', delimiter=',', names=True)
 results = average_results(results)
 baseline = np.genfromtxt('baseline_360.csv', delimiter=',', names=True)
 baseline = average_results(baseline, baseline=True)
@@ -40,22 +40,23 @@ plt.legend(bbox_to_anchor=(1.12,1),
           ncol=1)
 plt.xlabel('Threads')
 plt.ylabel('Speedup')
-plt.savefig('strong.pdf')
+plt.savefig('../report/mic_strong_bindel_baseline.pdf')
 plt.close()
 
 # weak scaling
-for i, n in enumerate(N):
-    pts = results[(results['n']/np.sqrt(results['p']))==n]
-    print n
-    print pts
-    pts.sort(order=['n'])
-    x = pts['p']
-    y = baseline_y[i] / pts['time']
-    plt.plot(x,y, color=colors[i], label=str(n))
+n = 360
+i = 0
+pts = results[(results['n']/np.sqrt(results['p']))==n]
+print n
+print pts
+pts.sort(order=['n'])
+x = pts['p']
+y = baseline_y[i] / pts['time']
+plt.plot(x,y, color=colors[i], label=str(n))
 
 plt.legend(bbox_to_anchor=(1.12,1),
           ncol=1)
 plt.xlabel('Threads')
 plt.ylabel('Speedup')
-plt.savefig('weak.pdf')
+plt.savefig('../report/mic_weak_bindel_baseline.pdf')
 
