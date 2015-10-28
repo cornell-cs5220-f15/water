@@ -24,7 +24,7 @@ class BlockedSimulation {
         cfl(cfl),
         blockWidth(w/nblocks),
         blockHeight(h/nblocks)
-      {
+      { printf("nblocks: %d\n", nblocks);
         for (int i=0; i < nblocks; ++i) {
           blocks.push_back(std::vector<SimBlock>());
 
@@ -66,6 +66,7 @@ class BlockedSimulation {
     private:
       std::vector< std::vector<SimBlock> > blocks;
 
+<<<<<<< HEAD
       // Number of ghost cells
       static constexpr int nghost = 3;
 
@@ -78,6 +79,11 @@ class BlockedSimulation {
 
       // Cells in a block
       const int nx_block, ny_block;
+=======
+      const int nblocks = floor(sqrt(omp_get_max_threads()));   // Number of blocks in each dimension
+      const int nx, ny;                // Number of (non-ghost) cells in x/y
+      const int nx_block, ny_block;    // Cells in a block
+>>>>>>> bf6c2127a25e77d016e4c29ed58bb72376ba1e00
       const real blockWidth, blockHeight, dx, dy;
 
       // Allowed CFL number
@@ -150,8 +156,7 @@ void BlockedSimulation::run(real tfinal) {
   std::vector<real> cy(nblocks * nblocks);
 
   // Only spin up as many threads as the loops require
-  // We do nblocks * nblocks tasks plus one master thread
-  #pragma omp parallel num_threads(nblocks * nblocks + 1)
+  #pragma omp parallel num_threads(nblocks * nblocks)
   {
     // Constrain while loop execution to the main thread frame
     #pragma omp master
@@ -193,9 +198,7 @@ void BlockedSimulation::run(real tfinal) {
             {
              blocks[i][j].limited_derivs();
              blocks[i][j].compute_step(0, dt);
-
              blocks[i][j].compute_fg_speeds(cx[i * nblocks + j], cy[i * nblocks + j]);
-
              blocks[i][j].limited_derivs();
              blocks[i][j].compute_step(1, dt);
             }

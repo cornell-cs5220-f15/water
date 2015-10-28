@@ -185,7 +185,7 @@ protected:
 
     // Apply limiter to all components in a vector
     #pragma omp declare simd
-    static void limdiff(vec& restrict du, const vec& um, const vec& u0, const vec& up) {
+    static void limdiff(vec& __restrict__ du, const vec& um, const vec& u0, const vec& up) {
       #pragma ivdep
       #pragma vector aligned
       for (int m = 0; m < du.size(); ++m) {

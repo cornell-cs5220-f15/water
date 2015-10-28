@@ -8,7 +8,6 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
-#include <immintrin.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -24,7 +23,7 @@ class BlockedSimulation {
         cfl(cfl),
         blockWidth(w/nblocks),
         blockHeight(h/nblocks)
-      {
+      { printf("nblocks: %d\n", nblocks);
         for (int i=0; i < nblocks; ++i) {
           blocks.push_back(std::vector<SimBlock>());
 
@@ -66,22 +65,12 @@ class BlockedSimulation {
     private:
       std::vector< std::vector<SimBlock> > blocks;
 
-      // Number of ghost cells
-      static constexpr int nghost = 3;
-
-      // Number of blocks in each dimension
-      const int blockCount = (int) (sqrt(omp_get_max_threads()) / 2) * 2;
-      const int nblocks = blockCount > 0 ? blockCount : 1;
-
-      // Number of (non-ghost) cells in x/y
-      const int nx, ny;
-
-      // Cells in a block
-      const int nx_block, ny_block;
+      const int nblocks = floor(sqrt(omp_get_max_threads()));   // Number of blocks in each dimension
+      const int nx, ny;                // Number of (non-ghost) cells in x/y
+      const int nx_block, ny_block;    // Cells in a block
       const real blockWidth, blockHeight, dx, dy;
 
-      // Allowed CFL number
-      const real cfl;
+      const real cfl;                  // Allowed CFL number
 
       // Call copy operations for each block
       void copy_ghosts(int, int);
@@ -150,7 +139,6 @@ void BlockedSimulation::run(real tfinal) {
   std::vector<real> cy(nblocks * nblocks);
 
   // Only spin up as many threads as the loops require
-  // We do nblocks * nblocks tasks plus one master thread
   #pragma omp parallel num_threads(nblocks * nblocks + 1)
   {
     // Constrain while loop execution to the main thread frame
@@ -193,9 +181,7 @@ void BlockedSimulation::run(real tfinal) {
             {
              blocks[i][j].limited_derivs();
              blocks[i][j].compute_step(0, dt);
-
              blocks[i][j].compute_fg_speeds(cx[i * nblocks + j], cy[i * nblocks + j]);
-
              blocks[i][j].limited_derivs();
              blocks[i][j].compute_step(1, dt);
             }
