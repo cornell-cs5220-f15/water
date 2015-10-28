@@ -95,10 +95,10 @@ int main(int argc, char** argv)
 	double ctime1 = omp_get_wtime();
 	std::string fname = "waves.out";
 	std::string ic = "dam_break";
-	int    nx = 200;
+	int    nx = 10;
 	double width = 2.0;
 	double ftime = 0.01;
-	int    frames = 50;
+	int    frames = 1;
 
 	int c;
 	extern char* optarg;
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
 	SimViz<Sim> viz(fname.c_str(), sim);
 	sim.init(icfun);
 	sim.solution_check();
-	viz.write_frame();
+	//viz.write_frame();
 	for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
 		double t0 = omp_get_wtime();
@@ -157,7 +157,7 @@ int main(int argc, char** argv)
 		sim.run(ftime);
 #endif
 		sim.solution_check();
-		viz.write_frame();
+		//viz.write_frame();
 	}
 	double ctime2 = omp_get_wtime();
 	cout << "The total run time is " << ctime2 - ctime1 << endl;

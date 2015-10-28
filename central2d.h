@@ -12,7 +12,7 @@ using namespace std;
 
 const int num_thread = 5;
 // needs to divide nx and ny evenly
-const int SUBDOMAIN_SIZE = 128;
+const int SUBDOMAIN_SIZE = 10;
 
 
 //ldoc on
@@ -149,7 +149,7 @@ public:
     }
     
 private:
-    static constexpr int nghost = 3;   // Number of ghost cells
+    static constexpr int nghost = 2;//3;   // Number of ghost cells
     static const int SIZE_WITH_GHOST = SUBDOMAIN_SIZE + 2*nghost;
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
@@ -270,12 +270,11 @@ void Central2D<Physics, Limiter>::apply_periodic(std::vector<vec>* U,
 	#pragma omp parallel for
     for (int iy = 0; iy < SUBDOMAIN_SIZE; ++iy) {
         int yOffset = iy * SIZE_WITH_GHOST;
+        
         for (int ix = 0; ix < nghost; ++ix) {
             int xOffset = ix + SUBDOMAIN_SIZE;
+            
             (*U)[yOffset + xOffset] = (*right_u)[yOffset + ix];
-			/*
-            U[yOffset + xOffset + nghost] = left_u[yOffset + xOffset - nghost];
-			*/
             (*U)[yOffset + xOffset + nghost] = (*left_u)[yOffset + xOffset - nghost];
         }
     }
@@ -293,6 +292,7 @@ void Central2D<Physics, Limiter>::apply_periodic(std::vector<vec>* U,
     // copy data from corners
     for( int ix = 0; ix < nghost; ++ix ) {
         int xOffset = SUBDOMAIN_SIZE + ix;
+        
         for( int iy = 0; iy < nghost; ++iy ) {
             int yOffset = (SUBDOMAIN_SIZE + iy) * SIZE_WITH_GHOST;
             
@@ -331,7 +331,6 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(std::vector<vec>* U,
         for (int ix = 0; ix < SIZE_WITH_GHOST; ++ix) {
             real cell_cx, cell_cy;
             Physics::flux(castIndex(fluxX, ix, iy), castIndex(fluxY, ix, iy), castIndex(U, ix, iy));
-            //Physics::flux((*fluxX)[iy * SIZE_WITH_GHOST + ix], (*fluxY)[iy * SIZE_WITH_GHOST + ix], (*U)[iy * SIZE_WITH_GHOST+ ix]);
             Physics::wave_speed(cell_cx, cell_cy, castIndex(U, ix, iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
@@ -362,12 +361,12 @@ void Central2D<Physics, Limiter>::limited_derivs(std::vector<vec>* U,
             int ix = (x - nghost + 1 + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
             
             // x derivs
-            limdiff( castIndex(UX, ix, iy), castIndex(U, (ix-1) % SIZE_WITH_GHOST, iy), castIndex(U, ix, iy), castIndex(U, (ix+1)% SIZE_WITH_GHOST, iy) );
-            limdiff( castIndex(FX, ix, iy), castIndex(fluxX, (ix-1)% SIZE_WITH_GHOST, iy), castIndex(fluxX, ix, iy), castIndex(fluxX, (ix+1)% SIZE_WITH_GHOST, iy) );
+            limdiff( castIndex(UX, ix, iy), castIndex(U, (ix-1+SIZE_WITH_GHOST) % SIZE_WITH_GHOST, iy), castIndex(U, ix, iy), castIndex(U, (ix+1)% SIZE_WITH_GHOST, iy) );
+            limdiff( castIndex(FX, ix, iy), castIndex(fluxX, (ix-1+SIZE_WITH_GHOST)% SIZE_WITH_GHOST, iy), castIndex(fluxX, ix, iy), castIndex(fluxX, (ix+1)% SIZE_WITH_GHOST, iy) );
 
             // y derivs
-            limdiff( castIndex(UY, ix, iy), castIndex(U, ix, (iy-1)% SIZE_WITH_GHOST), castIndex(U, ix, iy), castIndex(U, ix, (iy+1)% SIZE_WITH_GHOST) );
-            limdiff( castIndex(GY, ix, iy), castIndex(fluxY, ix, (iy-1)% SIZE_WITH_GHOST), castIndex(fluxY, ix, iy), castIndex(fluxY, ix, (iy+1)% SIZE_WITH_GHOST) );
+            limdiff( castIndex(UY, ix, iy), castIndex(U, ix, (iy-1+SIZE_WITH_GHOST)% SIZE_WITH_GHOST), castIndex(U, ix, iy), castIndex(U, ix, (iy+1)% SIZE_WITH_GHOST) );
+            limdiff( castIndex(GY, ix, iy), castIndex(fluxY, ix, (iy-1+SIZE_WITH_GHOST)% SIZE_WITH_GHOST), castIndex(fluxY, ix, iy), castIndex(fluxY, ix, (iy+1)% SIZE_WITH_GHOST) );
         }
     }
 }
@@ -420,7 +419,6 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
         }
     }
     
-    //std::vector<vec>* V = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
     std::vector<vec>* V = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
 
     // if broken, revisit loop bounds (nghost-io) to (ny+nghost-io)
@@ -489,24 +487,20 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     // points at each subdomain block's start memory address
     std::vector<vec>** subDomainPointers_u = (std::vector<vec>**) malloc(NUM_BLOCKS_X * NUM_BLOCKS_Y * sizeof(std::vector<vec>*));
 
-    // malloc each subdomain's memory (including space for ghost cells)
+    // initialize each subdomain's vector space (including entries for ghost cells)
     for( int j=0; j < NUM_BLOCKS_Y; ++j ) {
+        int yBlockOffset = j * SUBDOMAIN_SIZE;
+        
         for( int i=0; i < NUM_BLOCKS_X; ++i ) {
-			/*
-            vector<vec>* subdomain_u = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
-            
-            subDomainPointers_u[j*NUM_BLOCKS_X + i] = subdomain_u;
-			*/
-			const int index =  j * NUM_BLOCKS_X + i;
-            //subDomainPointers_u[index] = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
-            subDomainPointers_u[index] = new std::vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
-            
             // to read from original grid, offset to block start location
             int xBlockOffset = i * SUBDOMAIN_SIZE;
-            int yBlockOffset = j * SUBDOMAIN_SIZE;
-            //int blockOffset = yBlockOffset*nx + xBlockOffset;
             
-            // copy initial values (0,0) to (SUBDOMAIN_SIZE, SUBDOMAIN_SIZE)
+            printf("Block (%i,%i)\n",i,j);
+            
+			const int index =  j * NUM_BLOCKS_X + i;
+            subDomainPointers_u[index] = new std::vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            
+            // copy initial values at locations (0,0) to (SUBDOMAIN_SIZE, SUBDOMAIN_SIZE)
             // ignore ghost cells because they are copied later in apply_periodic()
             // ignore fluxes because they are computed each step
             for( int y=0; y < SUBDOMAIN_SIZE; ++y ) {
@@ -516,49 +510,31 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     
                     // if outside domain, copy zero
                     if(xCoord < nx && yCoord < ny) {
-                        vec& U = u(xCoord, yCoord);
-						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y] = U;
-						/*
-                        castIndex(subDomainPointers_u[index], y, x)[0] = U[0];
-                        castIndex(subDomainPointers_u[index], y, x)[1] = U[1];
-                        castIndex(subDomainPointers_u[index], y, x)[2] = U[2];
-						*/
+						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y] = u(xCoord, yCoord);
                         
                     } else {
 						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][0] = 0.0;
 						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][1] = 0.0;
 						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][2] = 0.0;
-						/*
-                        castIndex(subDomainPointers_u[index], y, x)[0] = 0.0;
-                        castIndex(subDomainPointers_u[index], y, x)[1] = 0.0;
-                        castIndex(subDomainPointers_u[index], y, x)[2] = 0.0;
-						*/
                     }
+                    
+                    printf("Initial (%i,%i): %i, %i, %i\n", x, y, u(xCoord, yCoord)[0],u(xCoord, yCoord)[1],u(xCoord, yCoord)[2]);
                 }
             }
         }
     }
     
-    
-    bool done = false;
+    bool done = true;
     real t = 0;
     while (!done) {
         real dt;
         
         // thread start
-        int myXBlock = 1;
-        int myYBlock = 1;
+        int myXBlock = 0;
+        int myYBlock = 0;
         std::vector<vec>* myU = subDomainPointers_u[computeBlockOffset(myXBlock, myYBlock, NUM_BLOCKS_X)];
         
         // these are generated during the loop, no need to pre-allocate
-		/*
-        std::vector<vec>* myFluxX = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
-        std::vector<vec>* myFluxY = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
-        std::vector<vec>* myUX = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
-        std::vector<vec>* myUY = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
-        std::vector<vec>* myFX = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
-        std::vector<vec>* myGY = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
-		*/
         std::vector<vec>* myFluxX = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
         std::vector<vec>* myFluxY = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
         std::vector<vec>* myUX = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
@@ -567,14 +543,14 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         std::vector<vec>* myGY = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
         
         for (int io = 0; io < 1; ++io) {
-            
             real cx, cy;
             
             // grab adjacent block arrays, needed for ghost cell copying
-            int upBlock = (myYBlock - 1) % NUM_BLOCKS_Y;
-            int leftBlock = (myXBlock - 1) % NUM_BLOCKS_X;
+            int upBlock = (myYBlock - 1 + NUM_BLOCKS_Y) % NUM_BLOCKS_Y;
+            int leftBlock = (myXBlock - 1 + NUM_BLOCKS_X) % NUM_BLOCKS_X;
             int rightBlock = (myXBlock + 1) % NUM_BLOCKS_X;
             int downBlock = (myYBlock + 1) % NUM_BLOCKS_Y;
+            
             std::vector<vec>* upperL_u = subDomainPointers_u[computeBlockOffset(leftBlock, upBlock, NUM_BLOCKS_X)];
             std::vector<vec>* upper_u = subDomainPointers_u[computeBlockOffset(myXBlock, upBlock, NUM_BLOCKS_X)];
             std::vector<vec>* upperR_u = subDomainPointers_u[computeBlockOffset(rightBlock, upBlock, NUM_BLOCKS_X)];
@@ -583,9 +559,9 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             std::vector<vec>* lowerL_u = subDomainPointers_u[computeBlockOffset(leftBlock, downBlock, NUM_BLOCKS_X)];
             std::vector<vec>* lower_u = subDomainPointers_u[computeBlockOffset(myXBlock, downBlock, NUM_BLOCKS_X)];
             std::vector<vec>* lowerR_u = subDomainPointers_u[computeBlockOffset(rightBlock, downBlock, NUM_BLOCKS_X)];
+            
             // TODO: handle case where nx % SUBDOMAIN_SIZE > 0
             // this is difficult when copying ghost cells
-            //
             
             // TODO: optimize with static to avoid so many arguments (fatal bad_alloc error)
             apply_periodic(myU, upperL_u, upper_u, upperR_u, left_u,
@@ -596,7 +572,6 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             // TODO: place barrier here to sync max speed
             // BARRIER
             
-            // limited_derivs() is seg faulting, fatal
             limited_derivs(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY);
             if (io == 0) {
                 dt = cfl / std::max(cx/dx, cy/dy);
@@ -606,7 +581,6 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                 }
             }
             
-            // compute_step() is seg faulting, fatal
             compute_step(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY, io, dt);
             t += dt;
         }
@@ -618,39 +592,31 @@ void Central2D<Physics, Limiter>::run(real tfinal)
         free(myGY);
     }
     
-    
+    printf("\n\n");
     // copy subdomains back into master array
     for( int j=0; j < NUM_BLOCKS_Y; ++j ) {
+        int yBlockOffset = j * SUBDOMAIN_SIZE;
+        
         for( int i=0; i < NUM_BLOCKS_X; ++i ) {
-            std::vector<vec>* myU = subDomainPointers_u[j*NUM_BLOCKS_X + i];
-            
             // to write to original grid, offset to block start location
             int xBlockOffset = i * SUBDOMAIN_SIZE;
-            int yBlockOffset = j * SUBDOMAIN_SIZE;
-            //int blockOffset = yBlockOffset*nx + xBlockOffset;
+            
+            // offset in our block
+            const int index =  j*NUM_BLOCKS_X + i;
+            std::vector<vec>* myU = subDomainPointers_u[index];
             
             for( int y=0; y < SUBDOMAIN_SIZE; ++y ) {
+                int yCoord = yBlockOffset + y;
+                
                 for( int x=0; x < SUBDOMAIN_SIZE; ++x ) {
                     int xCoord = xBlockOffset + x;
-                    int yCoord = yBlockOffset + y;
                     
+                    // ignore ghost cells
                     if(xCoord < nx && yCoord < ny) {
-                        vec& U = u(xCoord, yCoord);
-                        U[0] = castIndex(myU, y, x)[0];
-                        U[1] = castIndex(myU, y, x)[1];
-                        U[2] = castIndex(myU, y, x)[2];
-                        
-                        /**
-                        int b = 1;
-                        b = b && U[0] == castIndex(myU, y, x)[0];
-                        b = b && U[1] == castIndex(myU, y, x)[1];
-                        b = b && U[2] == castIndex(myU, y, x)[2];
-                        
-                        if(b == 0) {
-                            printf("false!\n");
-                        }**/
-                        
+                        u(xCoord, yCoord) = (*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y];
                     }
+                    
+                    printf("Final (%i,%i): %i, %i, %i\n", x, y, u(xCoord, yCoord)[0],u(xCoord, yCoord)[1],u(xCoord, yCoord)[2]);
                 }
             }
         }
