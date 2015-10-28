@@ -5,8 +5,11 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
+#include <iostream>
 
 #include <omp.h>
+
+//#define DEBUG 1
 
 //ldoc on
 /**
@@ -104,14 +107,14 @@ template <class Physics, class Limiter>
               int nx, int ny,     // Number of cells in x/y (without ghosts)
               int nodomains,      //No of domains of the board
               real cfl = 0.45) :  // Max allowed CFL number
-    nodomains(nodomains),
     nx(nx), ny(ny),
-    domain_nx( (int) ( ceil( (real) nx / nodomains) + 1.0e-5)),
-    domain_ny( (int) ( ceil( (real) ny / nodomains) + 1.0e-5)),
-    nx_all( nodomains * (domain_nx + 2 * nghost)),
-    ny_all(nodomains * (domain_ny + 2 * nghost)),
-    domain_nx_inc_ghost( domain_nx + 2 * nghost),
-    domain_ny_inc_ghost( domain_ny + 2 * nghost),
+    nodomains(nodomains),
+    domain_nx( ((int) ( ceil( (real) nx / nodomains) + 1.0e-5))),
+    domain_ny( ((int) ( ceil( (real) ny / nodomains) + 1.0e-5))),
+    nx_all( nx + nodomains * ( 2 * nghost) ),
+    ny_all( ny + nodomains * ( 2 * nghost) ),
+    domain_nx_inc_ghost( ((int) ( ceil( (real) nx / nodomains) + 1.0e-5)) + 2 * nghost),
+    domain_ny_inc_ghost( ((int) ( ceil( (real) ny / nodomains) + 1.0e-5)) + 2 * nghost),
     dx(w/nx), dy(h/ny),
     cfl(cfl), 
     u_ (nx_all * ny_all),
@@ -124,29 +127,9 @@ template <class Physics, class Limiter>
     v_ (nx_all * ny_all),
     ures_ (nx * ny)
     {   
-        /*nodomains = nodomains;
-        this.nx = nx;
-        this.ny = ny;
-        domain_nx = (int) (ceil((real) nx / nodomains));
-        domain_ny = (int) (ceil((real) ny / nodomains));
-        domain_nx_inc_ghost = domain_nx + 2 * nghost;
-        domain_ny_inc_ghost = domain_ny + 2 * nghost;
-        nx_all = nodomains * (domain_nx + 2 * nghost);
-        ny_all = nodomains * (domain_ny + 2 * nghost);
-        dx = w/nx;
-        dy = h/ny;
-        cfl = cfl;
-        ures_(nx * ny);
-        u_(nx_all * ny_all);
-        f_(nx_all * ny_all);
-        g_(nx_all * ny_all);
-        ux_(nx_all * ny_all);
-        uy_(nx_all * ny_all);
-        fx_(nx_all * ny_all);
-        gy_(nx_all * ny_all);
-        v_(nx_all * ny_all);*/
-
-        
+        #ifdef DEBUG
+        std::cout<<"\n--------------------------------------------------------------\n"<<"domain inc nx: "<<domain_nx_inc_ghost<<", domain inc ny: "<<domain_ny_inc_ghost<<", nx_all: "<<nx_all<<", ny_all: "<<ny_all<<", domain_nx: "<<domain_nx<<", domain_ny: "<<domain_ny<<", nodomains: "<<nodomains<<", nx: "<<nx<<", ny: "<<ny<<", nx_all: "<<nx_all<<", ny_all: "<<ny_all<<", dx: "<<dx<<", dy: "<<dy<<", cfl: "<<cfl<<"\n--------------------------------------------------------------\n\n";
+        #endif
     }
 
     // Advance from time 0 to time tfinal
@@ -243,7 +226,7 @@ private:
     //TODO: Need to change this
     int ioffset(int ix, int iy) {
         return offset( (ix+nx-nghost) % nx + nghost,
-           (iy+ny-nghost) % ny + nghost );
+         (iy+ny-nghost) % ny + nghost );
     }
 
     //TODO: Remove this because this is not required
@@ -279,11 +262,32 @@ template <class Physics, class Limiter>
 template <typename F>
  void Central2D<Physics, Limiter>::init(F f)
  {
-    for (int tno=0; tno < nodomains*nodomains; tno++)
-        for (int iy = 0; iy < ny; ++iy)
-            for (int ix = 0; ix < nx; ++ix)
-                f(u(ix,iy,tno), (ix+0.5)*dx, (iy+0.5)*dy);
+    #ifdef DEBUG
+    std::cout<<"Inside Init function\n";
+    #endif
+    //std::cout<<"nodomains: "<<nodomains<<"\n";
+
+    for (int iy = 0; iy < ny; ++iy){
+        for (int ix = 0; ix < nx; ++ix){
+            int d_ny = iy % domain_ny;
+            int d_nx = ix % domain_nx;
+
+            int tno = (iy / domain_ny) * nodomains + (ix / domain_nx);
+            
+            f(u(d_nx,d_ny,tno), (ix+0.5)*dx, (iy+0.5)*dy);
         }
+    }
+    #ifdef DEBUG
+    std::cout<<"Exiting init\n";
+    #endif
+}
+    /*for (int tno=0; tno < nodomains*nodomains; tno++)
+        for (int iy = 0; iy < domain_ny; ++iy)
+            for (int ix = 0; ix < domain_nx; ++ix){
+                std::cout<<"ix: "<<ix<<" iy: "<<iy<<" tno: "<<tno<<"\n";
+                f(u(ix,iy,tno), (ix+0.5)*dx, (iy+0.5)*dy);
+            }
+        }*/
 
 /**
  * ## Time stepper implementation
@@ -305,7 +309,9 @@ template <typename F>
 template <class Physics, class Limiter>
  void Central2D<Physics, Limiter>::apply_periodic()
  {
-
+    #ifdef DEBUG
+    std::cout<<"Inside apply periodic function\n";
+    #endif
     for (int i=0; i<nodomains; i++)
         for (int j=0; j<ny_all; j++)
             for (int k=0; k<nghost; k++) {
@@ -373,6 +379,9 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_, int tno)
 {
     using namespace std;
+    #ifdef DEBUG
+    std::cout<<"Inside compute_fg_speeds function\n";
+    #endif
     real cx = 1.0e-15;
     real cy = 1.0e-15;
     for (int iy = 0; iy < domain_ny_inc_ghost; ++iy)
@@ -398,6 +407,9 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_, int tn
 template <class Physics, class Limiter>
  void Central2D<Physics, Limiter>::limited_derivs(int tno)
  {
+    #ifdef DEBUG
+    std::cout<<"Inside limited_derivs function\n";
+    #endif
     int iy, ix;
     for (iy = 1; iy < domain_ny_inc_ghost-1; ++iy) {
         for (ix = 1; ix < domain_nx_inc_ghost-1; ++ix) {
@@ -439,6 +451,10 @@ template <class Physics, class Limiter>
 template <class Physics, class Limiter>
  void Central2D<Physics, Limiter>::compute_step(int io, real dt, int tno)
  {
+    #ifdef DEBUG
+    std::cout<<"Inside compute_steps function\n";
+    #endif
+
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
@@ -459,15 +475,15 @@ template <class Physics, class Limiter>
                 for (int m = 0; m < v(ix,iy,tno).size(); ++m) {
                     v(ix,iy,tno)[m] =
                     0.2500 * ( ug(ix,iy,tno)[m] + ug(ix+1,iy,tno)[m] +
-                       ug(ix,iy+1,tno)[m] + ug(ix+1,iy+1,tno)[m] ) -
+                     ug(ix,iy+1,tno)[m] + ug(ix+1,iy+1,tno)[m] ) -
                     0.0625 * ( ux(ix+1,iy,tno)[m] - ux(ix,iy,tno)[m] +
-                       ux(ix+1,iy+1,tno)[m] - ux(ix,iy+1,tno)[m] +
-                       uy(ix,  iy+1,tno)[m] - uy(ix,  iy,tno)[m] +
-                       uy(ix+1,iy+1,tno)[m] - uy(ix+1,iy,tno)[m] ) -
+                     ux(ix+1,iy+1,tno)[m] - ux(ix,iy+1,tno)[m] +
+                     uy(ix,  iy+1,tno)[m] - uy(ix,  iy,tno)[m] +
+                     uy(ix+1,iy+1,tno)[m] - uy(ix+1,iy,tno)[m] ) -
                     dtcdx2 * ( f(ix+1,iy,tno)[m] - f(ix,iy,tno)[m] +
-                       f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
+                     f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
                     dtcdy2 * ( g(ix,  iy+1,tno)[m] - g(ix,  iy,tno)[m] +
-                       g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
+                     g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
                 }
             }
 
@@ -497,13 +513,16 @@ template <class Physics, class Limiter>
 template <class Physics, class Limiter>
  void Central2D<Physics, Limiter>::run(real tfinal)
  {
+    #ifdef DEBUG
+    std::cout<<"Inside run function\n";
+    #endif
     bool done = false;
     real t = 0;
     real dt;
     real cx[nodomains*nodomains], cy[nodomains*nodomains];
     #pragma omp parallel num_threads(nodomains*nodomains)
     while (!done) {        
-        int tno = omp_get_thread_num();        
+        int tno = omp_get_thread_num();
         #pragma omp single
         apply_periodic();
         compute_fg_speeds(cx[tno], cy[tno], tno);
@@ -588,12 +607,22 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
+    
+    #ifdef DEBUG
+    std::cout<<"Inside solution_check func\n";
+    #endif
+
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = ures(nghost,nghost)[0];
+    real hmin = u(0, 0, 0)[0];
     real hmax = hmin;
     for (int j = 0; j < ny; ++j)
         for (int i = 0; i < nx; ++i) {
-            vec& uij = ures(i,j);
+            int d_ny = j % domain_ny; 
+            int d_nx = i % domain_nx;
+
+            int tno = (j / domain_ny) * nodomains + (i / domain_nx);
+
+            vec& uij = u(d_nx, d_ny, tno);
             real h = uij[0];
             h_sum += h;
             hu_sum += uij[1];
@@ -607,7 +636,7 @@ void Central2D<Physics, Limiter>::solution_check()
         hu_sum *= cell_area;
         hv_sum *= cell_area;
         printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-           h_sum, hu_sum, hv_sum, hmin, hmax);
+         h_sum, hu_sum, hv_sum, hmin, hmax);
     }
 
 //ldoc off
