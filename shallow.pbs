@@ -7,4 +7,5 @@
 
 module load cs5220
 cd $PBS_O_WORKDIR
+export OMP_NUM_THREADS=1
 ./shallow -i dam_break -o dam_break.out

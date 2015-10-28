@@ -1,0 +1,49 @@
+#!/bin/sh -l
+
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=0:30:00
+#PBS -N shallow
+#PBS -j oe
+
+module load cs5220
+cd $PBS_O_WORKDIR
+export OMP_NUM_THREADS=1
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=2
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=3
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=4
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=5
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=6
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=7
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=8
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=9
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=10
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=11
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=12
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=13
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=14
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=15
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=16
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=17
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=18
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=19
+./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=20
+./shallow -i dam_break -o dam_break.out

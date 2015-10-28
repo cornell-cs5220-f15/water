@@ -55,12 +55,24 @@ public:
     }
 
     void write_frame() {
-        if (fp)
+        if (fp) {
+			/*
             for (int j = 0; j < sim.ysize(); ++j)
                 for (int i = 0; i < sim.xsize(); ++i) {
                     float uij = sim(i,j)[0];
                     fwrite(&uij, sizeof(float), 1, fp);
                 }
+			*/
+			const int y_size = sim.ysize();
+			const int x_size = sim.xsize();
+            for (int j = 0; j < y_size; ++j) {
+                for (int i = 0; i < x_size; ++i) {
+                    float uij = sim(i,j)[0];
+					#pragma ivdep
+                    fwrite(&uij, sizeof(float), 1, fp);
+                }
+			}
+		}
     }
     
     ~SimViz() {

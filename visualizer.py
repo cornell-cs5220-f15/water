@@ -16,7 +16,7 @@ import matplotlib.animation as manimation
 import sys
 
 
-def main(infile="waves.out", outfile="out.mp4", startpic="start.png"):
+def main(infile="dam_break.out", outfile="out.mp4", startpic="start.png"):
     """Visualize shallow water simulation results.
 
     Args:

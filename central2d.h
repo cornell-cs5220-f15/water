@@ -3,8 +3,12 @@
 
 #include <cstdio>
 #include <cmath>
+#include <omp.h>
 #include <cassert>
 #include <vector>
+
+const int num_thread = 5;
+
 
 //ldoc on
 /**
@@ -92,8 +96,9 @@
  * of the domain has index (0,0).
  */
 
+
 template <class Physics, class Limiter>
-class Central2D {
+class  Central2D {
 public:
     typedef typename Physics::real real;
     typedef typename Physics::vec  vec;
@@ -207,6 +212,7 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
+	#pragma omp parallel for
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
@@ -232,6 +238,7 @@ void Central2D<Physics, Limiter>::init(F f)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
 {
+	#pragma omp parallel for
     // Copy data between right and left boundaries
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nghost; ++ix) {
@@ -239,6 +246,7 @@ void Central2D<Physics, Limiter>::apply_periodic()
             u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
         }
 
+	#pragma omp parallel for
     // Copy data between top and bottom boundaries
     for (int ix = 0; ix < nx_all; ++ix)
         for (int iy = 0; iy < nghost; ++iy) {
@@ -264,6 +272,8 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
+	#pragma omp parallel for
+	#pragma simd
     for (int iy = 0; iy < ny_all; ++iy)
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
@@ -287,6 +297,8 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
+	// this is slow
+	#pragma omp parallel for
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
 
@@ -330,17 +342,27 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
+	#pragma omp parallel for
+	#pragma simd
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
             vec uh = u(ix,iy);
-            for (int m = 0; m < uh.size(); ++m) {
+			vec thisFx = fx(ix, iy);
+			vec thisGx = gy(ix, iy);
+			const int uhsize = uh.size();
+            for (int m = 0; m < uhsize; ++m) {
+				/*
                 uh[m] -= dtcdx2 * fx(ix,iy)[m];
                 uh[m] -= dtcdy2 * gy(ix,iy)[m];
+				*/
+				uh[m] = uh[m] - dtcdx2 * thisFx[m] - dtcdy2 * thisGx[m];
             }
             Physics::flux(f(ix,iy), g(ix,iy), uh);
         }
 
     // Corrector (finish the step)
+	#pragma omp parallel for
+	#pragma simd
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
             for (int m = 0; m < v(ix,iy).size(); ++m) {
@@ -359,6 +381,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
+	//#pragma omp parallel for
     for (int j = nghost; j < ny+nghost; ++j){
         for (int i = nghost; i < nx+nghost; ++i){
             u(i,j) = v(i-io,j-io);
@@ -425,6 +448,7 @@ void Central2D<Physics, Limiter>::solution_check()
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
     real hmin = u(nghost,nghost)[0];
     real hmax = hmin;
+	#pragma omp parallel for
     for (int j = nghost; j < ny+nghost; ++j)
         for (int i = nghost; i < nx+nghost; ++i) {
             vec& uij = u(i,j);
@@ -434,7 +458,7 @@ void Central2D<Physics, Limiter>::solution_check()
             hv_sum += uij[2];
             hmax = max(h, hmax);
             hmin = min(h, hmin);
-            assert( h > 0) ;
+            //assert( h > 0) ; // need to comment out if we want to vectorize this loop
         }
     real cell_area = dx*dy;
     h_sum *= cell_area;
