@@ -148,11 +148,11 @@ template <class Physics, class Limiter>
     
     // Read / write elements of simulation state
     vec&       operator()(int i, int j) {
-        return u_[offsetfull(i+nghost,j+nghost)]; //TODO
+        return ures_[offsetres(i,j)]; //TODO
     }
     
     const vec& operator()(int i, int j) const {
-        return u_[offsetfull(i+nghost,j+nghost)]; //TODO
+        return ures_[offsetres(i,j)]; //TODO
     }
     
 private:
