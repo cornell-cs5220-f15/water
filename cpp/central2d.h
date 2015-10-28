@@ -10,6 +10,9 @@
 //Forward declaration, because including central2dwrapper.h would be a circular dependency
 template <class Physics, class Limiter> class Central2DWrapper;
 
+// An enum type for the copy_corner_ghosts method
+enum class Corner { Northeast, Northwest, Southeast, Southwest };
+
 //ldoc on
 /**
  * # Jiang-Tadmor central difference scheme
@@ -148,6 +151,11 @@ public:
 	void copy_horiz_ghosts(std::vector<vec>& larger_v,
 			const int larger_nx_all, const int larger_ny, 
 			const int x_start, const bool target_top);
+
+	// Copy cells from one corner of this domain to the opposite corner ghost region of the larger domain
+	void copy_corner_ghosts(std::vector<vec>& larger_v,
+		const int larger_nx_all, const int larger_ny, 
+		const int larger_nx, const Corner target);
 
     // Diagnostics
     void solution_check();
@@ -325,6 +333,35 @@ void Central2D<Physics, Limiter>::copy_horiz_ghosts(std::vector<vec>& larger_v,
 		}
 	}
 
+}
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::copy_corner_ghosts(std::vector<vec>& larger_v,
+		const int larger_nx_all, const int larger_ny, 
+		const int larger_nx, const Corner target)
+{
+	for (int x = 0; x < nghost; ++x) {
+		for (int y = 0; y < nghost; ++y) {
+			switch(target) {
+				case Corner::Northwest:
+					//Copy from the bottom-right corner of this grid to the top-left corner of the larger grid
+					larger_v[y * larger_nx_all + x] = u(x+nx, y+ny);
+					break;
+				case Corner::Northeast:
+					//Copy from bottom-left to top-right 
+					larger_v[y * larger_nx_all + (x+larger_nx+nghost)] = u(x+nghost, y+ny);
+					break;
+				case Corner::Southwest:
+					//Copy from top-right to bottom-left
+					larger_v[(y+larger_ny+nghost) * larger_nx_all + x] = u(x+nx, y+nghost);
+					break;
+				case Corner::Southeast:
+					//Copy from top-left to bottom-right
+					larger_v[(y+larger_ny+nghost) * larger_nx_all + (x+larger_nx+nghost)] = u(x+nghost, y+nghost);
+					break;
+			}
+		}
+	}
 }
 
 

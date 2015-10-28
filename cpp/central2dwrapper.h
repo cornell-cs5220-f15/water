@@ -235,6 +235,7 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		std::vector<Central2D_t> blockSims;
 		const int my_numblocks = blockspp + 
 			(omp_get_thread_num() == nthreads-1 && one_extra ? 1 : 0);
+		//DEBUG
 		#pragma omp single 
 		{
 			printf("nthreads = %d\n", nthreads);
@@ -262,14 +263,6 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		#pragma omp single
 		{
 			apply_periodic();
-			//DEBUG
-			printf("Board after initial apply_periodic:\n");	
-			for(int y = 0; y < ny_all; y++) {
-				for(int x = 0; x < nx_all; x++) {
-					printf("%.3f ", u(x,y)[0]);
-				}
-				printf("\n");
-			}
 			real init_dt = compute_current_dt();
 			for(int i = 0; i < nblocks; i++) 
 				(*local_dts_curr)[i] = init_dt;
@@ -284,14 +277,6 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		bool done = false;
 		bool first = true;
 		while (!done) {
-// 			#pragma omp single 
-//    		if (!first) {
-//   			std::swap(u_, v_);
-//    			apply_periodic();
-//    			//There's another barrier here implicitly. Instead, we need to have each block
-//    			//do its section of apply_periodic when it copies results back out to v.
-//    		}
-			
 			//Take the minimum of the dt's reported by the previous iteration as the dt for this iteration
 			dt = tfinal; //largest value it could be
 			for(int i = 0; i < nblocks; i++) {
@@ -319,26 +304,40 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 						nghost + blockcol * bwidth, nghost + blockrow * bheight);
 				//If this block is on an edge, also copy out ghost cells
     			if(blockcol == 0) {
-    				printf("Thread %d copying out vertical ghosts starting at (%d, %d)\n", omp_get_thread_num(), 0, nghost + blockrow * bheight);
     				blockSims[b].copy_vert_ghosts(*large_v, nx_all, nx,
     						nghost + blockrow * bheight, false); 
     			}
     			//This must be checked in sequence, not with ||, because there might be only one column of blocks
     			if(blockcol == nblocksx-1) {
-    				printf("Thread %d copying out vertical ghosts starting at (%d, %d)\n", omp_get_thread_num(), 0, nghost + blockrow * bheight);
     				blockSims[b].copy_vert_ghosts(*large_v, nx_all, nx,
     						nghost + blockrow * bheight, true); 
     			}
+				//Similarly, both might execute if there's only one row of blocks
     			if(blockrow == 0) {
-    				printf("Thread %d copying out horizontal ghosts starting at (%d, %d)\n", omp_get_thread_num(), nghost+blockcol*bwidth, 0);
     				blockSims[b].copy_horiz_ghosts(*large_v, nx_all, ny,
     						nghost + blockcol * bwidth, false); 
     			}
     			if(blockrow == nblocksy-1) {
-    				printf("Thread %d copying out horizontal ghosts starting at (%d, %d)\n", omp_get_thread_num(), nghost+blockcol*bwidth, 0);
     				blockSims[b].copy_horiz_ghosts(*large_v, nx_all, ny,
     						nghost + blockcol * bwidth, true); 
     			}
+				//Corner cases (literally)
+				if(blockrow == 0 && blockcol == 0) {
+					blockSims[b].copy_corner_ghosts(*large_v, nx_all, 
+							ny, nx, Corner::Southeast);
+				}
+				if(blockrow == 0 && blockcol == nblocksx-1) {
+					blockSims[b].copy_corner_ghosts(*large_v, nx_all, 
+							ny, nx, Corner::Southwest);
+				}
+				if(blockrow == nblocksy-1 && blockcol == 0) {
+					blockSims[b].copy_corner_ghosts(*large_v, nx_all,
+							ny, nx, Corner::Northeast);
+				}
+				if(blockrow == nblocksy-1 && blockcol == nblocksx-1) {
+					blockSims[b].copy_corner_ghosts(*large_v, nx_all,
+							ny, nx, Corner::Northwest);
+				}
 			}
 
 			//Local blocks have now advanced by dt, nbatch times
@@ -348,15 +347,6 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 			#pragma omp barrier
 			std::swap(large_u, large_v);
 			std::swap(local_dts_curr, local_dts_next);
-			//DEBUG
-			printf("Board after copying out ghosts:\n");	
-			for(int y = 0; y < ny_all; y++) {
-				for(int x = 0; x < nx_all; x++) {
-					printf("%.3f ", (*large_u)[offset(x,y)][0]);
-				}
-				printf("\n");
-			}
-			first = false;
 		} //end while
     } //end omp parallel
 	delete(local_dts_curr);
