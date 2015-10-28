@@ -155,4 +155,5 @@ int main(int argc, char** argv)
         sim.solution_check();
         viz.write_frame();
     }
+    sim.teardown();
 }
