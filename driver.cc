@@ -135,7 +135,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "Unknown initial conditions\n");
     }
     
-    Sim sim(width,width, nx,nx);
+    Sim sim(width,width, 1, nx,nx);
     SimViz<Sim> viz(fname.c_str(), sim);
     sim.init(icfun);
     sim.solution_check();
