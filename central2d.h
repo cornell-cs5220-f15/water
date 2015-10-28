@@ -381,12 +381,12 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
     ymm12 = _mm256_broadcast_ss(const_0_25); ymm13 = _mm256_broadcast_ss(const_0_0625);
     ymm14 = _mm256_broadcast_ss(const_neg_1); 
 
-    ymm0  = _mm256_load_ps((float *) (us_0));  ymm1  = _mm256_load_ps((float *) (us_0 + 1));
-    ymm4  = _mm256_load_ps((float *) (uxs_0)); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1));
-    ymm8  = _mm256_load_ps((float *) (uys_0)); ymm9  = _mm256_load_ps((float *) (uys_0 + 1));
-
     // 0 index first
     {
+        ymm0  = _mm256_load_ps((float *) (us_0));  ymm1  = _mm256_load_ps((float *) (us_0 + 1));
+        ymm4  = _mm256_load_ps((float *) (uxs_0)); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1));
+        ymm8  = _mm256_load_ps((float *) (uys_0)); ymm9  = _mm256_load_ps((float *) (uys_0 + 1));
+
         ymm2  = _mm256_load_ps((float *) (us_0 + (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_0 + 1 + (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_0 + (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_0 + 1 + (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_0 + (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_0 + 1 + (BLOCK + 1)));
@@ -395,18 +395,22 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1); 
         ymm1 = _mm256_add_ps(ymm2, ymm3);
         ymm0 = _mm256_add_ps(ymm0, ymm1);
-
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
@@ -415,7 +419,8 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
 
         // Add everything together for u, ux, uy -> ymm0
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -424,14 +429,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_0));       ymm4 = _mm256_load_ps((float *) (gs_0 + 1));
@@ -439,86 +447,108 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
         _mm256_store_ps((float *) (vs_0), ymm0);
+    }
 
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
+    {
+        ymm0  = _mm256_load_ps((float *) (us_0 + (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_0 + 1 + (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_0 + (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1 + (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_0 + (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_0 + 1 + (BLOCK + 1)));
+
+        ymm2  = _mm256_load_ps((float *) (us_0 + 2 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_0 + 1 + 2 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_0 + 2 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_0 + 1 + 2 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_0 + 2 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_0 + 1 + 2 * (BLOCK + 1)));
+
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
+
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
+
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
+
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
+
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
+
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
+        // First f
+        ymm1 = _mm256_load_ps((float *) (fs_0 + (BLOCK + 1))); ymm4 = _mm256_load_ps((float *) (fs_0 + 1 + (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_0 + 2 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_0 + 1 + 2 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
+
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
+
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
+
+        // Now g
+        ymm1 = _mm256_load_ps((float *) (gs_0 + (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_0 + 1 + (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_0 + 2 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_0 + 1 + 2 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
+
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
+
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
+
+        // Aaaand store
+        _mm256_store_ps((float *) (vs_0 + (BLOCK)), ymm0);
+    }
+
+    {
         ymm0  = _mm256_load_ps((float *) (us_0 + 2 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_0 + 1 + 2 * (BLOCK + 1)));
         ymm4  = _mm256_load_ps((float *) (uxs_0 + 2 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1 + 2 * (BLOCK + 1)));
         ymm8  = _mm256_load_ps((float *) (uys_0 + 2 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_0 + 1 + 2 * (BLOCK + 1)));
 
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
-
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
-
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
-
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
-
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
-
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
-
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
-
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
-        // First f
-        ymm3  = _mm256_load_ps((float *) (fs_0 + 1 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_0 + 1 + 1 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_0 + 2 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_0 + 1 + 2 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
-
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
-
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
-
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_0 + 1 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_0 + 1 + 1 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_0 + 2 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_0 + 1 + 2 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
-
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
-
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
-
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Aaaand store
-        _mm256_store_ps((float *) (vs_0 + 1 * BLOCK), ymm2);
-    }
-
-    {
         ymm2  = _mm256_load_ps((float *) (us_0 + 3 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_0 + 1 + 3 * (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_0 + 3 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_0 + 1 + 3 * (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_0 + 3 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_0 + 1 + 3 * (BLOCK + 1)));
@@ -529,25 +559,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -556,14 +591,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_0 + 2 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_0 + 1 + 2 * (BLOCK + 1)));
@@ -571,86 +609,108 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_0 + 2 * BLOCK), ymm0);
+        _mm256_store_ps((float *) (vs_0 + 2 * (BLOCK)), ymm0);
+    }
 
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
+    {
+        ymm0  = _mm256_load_ps((float *) (us_0 + 3 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_0 + 1 + 3 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_0 + 3 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1 + 3 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_0 + 3 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_0 + 1 + 3 * (BLOCK + 1)));
+
+        ymm2  = _mm256_load_ps((float *) (us_0 + 4 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_0 + 1 + 4 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_0 + 4 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_0 + 1 + 4 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_0 + 4 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_0 + 1 + 4 * (BLOCK + 1)));
+
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
+
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
+
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
+
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
+
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
+
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
+        // First f
+        ymm1 = _mm256_load_ps((float *) (fs_0 + 3 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (fs_0 + 1 + 3 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_0 + 4 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_0 + 1 + 4 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
+
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
+
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
+
+        // Now g
+        ymm1 = _mm256_load_ps((float *) (gs_0 + 3 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_0 + 1 + 3 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_0 + 4 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_0 + 1 + 4 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
+
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
+
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
+
+        // Aaaand store
+        _mm256_store_ps((float *) (vs_0 + 3 * (BLOCK)), ymm0);
+    }
+
+    {
         ymm0  = _mm256_load_ps((float *) (us_0 + 4 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_0 + 1 + 4 * (BLOCK + 1)));
         ymm4  = _mm256_load_ps((float *) (uxs_0 + 4 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1 + 4 * (BLOCK + 1)));
         ymm8  = _mm256_load_ps((float *) (uys_0 + 4 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_0 + 1 + 4 * (BLOCK + 1)));
 
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
-
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
-
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
-
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
-
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
-
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
-
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
-
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
-        // First f
-        ymm3  = _mm256_load_ps((float *) (fs_0 + 3 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_0 + 1 + 3 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_0 + 4 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_0 + 1 + 4 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
-
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
-
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
-
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_0 + 3 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_0 + 1 + 3 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_0 + 4 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_0 + 1 + 4 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
-
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
-
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
-
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Aaaand store
-        _mm256_store_ps((float *) (vs_0 + 3 * BLOCK), ymm2);
-    }
-
-    {
         ymm2  = _mm256_load_ps((float *) (us_0 + 5 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_0 + 1 + 5 * (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_0 + 5 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_0 + 1 + 5 * (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_0 + 5 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_0 + 1 + 5 * (BLOCK + 1)));
@@ -661,25 +721,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -688,14 +753,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_0 + 4 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_0 + 1 + 4 * (BLOCK + 1)));
@@ -703,86 +771,108 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_0 + 4 * BLOCK), ymm0);
-
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
-        ymm0  = _mm256_load_ps((float *) (us_0 + 4 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_0 + 1 + 4 * (BLOCK + 1)));
-        ymm4  = _mm256_load_ps((float *) (uxs_0 + 4 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1 + 4 * (BLOCK + 1)));
-        ymm8  = _mm256_load_ps((float *) (uys_0 + 4 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_0 + 1 + 4 * (BLOCK + 1)));
-
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
-
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
-
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
-
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
-
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
-
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
-
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
-
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
-        // First f
-        ymm3  = _mm256_load_ps((float *) (fs_0 + 5 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_0 + 1 + 5 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_0 + 6 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_0 + 1 + 6 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
-
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
-
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
-
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_0 + 5 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_0 + 1 + 5 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_0 + 6 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_0 + 1 + 6 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
-
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
-
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
-
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Aaaand store
-        _mm256_store_ps((float *) (vs_0 + 5 * BLOCK), ymm2);
+        _mm256_store_ps((float *) (vs_0 + 4 * (BLOCK)), ymm0);
     }
 
     {
+        ymm0  = _mm256_load_ps((float *) (us_0 + 5 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_0 + 1 + 5 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_0 + 5 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1 + 5 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_0 + 5 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_0 + 1 + 5 * (BLOCK + 1)));
+
+        ymm2  = _mm256_load_ps((float *) (us_0 + 6 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_0 + 1 + 6 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_0 + 6 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_0 + 1 + 6 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_0 + 6 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_0 + 1 + 6 * (BLOCK + 1)));
+
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
+
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
+
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
+
+        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
+
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
+
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
+        // First f
+        ymm1 = _mm256_load_ps((float *) (fs_0 + 5 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (fs_0 + 1 + 5 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_0 + 6 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_0 + 1 + 6 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
+
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
+
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
+
+        // Now g
+        ymm1 = _mm256_load_ps((float *) (gs_0 + 5 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_0 + 1 + 5 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_0 + 6 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_0 + 1 + 6 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
+
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
+
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
+
+        // Aaaand store
+        _mm256_store_ps((float *) (vs_0 + 5 * (BLOCK)), ymm0);
+    }
+
+    {
+        ymm0  = _mm256_load_ps((float *) (us_0 + 6 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_0 + 1 + 6 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_0 + 6 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1 + 6 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_0 + 6 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_0 + 1 + 6 * (BLOCK + 1)));
+
         ymm2  = _mm256_load_ps((float *) (us_0 + 7 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_0 + 1 + 7 * (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_0 + 7 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_0 + 1 + 7 * (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_0 + 7 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_0 + 1 + 7 * (BLOCK + 1)));
@@ -793,25 +883,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -820,14 +915,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_0 + 6 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_0 + 1 + 6 * (BLOCK + 1)));
@@ -835,87 +933,109 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_0 + 6 * BLOCK), ymm0);
+        _mm256_store_ps((float *) (vs_0 + 6 * (BLOCK)), ymm0);
+    }
 
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
-        ymm0  = _mm256_load_ps((float *) (us_0 + 8 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_0 + 1 + 8 * (BLOCK + 1)));
-        ymm4  = _mm256_load_ps((float *) (uxs_0 + 8 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1 + 8 * (BLOCK + 1)));
-        ymm8  = _mm256_load_ps((float *) (uys_0 + 8 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_0 + 1 + 8 * (BLOCK + 1)));
+    {
+        ymm0  = _mm256_load_ps((float *) (us_0 + 7 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_0 + 1 + 7 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_0 + 7 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_0 + 1 + 7 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_0 + 7 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_0 + 1 + 7 * (BLOCK + 1)));
 
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
+        ymm2  = _mm256_load_ps((float *) (us_0 + 8 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_0 + 1 + 8 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_0 + 8 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_0 + 1 + 8 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_0 + 8 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_0 + 1 + 8 * (BLOCK + 1)));
 
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
-        ymm3  = _mm256_load_ps((float *) (fs_0 + 7 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_0 + 1 + 7 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_0 + 8 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_0 + 1 + 8 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
+        ymm1 = _mm256_load_ps((float *) (fs_0 + 7 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (fs_0 + 1 + 7 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_0 + 8 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_0 + 1 + 8 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_0 + 7 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_0 + 1 + 7 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_0 + 8 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_0 + 1 + 8 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
+        ymm1 = _mm256_load_ps((float *) (gs_0 + 7 * (BLOCK + 1))); ymm4 = _mm256_load_ps((float *) (gs_0 + 1 + 7 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_0 + 8 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_0 + 1 + 8 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_0 + 7 * BLOCK), ymm2);
+        _mm256_store_ps((float *) (vs_0 + 7 * (BLOCK)), ymm0);
     }
 
     // 1 index next
     {
+        ymm0  = _mm256_load_ps((float *) (us_1));  ymm1  = _mm256_load_ps((float *) (us_1 + 1));
+        ymm4  = _mm256_load_ps((float *) (uxs_1)); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1));
+        ymm8  = _mm256_load_ps((float *) (uys_1)); ymm9  = _mm256_load_ps((float *) (uys_1 + 1));
+
         ymm2  = _mm256_load_ps((float *) (us_1 + (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_1 + 1 + (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_1 + (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_1 + 1 + (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_1 + (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_1 + 1 + (BLOCK + 1)));
@@ -926,25 +1046,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -953,14 +1078,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_1));       ymm4 = _mm256_load_ps((float *) (gs_1 + 1));
@@ -968,86 +1096,109 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
         _mm256_store_ps((float *) (vs_1), ymm0);
+    }
 
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
+
+    {
+        ymm0  = _mm256_load_ps((float *) (us_1 + (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_1 + 1 + (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_1 + (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1 + (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_1 + (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_1 + 1 + (BLOCK + 1)));
+
+        ymm2  = _mm256_load_ps((float *) (us_1 + 2 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_1 + 1 + 2 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_1 + 2 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_1 + 1 + 2 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_1 + 2 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_1 + 1 + 2 * (BLOCK + 1)));
+
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
+
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
+
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
+
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
+
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
+
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
+        // First f
+        ymm1 = _mm256_load_ps((float *) (fs_1 + (BLOCK + 1))); ymm4 = _mm256_load_ps((float *) (fs_1 + 1 + (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_1 + 2 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_1 + 1 + 2 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
+
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
+
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
+
+        // Now g
+        ymm1 = _mm256_load_ps((float *) (gs_1 + (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_1 + 1 + (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_1 + 2 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_1 + 1 + 2 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
+
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
+
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
+
+        // Aaaand store
+        _mm256_store_ps((float *) (vs_1 + (BLOCK)), ymm0);
+    }
+
+    {
         ymm0  = _mm256_load_ps((float *) (us_1 + 2 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_1 + 1 + 2 * (BLOCK + 1)));
         ymm4  = _mm256_load_ps((float *) (uxs_1 + 2 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1 + 2 * (BLOCK + 1)));
         ymm8  = _mm256_load_ps((float *) (uys_1 + 2 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_1 + 1 + 2 * (BLOCK + 1)));
 
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
-
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
-
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
-
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
-
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
-
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
-
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
-
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
-        // First f
-        ymm3  = _mm256_load_ps((float *) (fs_1 + 1 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_1 + 1 + 1 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_1 + 2 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_1 + 1 + 2 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
-
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
-
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
-
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_1 + 1 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_1 + 1 + 1 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_1 + 2 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_1 + 1 + 2 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
-
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
-
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
-
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Aaaand store
-        _mm256_store_ps((float *) (vs_1 + 1 * BLOCK), ymm2);
-    }
-
-    {
         ymm2  = _mm256_load_ps((float *) (us_1 + 3 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_1 + 1 + 3 * (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_1 + 3 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_1 + 1 + 3 * (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_1 + 3 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_1 + 1 + 3 * (BLOCK + 1)));
@@ -1058,25 +1209,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -1085,14 +1241,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_1 + 2 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_1 + 1 + 2 * (BLOCK + 1)));
@@ -1100,86 +1259,108 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_1 + 2 * BLOCK), ymm0);
+        _mm256_store_ps((float *) (vs_1 + 2 * (BLOCK)), ymm0);
+    }
 
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
+    {
+        ymm0  = _mm256_load_ps((float *) (us_1 + 3 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_1 + 1 + 3 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_1 + 3 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1 + 3 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_1 + 3 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_1 + 1 + 3 * (BLOCK + 1)));
+
+        ymm2  = _mm256_load_ps((float *) (us_1 + 4 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_1 + 1 + 4 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_1 + 4 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_1 + 1 + 4 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_1 + 4 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_1 + 1 + 4 * (BLOCK + 1)));
+
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
+
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
+
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
+
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
+
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
+
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
+        // First f
+        ymm1 = _mm256_load_ps((float *) (fs_1 + 3 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (fs_1 + 1 + 3 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_1 + 4 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_1 + 1 + 4 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
+
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
+
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
+
+        // Now g
+        ymm1 = _mm256_load_ps((float *) (gs_1 + 3 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_1 + 1 + 3 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_1 + 4 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_1 + 1 + 4 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
+
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
+
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
+
+        // Aaaand store
+        _mm256_store_ps((float *) (vs_1 + 3 * (BLOCK)), ymm0);
+    }
+
+    {
         ymm0  = _mm256_load_ps((float *) (us_1 + 4 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_1 + 1 + 4 * (BLOCK + 1)));
         ymm4  = _mm256_load_ps((float *) (uxs_1 + 4 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1 + 4 * (BLOCK + 1)));
         ymm8  = _mm256_load_ps((float *) (uys_1 + 4 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_1 + 1 + 4 * (BLOCK + 1)));
 
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
-
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
-
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
-
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
-
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
-
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
-
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
-
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
-        // First f
-        ymm3  = _mm256_load_ps((float *) (fs_1 + 3 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_1 + 1 + 3 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_1 + 4 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_1 + 1 + 4 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
-
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
-
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
-
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_1 + 3 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_1 + 1 + 3 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_1 + 4 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_1 + 1 + 4 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
-
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
-
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
-
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Aaaand store
-        _mm256_store_ps((float *) (vs_1 + 3 * BLOCK), ymm2);
-    }
-
-    {
         ymm2  = _mm256_load_ps((float *) (us_1 + 5 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_1 + 1 + 5 * (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_1 + 5 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_1 + 1 + 5 * (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_1 + 5 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_1 + 1 + 5 * (BLOCK + 1)));
@@ -1190,25 +1371,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -1217,14 +1403,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_1 + 4 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_1 + 1 + 4 * (BLOCK + 1)));
@@ -1232,86 +1421,110 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_1 + 4 * BLOCK), ymm0);
-
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
-        ymm0  = _mm256_load_ps((float *) (us_1 + 4 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_1 + 1 + 4 * (BLOCK + 1)));
-        ymm4  = _mm256_load_ps((float *) (uxs_1 + 4 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1 + 4 * (BLOCK + 1)));
-        ymm8  = _mm256_load_ps((float *) (uys_1 + 4 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_1 + 1 + 4 * (BLOCK + 1)));
-
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
-
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
-
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
-
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
-
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
-
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
-
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
-
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
-        // First f
-        ymm3  = _mm256_load_ps((float *) (fs_1 + 5 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_1 + 1 + 5 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_1 + 6 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_1 + 1 + 6 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
-
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
-
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
-
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_1 + 5 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_1 + 1 + 5 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_1 + 6 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_1 + 1 + 6 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
-
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
-
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
-
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Aaaand store
-        _mm256_store_ps((float *) (vs_1 + 5 * BLOCK), ymm2);
+        _mm256_store_ps((float *) (vs_1 + 4 * (BLOCK)), ymm0);
     }
 
     {
+        ymm0  = _mm256_load_ps((float *) (us_1 + 5 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_1 + 1 + 5 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_1 + 5 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1 + 5 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_1 + 5 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_1 + 1 + 5 * (BLOCK + 1)));
+
+        ymm2  = _mm256_load_ps((float *) (us_1 + 6 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_1 + 1 + 6 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_1 + 6 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_1 + 1 + 6 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_1 + 6 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_1 + 1 + 6 * (BLOCK + 1)));
+
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
+
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
+
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
+
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
+
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
+
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
+        // First f
+        ymm1 = _mm256_load_ps((float *) (fs_1 + 5 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (fs_1 + 1 + 5 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_1 + 6 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_1 + 1 + 6 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
+
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
+
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
+
+        // Now g
+        ymm1 = _mm256_load_ps((float *) (gs_1 + 5 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_1 + 1 + 5 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_1 + 6 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_1 + 1 + 6 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
+
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
+
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
+
+        // Aaaand store
+        _mm256_store_ps((float *) (vs_1 + 5 * (BLOCK)), ymm0);
+    }
+
+
+
+    {
+        ymm0  = _mm256_load_ps((float *) (us_1 + 6 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_1 + 1 + 6 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_1 + 6 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1 + 6 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_1 + 6 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_1 + 1 + 6 * (BLOCK + 1)));
+
         ymm2  = _mm256_load_ps((float *) (us_1 + 7 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_1 + 1 + 7 * (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_1 + 7 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_1 + 1 + 7 * (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_1 + 7 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_1 + 1 + 7 * (BLOCK + 1)));
@@ -1322,25 +1535,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -1349,14 +1567,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_1 + 6 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_1 + 1 + 6 * (BLOCK + 1)));
@@ -1364,87 +1585,109 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_1 + 6 * BLOCK), ymm0);
+        _mm256_store_ps((float *) (vs_1 + 6 * (BLOCK)), ymm0);
+    }
 
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
-        ymm0  = _mm256_load_ps((float *) (us_1 + 8 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_1 + 1 + 8 * (BLOCK + 1)));
-        ymm4  = _mm256_load_ps((float *) (uxs_1 + 8 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1 + 8 * (BLOCK + 1)));
-        ymm8  = _mm256_load_ps((float *) (uys_1 + 8 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_1 + 1 + 8 * (BLOCK + 1)));
+    {
+        ymm0  = _mm256_load_ps((float *) (us_1 + 7 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_1 + 1 + 7 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_1 + 7 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_1 + 1 + 7 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_1 + 7 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_1 + 1 + 7 * (BLOCK + 1)));
 
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
+        ymm2  = _mm256_load_ps((float *) (us_1 + 8 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_1 + 1 + 8 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_1 + 8 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_1 + 1 + 8 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_1 + 8 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_1 + 1 + 8 * (BLOCK + 1)));
 
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
-        ymm3  = _mm256_load_ps((float *) (fs_1 + 7 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_1 + 1 + 7 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_1 + 8 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_1 + 1 + 8 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
+        ymm1 = _mm256_load_ps((float *) (fs_1 + 7 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (fs_1 + 1 + 7 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_1 + 8 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_1 + 1 + 8 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_1 + 7 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_1 + 1 + 7 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_1 + 8 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_1 + 1 + 8 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
+        ymm1 = _mm256_load_ps((float *) (gs_1 + 7 * (BLOCK + 1))); ymm4 = _mm256_load_ps((float *) (gs_1 + 1 + 7 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_1 + 8 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_1 + 1 + 8 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_1 + 7 * BLOCK), ymm2);
+        _mm256_store_ps((float *) (vs_1 + 7 * (BLOCK)), ymm0);
     }
 
     // Finally, 2 index
     {
+        ymm0  = _mm256_load_ps((float *) (us_2));  ymm1  = _mm256_load_ps((float *) (us_2 + 1));
+        ymm4  = _mm256_load_ps((float *) (uxs_2)); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1));
+        ymm8  = _mm256_load_ps((float *) (uys_2)); ymm9  = _mm256_load_ps((float *) (uys_2 + 1));
+
         ymm2  = _mm256_load_ps((float *) (us_2 + (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_2 + 1 + (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_2 + (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_2 + 1 + (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_2 + (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_2 + 1 + (BLOCK + 1)));
@@ -1455,25 +1698,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -1482,14 +1730,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_2));       ymm4 = _mm256_load_ps((float *) (gs_2 + 1));
@@ -1497,86 +1748,108 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
         _mm256_store_ps((float *) (vs_2), ymm0);
+    }
 
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
+    {
+        ymm0  = _mm256_load_ps((float *) (us_2 + (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_2 + 1 + (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_2 + (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1 + (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_2 + (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_2 + 1 + (BLOCK + 1)));
+
+        ymm2  = _mm256_load_ps((float *) (us_2 + 2 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_2 + 1 + 2 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_2 + 2 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_2 + 1 + 2 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_2 + 2 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_2 + 1 + 2 * (BLOCK + 1)));
+
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
+
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
+
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
+
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
+
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
+
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
+        // First f
+        ymm1 = _mm256_load_ps((float *) (fs_2 + (BLOCK + 1))); ymm4 = _mm256_load_ps((float *) (fs_2 + 1 + (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_2 + 2 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_2 + 1 + 2 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
+
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
+
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
+
+        // Now g
+        ymm1 = _mm256_load_ps((float *) (gs_2 + (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_2 + 1 + (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_2 + 2 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_2 + 1 + 2 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
+
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
+
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
+
+        // Aaaand store
+        _mm256_store_ps((float *) (vs_2 + (BLOCK)), ymm0);
+    }
+
+    {
         ymm0  = _mm256_load_ps((float *) (us_2 + 2 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_2 + 1 + 2 * (BLOCK + 1)));
         ymm4  = _mm256_load_ps((float *) (uxs_2 + 2 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1 + 2 * (BLOCK + 1)));
         ymm8  = _mm256_load_ps((float *) (uys_2 + 2 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_2 + 1 + 2 * (BLOCK + 1)));
 
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
-
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
-
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
-
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
-
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
-
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
-
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
-
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
-        // First f
-        ymm3  = _mm256_load_ps((float *) (fs_2 + 1 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_2 + 1 + 1 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_2 + 2 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_2 + 1 + 2 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
-
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
-
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
-
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_2 + 1 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_2 + 1 + 1 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_2 + 2 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_2 + 1 + 2 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
-
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
-
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
-
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Aaaand store
-        _mm256_store_ps((float *) (vs_2 + 1 * BLOCK), ymm2);
-    }
-
-    {
         ymm2  = _mm256_load_ps((float *) (us_2 + 3 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_2 + 1 + 3 * (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_2 + 3 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_2 + 1 + 3 * (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_2 + 3 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_2 + 1 + 3 * (BLOCK + 1)));
@@ -1587,25 +1860,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -1614,14 +1892,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_2 + 2 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_2 + 1 + 2 * (BLOCK + 1)));
@@ -1629,86 +1910,108 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_2 + 2 * BLOCK), ymm0);
+        _mm256_store_ps((float *) (vs_2 + 2 * (BLOCK)), ymm0);
+    }
 
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
+    {
+        ymm0  = _mm256_load_ps((float *) (us_2 + 3 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_2 + 1 + 3 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_2 + 3 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1 + 3 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_2 + 3 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_2 + 1 + 3 * (BLOCK + 1)));
+
+        ymm2  = _mm256_load_ps((float *) (us_2 + 4 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_2 + 1 + 4 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_2 + 4 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_2 + 1 + 4 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_2 + 4 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_2 + 1 + 4 * (BLOCK + 1)));
+
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
+
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
+
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
+
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
+
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
+
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
+        // First f
+        ymm1 = _mm256_load_ps((float *) (fs_2 + 3 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (fs_2 + 1 + 3 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_2 + 4 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_2 + 1 + 4 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
+
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
+
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
+
+        // Now g
+        ymm1 = _mm256_load_ps((float *) (gs_2 + 3 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_2 + 1 + 3 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_2 + 4 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_2 + 1 + 4 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
+
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
+
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
+
+        // Aaaand store
+        _mm256_store_ps((float *) (vs_2 + 3 * (BLOCK)), ymm0);
+    }
+
+    {
         ymm0  = _mm256_load_ps((float *) (us_2 + 4 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_2 + 1 + 4 * (BLOCK + 1)));
         ymm4  = _mm256_load_ps((float *) (uxs_2 + 4 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1 + 4 * (BLOCK + 1)));
         ymm8  = _mm256_load_ps((float *) (uys_2 + 4 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_2 + 1 + 4 * (BLOCK + 1)));
 
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
-
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
-
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
-
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
-
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
-
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
-
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
-
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
-        // First f
-        ymm3  = _mm256_load_ps((float *) (fs_2 + 3 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_2 + 1 + 3 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_2 + 4 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_2 + 1 + 4 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
-
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
-
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
-
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_2 + 3 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_2 + 1 + 3 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_2 + 4 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_2 + 1 + 4 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
-
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
-
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
-
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Aaaand store
-        _mm256_store_ps((float *) (vs_2 + 3 * BLOCK), ymm2);
-    }
-
-    {
         ymm2  = _mm256_load_ps((float *) (us_2 + 5 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_2 + 1 + 5 * (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_2 + 5 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_2 + 1 + 5 * (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_2 + 5 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_2 + 1 + 5 * (BLOCK + 1)));
@@ -1719,25 +2022,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -1746,14 +2054,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_2 + 4 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_2 + 1 + 4 * (BLOCK + 1)));
@@ -1761,86 +2072,108 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_2 + 4 * BLOCK), ymm0);
-
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
-        ymm0  = _mm256_load_ps((float *) (us_2 + 4 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_2 + 1 + 4 * (BLOCK + 1)));
-        ymm4  = _mm256_load_ps((float *) (uxs_2 + 4 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1 + 4 * (BLOCK + 1)));
-        ymm8  = _mm256_load_ps((float *) (uys_2 + 4 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_2 + 1 + 4 * (BLOCK + 1)));
-
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
-
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
-
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
-
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
-
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
-
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
-
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
-
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
-        // First f
-        ymm3  = _mm256_load_ps((float *) (fs_2 + 5 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_2 + 1 + 5 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_2 + 6 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_2 + 1 + 6 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
-
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
-
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
-
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_2 + 5 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_2 + 1 + 5 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_2 + 6 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_2 + 1 + 6 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
-
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
-
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
-
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
-
-        // Aaaand store
-        _mm256_store_ps((float *) (vs_2 + 5 * BLOCK), ymm2);
+        _mm256_store_ps((float *) (vs_2 + 4 * (BLOCK)), ymm0);
     }
 
     {
+        ymm0  = _mm256_load_ps((float *) (us_2 + 5 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_2 + 1 + 5 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_2 + 5 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1 + 5 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_2 + 5 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_2 + 1 + 5 * (BLOCK + 1)));
+
+        ymm2  = _mm256_load_ps((float *) (us_2 + 6 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_2 + 1 + 6 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_2 + 6 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_2 + 1 + 6 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_2 + 6 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_2 + 1 + 6 * (BLOCK + 1)));
+
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
+
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
+
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
+
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
+
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
+
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
+        // First f
+        ymm1 = _mm256_load_ps((float *) (fs_2 + 5 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (fs_2 + 1 + 5 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_2 + 6 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_2 + 1 + 6 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
+
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
+
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
+
+        // Now g
+        ymm1 = _mm256_load_ps((float *) (gs_2 + 5 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_2 + 1 + 5 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_2 + 6 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_2 + 1 + 6 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
+
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
+
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
+
+        // Aaaand store
+        _mm256_store_ps((float *) (vs_2 + 5 * (BLOCK)), ymm0);
+    }
+
+    {
+        ymm0  = _mm256_load_ps((float *) (us_2 + 6 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_2 + 1 + 6 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_2 + 6 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1 + 6 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_2 + 6 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_2 + 1 + 6 * (BLOCK + 1)));
+
         ymm2  = _mm256_load_ps((float *) (us_2 + 7 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_2 + 1 + 7 * (BLOCK + 1)));
         ymm6  = _mm256_load_ps((float *) (uxs_2 + 7 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_2 + 1 + 7 * (BLOCK + 1)));
         ymm10 = _mm256_load_ps((float *) (uys_2 + 7 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_2 + 1 + 7 * (BLOCK + 1)));
@@ -1851,25 +2184,30 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
-        ymm4  = _mm256_sub_ps(ymm4, ymm5);
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
         // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
-        ymm5  = _mm256_sub_ps(ymm6, ymm7);
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
         // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
-        ymm8  = _mm256_sub_ps(ymm8,  ymm10);
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
         // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
-        ymm9  = _mm256_sub_ps(ymm9,  ymm11);
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
         // sum ux and uy -> ymm1
         ymm1  = _mm256_add_ps(ymm9, ymm8);
         ymm15 = _mm256_add_ps(ymm4, ymm5);
         ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Add everything together for u, ux, uy -> ymm0
+        // Add everything together for u, ux, uy -> ymm15
         ymm0 = _mm256_mul_ps(ymm0, ymm12);
-        ymm0 = _mm256_fmadd_ps(ymm13, ymm1, ymm0);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
         // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
@@ -1878,14 +2216,17 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
         // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
         // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
-        ymm5 = _mm256_sub_ps(ymm5, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
         // Sum f and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm5);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
         ymm1 = _mm256_load_ps((float *) (gs_2 + 6 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (gs_2 + 1 + 6 * (BLOCK + 1)));
@@ -1893,83 +2234,101 @@ void Central2D<Physics, Limiter>::corrector_float(int x_idx, int y_idx, float dt
         ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
         // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
-        ymm1 = _mm256_sub_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
         // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
-        ymm4 = _mm256_sub_ps(ymm4, ymm8);
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
         // Sum g and add to ymm0
         ymm1 = _mm256_add_ps(ymm1, ymm4);
-        ymm0 = _mm256_fmadd_ps(ymm1, ymm9, ymm0);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_2 + 6 * BLOCK), ymm0);
+        _mm256_store_ps((float *) (vs_2 + 6 * (BLOCK)), ymm0);
+    }
 
-        // We can reuse registers 2, 3, 6, 7, 10, 11, 12, 13, 14
-        // Have to refresh 0, 1, 4, 5, 8, 9
-        ymm0  = _mm256_load_ps((float *) (us_2 + 8 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_2 + 1 + 8 * (BLOCK + 1)));
-        ymm4  = _mm256_load_ps((float *) (uxs_2 + 8 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1 + 8 * (BLOCK + 1)));
-        ymm8  = _mm256_load_ps((float *) (uys_2 + 8 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_2 + 1 + 8 * (BLOCK + 1)));
+    {
+        ymm0  = _mm256_load_ps((float *) (us_2 + 7 * (BLOCK + 1)));  ymm1  = _mm256_load_ps((float *) (us_2 + 1 + 7 * (BLOCK + 1)));
+        ymm4  = _mm256_load_ps((float *) (uxs_2 + 7 * (BLOCK + 1))); ymm5  = _mm256_load_ps((float *) (uxs_2 + 1 + 7 * (BLOCK + 1)));
+        ymm8  = _mm256_load_ps((float *) (uys_2 + 7 * (BLOCK + 1))); ymm9  = _mm256_load_ps((float *) (uys_2 + 1 + 7 * (BLOCK + 1)));
 
-        // Perform additions first : u -> ymm2
-        ymm2 = _mm256_add_ps(ymm0, ymm2); 
-        ymm3 = _mm256_add_ps(ymm1, ymm3);
-        ymm2 = _mm256_add_ps(ymm2, ymm3);
+        ymm2  = _mm256_load_ps((float *) (us_2 + 8 * (BLOCK + 1)));  ymm3  = _mm256_load_ps((float *) (us_2 + 1 + 8 * (BLOCK + 1)));
+        ymm6  = _mm256_load_ps((float *) (uxs_2 + 8 * (BLOCK + 1))); ymm7  = _mm256_load_ps((float *) (uxs_2 + 1 + 8 * (BLOCK + 1)));
+        ymm10 = _mm256_load_ps((float *) (uys_2 + 8 * (BLOCK + 1))); ymm11 = _mm256_load_ps((float *) (uys_2 + 1 + 8 * (BLOCK + 1)));
 
-        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm6, ymm7);
+        // Perform additions first : u -> ymm0
+        ymm0 = _mm256_add_ps(ymm0, ymm1); 
+        ymm1 = _mm256_add_ps(ymm2, ymm3);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
 
-        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm4, ymm5);
+        // -ux(ix+1, iy)[0] + ux(ix, iy)[0] -> ymm4
+        ymm15 = _mm256_mul_ps(ymm5, ymm14); 
+        ymm4  = _mm256_add_ps(ymm4, ymm15);
 
-        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm10
-        ymm10 = _mm256_sub_ps(ymm10, ymm8);
+        // -ux(ix+1, iy+1)[0] + ux(ix, iy+1)[0] -> ymm5
+        ymm15 = _mm256_mul_ps(ymm7, ymm14);
+        ymm5  = _mm256_add_ps(ymm6, ymm15);
 
-        // -uy(ix+1, iy+1)[0] + uy(ix+1, iy)[0] -> ymm11
-        ymm11 = _mm256_sub_ps(ymm11, ymm9);
+        // -uy(ix, iy+1)[0] + uy(ix, iy)[0] -> ymm8
+        ymm15 = _mm256_mul_ps(ymm10, ymm14);
+        ymm8  = _mm256_add_ps(ymm8,  ymm15);
 
-        // sum ux and uy -> ymm3
-        ymm3  = _mm256_add_ps(ymm10, ymm11);
-        ymm15 = _mm256_add_ps(ymm6, ymm7);
-        ymm3  = _mm256_add_ps(ymm3, ymm15);
+        // uy(ix+1, iy+1)[0] - uy(ix+1, iy)[0] -> ymm9
+        ymm15 = _mm256_mul_ps(ymm11, ymm14);
+        ymm9  = _mm256_add_ps(ymm9,  ymm15);
 
-        // Add everything together for u, ux, uy -> ymm2
-        ymm2 = _mm256_mul_ps(ymm2, ymm12);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm13, ymm2);
+        // sum ux and uy -> ymm1
+        ymm1  = _mm256_add_ps(ymm9, ymm8);
+        ymm15 = _mm256_add_ps(ymm4, ymm5);
+        ymm1  = _mm256_add_ps(ymm1, ymm15);
 
-        // Need to hold onto ymm2 and can use 3, 6, 7, 10, 11 for f and g.
+        // Add everything together for u, ux, uy -> ymm15
+        ymm0 = _mm256_mul_ps(ymm0, ymm12);
+        ymm1 = _mm256_mul_ps(ymm13, ymm1);
+        ymm0 = _mm256_add_ps(ymm0, ymm1);
+
+        // Need to hold onto ymm0 and can use 1, 4, 5, 8, 9 for f and g.
         // First f
-        ymm3  = _mm256_load_ps((float *) (fs_2 + 7 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (fs_2 + 1 + 7 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (fs_2 + 8 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (fs_2 + 1 + 8 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdx2);
+        ymm1 = _mm256_load_ps((float *) (fs_2 + 7 * (BLOCK + 1)));       ymm4 = _mm256_load_ps((float *) (fs_2 + 1 + 7 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (fs_2 + 8 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (fs_2 + 1 + 8 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdx2);
 
-        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm6);
+        // -f(ix+1, iy)[0] + f(ix, iy)[0] -> ymm1
+        ymm4 = _mm256_mul_ps(ymm4, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
 
-        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm7
-        ymm7  = _mm256_sub_ps(ymm7, ymm10);
+        // -f(ix+1, iy+1)[0] + f(ix, iy+1)[0] -> ymm5
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm5 = _mm256_add_ps(ymm5, ymm8);
 
-        // Sum f and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm7);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
+        // Sum f and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
+        ymm5 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm5);
 
         // Now g
-        ymm3  = _mm256_load_ps((float *) (gs_2 + 7 * (BLOCK + 1))); ymm6  = _mm256_load_ps((float *) (gs_2 + 1 + 7 * (BLOCK + 1)));
-        ymm7  = _mm256_load_ps((float *) (gs_2 + 8 * (BLOCK + 1))); ymm10 = _mm256_load_ps((float *) (gs_2 + 1 + 8 * (BLOCK + 1)));
-        ymm11 = _mm256_broadcast_ss(const_dtcdy2);
+        ymm1 = _mm256_load_ps((float *) (gs_2 + 7 * (BLOCK + 1))); ymm4 = _mm256_load_ps((float *) (gs_2 + 1 + 7 * (BLOCK + 1)));
+        ymm5 = _mm256_load_ps((float *) (gs_2 + 8 * (BLOCK + 1))); ymm8 = _mm256_load_ps((float *) (gs_2 + 1 + 8 * (BLOCK + 1)));
+        ymm9 = _mm256_broadcast_ss(const_dtcdy2);
 
-        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm3
-        ymm3 = _mm256_sub_ps(ymm3, ymm7);
+        // -g(ix, iy+1)[0] + g(ix, iy)[0] -> ymm1
+        ymm5 = _mm256_mul_ps(ymm5, ymm14);
+        ymm1 = _mm256_add_ps(ymm1, ymm5);
 
-        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm6
-        ymm6  = _mm256_sub_ps(ymm6, ymm10);
+        // -g(ix+1, iy+1)[0] + g(ix+1, iy)[0] -> ymm4
+        ymm8 = _mm256_mul_ps(ymm8, ymm14);
+        ymm4 = _mm256_add_ps(ymm4, ymm8);
 
-        // Sum g and add to ymm2
-        ymm3 = _mm256_add_ps(ymm3, ymm6);
-        ymm2 = _mm256_fmadd_ps(ymm3, ymm11, ymm2);
+        // Sum g and add to ymm0
+        ymm1 = _mm256_add_ps(ymm1, ymm4);
+        ymm4 = _mm256_mul_ps(ymm1, ymm9);
+        ymm0 = _mm256_add_ps(ymm0, ymm4);
 
         // Aaaand store
-        _mm256_store_ps((float *) (vs_2 + 7 * BLOCK), ymm2);
+        _mm256_store_ps((float *) (vs_2 + 7 * (BLOCK)), ymm0);
     }
 
     // Now copy v back in
