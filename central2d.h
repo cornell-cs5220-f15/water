@@ -266,7 +266,6 @@ void Central2D<Physics, Limiter>::apply_periodic(std::vector<vec>* U,
     // indices SUBDOMAIN_SIZE to (SUBDOMAIN_SIZE + 2 * nghost = SIZE_WITH_GHOST) are ghost cells
     // this is different from the starter code
     
-	cout << "I am here 3" << endl;
     // Copy data between right and left boundaries
 	cout << "size of U is " << (*U).size() << endl;
 	cout << "size of upper u is " << (*upper_u).size() << endl;
@@ -274,45 +273,38 @@ void Central2D<Physics, Limiter>::apply_periodic(std::vector<vec>* U,
     for (int iy = 0; iy < SUBDOMAIN_SIZE; ++iy) {
         int yOffset = iy * SIZE_WITH_GHOST;
         for (int ix = 0; ix < nghost; ++ix) {
-			cout << "I am here 4" << endl;
             int xOffset = ix + SUBDOMAIN_SIZE;
-			cout << "I am here 4" << endl;
-            cout << "size of U is " << sizeof(U[yOffset+xOffset]) << endl;
-            cout << "size of U is " << sizeof(right_u[yOffset+ix]) << endl;
-            U[yOffset + xOffset] = right_u[yOffset + ix];
-			cout << "I am here 5" << endl;
+            (*U)[yOffset + xOffset] = (*right_u)[yOffset + ix];
+			/*
             U[yOffset + xOffset + nghost] = left_u[yOffset + xOffset - nghost];
-			cout << "I am here 6" << endl;
+			*/
+            (*U)[yOffset + xOffset + nghost] = (*left_u)[yOffset + xOffset - nghost];
         }
-		cout << "I am here 7" << endl;
     }
 
-	cout << "I am here 3" << endl;
 	#pragma omp parallel for
     // Copy data between top and bottom boundaries
     for (int ix = 0; ix < SUBDOMAIN_SIZE; ++ix)
         for (int iy = 0; iy < nghost; ++iy) {
             int yOffset = (iy + SUBDOMAIN_SIZE) * SIZE_WITH_GHOST;
             
-            U[yOffset + ix] = lower_u[iy * SIZE_WITH_GHOST + ix];
-            U[yOffset + ix + nghost*SIZE_WITH_GHOST] = upper_u[ix + yOffset - nghost*SIZE_WITH_GHOST];
+            (*U)[yOffset + ix] = (*lower_u)[iy * SIZE_WITH_GHOST + ix];
+            (*U)[yOffset + ix + nghost*SIZE_WITH_GHOST] = (*upper_u)[ix + yOffset - nghost*SIZE_WITH_GHOST];
         }
     
-	cout << "I am here 3" << endl;
     // copy data from corners
     for( int ix = 0; ix < nghost; ++ix ) {
         int xOffset = SUBDOMAIN_SIZE + ix;
         for( int iy = 0; iy < nghost; ++iy ) {
             int yOffset = (SUBDOMAIN_SIZE + iy) * SIZE_WITH_GHOST;
             
-            U[yOffset + xOffset] = lowerR_u[iy*SIZE_WITH_GHOST + ix];
-            U[yOffset + xOffset + nghost] = lowerL_u[iy*SIZE_WITH_GHOST + xOffset - nghost];
-            U[yOffset + nghost*SIZE_WITH_GHOST + xOffset] = upperR_u[(SUBDOMAIN_SIZE + iy - nghost)*SIZE_WITH_GHOST + ix];
-            U[yOffset + nghost*SIZE_WITH_GHOST + xOffset + nghost] = upperL_u[(SUBDOMAIN_SIZE + iy - nghost)*SIZE_WITH_GHOST + xOffset - nghost];
+            (*U)[yOffset + xOffset] = (*lowerR_u)[iy*SIZE_WITH_GHOST + ix];
+            (*U)[yOffset + xOffset + nghost] = (*lowerL_u)[iy*SIZE_WITH_GHOST + xOffset - nghost];
+            (*U)[yOffset + nghost*SIZE_WITH_GHOST + xOffset] = (*upperR_u)[(SUBDOMAIN_SIZE + iy - nghost)*SIZE_WITH_GHOST + ix];
+            (*U)[yOffset + nghost*SIZE_WITH_GHOST + xOffset + nghost] = (*upperL_u)[(SUBDOMAIN_SIZE + iy - nghost)*SIZE_WITH_GHOST + xOffset - nghost];
         }
     }
 
-	cout << "I am here 3" << endl;
 }
 
 
@@ -505,10 +497,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 			*/
 			const int index =  j * NUM_BLOCKS_X + i;
             //subDomainPointers_u[index] = (std::vector<vec>*) malloc(SIZE_WITH_GHOST * SIZE_WITH_GHOST * sizeof(std::vector<vec>));
-			cout << " I am here 10" << endl;
             subDomainPointers_u[index] = new std::vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
-			cout << "subdomain size is " << (*subDomainPointers_u[index]).size() << endl;
-			cout << " I am here 10" << endl;
             
             // to read from original grid, offset to block start location
             int xBlockOffset = i * SUBDOMAIN_SIZE;
@@ -526,11 +515,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     // if outside domain, copy zero
                     if(xCoord < nx && yCoord < ny) {
                         vec& U = u(xCoord, yCoord);
-						cout << "I am here 14" << endl;
-						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][0] = U[0];
-						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][1] = U[1];
-						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][2] = U[2];
-						cout << "I am here 15" << endl;
+						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y] = U;
 						/*
                         castIndex(subDomainPointers_u[index], y, x)[0] = U[0];
                         castIndex(subDomainPointers_u[index], y, x)[1] = U[1];
@@ -602,6 +587,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                            right_u, lowerL_u, lower_u, lowerR_u);
             
             
+			cout << "finish the periodic piece" << endl;
             compute_fg_speeds(myU, myFluxX, myFluxY, cx, cy);
             // TODO: place barrier here to sync max speed
             // BARRIER
