@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
+#include <immintrin.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -198,7 +199,6 @@ protected:
     void compute_fg_speeds(real& cx, real& cy);
     void limited_derivs();
     void compute_step(int io, real dt);
-
 };
 
 
@@ -275,7 +275,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    
+
     for (int iy = 0; iy < ny_all; ++iy) {
       #pragma ivdep
       for (int ix = 0; ix < nx_all; ++ix) {

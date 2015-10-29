@@ -102,7 +102,7 @@ void BlockedSimulation::copy_ghosts(int i, int j) {
       int j_left = j == 0 ? nblocks-1 : j-1;
       int j_right = j == nblocks-1 ? 0 : j+1;
 
-      //One by one copy from each and every 8 neighbors:
+      // One by one copy from each and every 8 neighbors:
       SimBlock& self = blocks[i][j];
       self.copy_ghosts_from_left(blocks[i][j_left]);
       self.copy_ghosts_from_topleft(blocks[i_top][j_left]);
