@@ -72,6 +72,9 @@ board2d_t* board2d_init(int nx_whole, int ny_whole, int sep_x, int sep_y, float 
     board->nfield    = nfield;
     board->dx        = w/nx_whole;
     board->dy        = h/ny_whole;
+    board->cfl       = cfl;
+    board->flux      = flux;
+    board->speed     = speed;
 
     board->ub       = (float*) malloc((nx_whole * ny_whole * nfield) * sizeof(float));
 
@@ -446,8 +449,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    int nx, int ny, int ng,
                    int nfield, flux_t flux, speed_t speed,
                    float tfinal, float dx, float dy, 
-                   float cfl, int td_num,
-                   float* ub, int nx_whole, int ny_whole, int sep_x, int sep_y)
+                   int td_num, float* ub, int nx_whole, 
+                   int ny_whole, int sep_x, int sep_y, float dt)
 {
     int nstep = 0;
     int nx_all = nx + 2*ng;
@@ -457,15 +460,9 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
     while (!done) 
     {
-        float cxy[2] = {1.0e-15f, 1.0e-15f};
         write_in(u, ub, nx, ny, ng, nfield, td_num, nx_whole, ny_whole, sep_x, sep_y);
         #pragma omp barrier
         
-        speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
-        float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-
-        dt = 0.0011;
-
         for (int i = 0; (i < (ng - 1) / 3) && (!done); i++)
         {
             if (t + 2*dt >= tfinal) 
@@ -475,6 +472,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             }
        
             central2d_step(u, v, scratch, f, g, 0, nx+2*ng-i*6-4, ny+2*ng-i*6-4, i*3+2, nfield, flux, speed, dt, dx, dy);
+
             central2d_step(v, u, scratch, f, g, 1, nx+2*ng-i*6-8, ny+2*ng-i*6-8, i*3+4, nfield, flux, speed, dt, dx, dy);
             
             t += 2*dt;
@@ -483,31 +481,38 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
         write_back(u, ub, nx, ny, ng, nfield, td_num, nx_whole, ny_whole, sep_x, sep_y);
         #pragma omp barrier
+        
     }
 
     return nstep;
 }
 
 
-int central2d_run(central2d_t* sim, float tfinal, int td_num, float* ub, int nx_whole, int ny_whole, int sep_x, int sep_y)
+int central2d_run(central2d_t* sim, float tfinal, int td_num, float* ub, int nx_whole, int ny_whole, int sep_x, int sep_y, float dt)
 {
     return central2d_xrun(sim->u, sim->v, sim->scratch,
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl, td_num,
-                          ub, nx_whole, ny_whole, sep_x, sep_y);
+                          tfinal, sim->dx, sim->dy, td_num,
+                          ub, nx_whole, ny_whole, sep_x, sep_y, dt);
 }
 
 int board2d_run(board2d_t* board, float tfinal)
 {
     int nstep = 0;
 
+    float cxy[2] = {1.0e-15f, 1.0e-15f};
+    board->speed(cxy, board->ub, board->nx_whole * board->ny_whole, board->nx_whole * board->ny_whole);
+    float dt = board->cfl / fmaxf(cxy[0]/board->dx, cxy[1]/board->dy);
+
+    printf("---dt:%f\n", dt);
+
     #pragma omp parallel num_threads(board->sep_x * board->sep_y) reduction(+:nstep)
     {
         int td_num = omp_get_thread_num();
         
-        nstep = central2d_run(&(board->central_b[td_num]), tfinal, td_num, board->ub, board->nx_whole, board->ny_whole, board->sep_x, board->sep_y);
+        nstep = central2d_run(&(board->central_b[td_num]), tfinal, td_num, board->ub, board->nx_whole, board->ny_whole, board->sep_x, board->sep_y, dt);
     }
 
     return (nstep / (board->sep_x * board->sep_y));

@@ -109,6 +109,9 @@ typedef struct board2d_t
     int sep_x, sep_y;
     int nfield;
     float dx, dy;
+    float cfl;
+    flux_t flux;
+    speed_t speed;
 
     float* ub;
 
