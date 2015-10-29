@@ -21,7 +21,7 @@ with open(file_name + '.csv', 'rb') as csvfile:
     for row in reader:
         t.append(float(row[0]))
 
-plt.plot(t)
+plt.plot(t[:-1])
 plt.savefig(file_name + '.png')
 plt.clf()
 plt.cla()

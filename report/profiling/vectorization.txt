@@ -1,0 +1,18 @@
+Function                                       Module              CPU Time  Spin Time  Overhead Time
+---------------------------------------------  ------------------  --------  ---------  -------------
+compute_step                                   shallow               2.136s         0s             0s
+limited_derivs                                 shallow               0.448s         0s             0s
+compute_fg_speeds                              shallow               0.362s         0s             0s
+limdiff_y                                      shallow               0.204s         0s             0s
+limdiff_x                                      shallow               0.201s         0s             0s
+limdiff_x                                      shallow               0.200s         0s             0s
+limdiff_y                                      shallow               0.200s         0s             0s
+limdiff_x                                      shallow               0.197s         0s             0s
+limdiff_x                                      shallow               0.192s         0s             0s
+limdiff_y                                      shallow               0.192s         0s             0s
+limdiff_x                                      shallow               0.188s         0s             0s
+limdiff_y                                      shallow               0.186s         0s             0s
+limdiff_y                                      shallow               0.184s         0s             0s
+vector<float, allocator<float>>::operator[]    shallow               0.062s         0s             0s
+vector<float, allocator<float>>::operator[]    shallow               0.061s         0s             0s
+vector<float, allocator<float>>::operator[]    shallow               0.051s         0s             0s
