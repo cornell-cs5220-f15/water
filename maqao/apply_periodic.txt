@@ -1,0 +1,74 @@
+Section 1: Function: Central2D<Shallow2D, MinMod<float> >::apply_periodic()
+===========================================================================
+
+These loops are supposed to be defined in: /home/jbc264/water/central2d.h
+
+Section 1.1: Source loop ending at line 780
+===========================================
+
+Composition and unrolling
+-------------------------
+It is composed of the following loops [ID (first-last source line)]:
+ - 27 (160-780)
+ - 28 (160-780)
+and is multi-versionned but not unrolled (including vectorization).
+The analysis will be displayed for the first found loop: 27
+
+Type of elements and instruction set
+------------------------------------
+
+Vectorization
+-------------
+Your loop is not vectorized (all SSE/AVX instructions are used in scalar mode).
+Only 25% of vector length is used.
+
+Matching between your loop (in the source code) and the binary loop
+-------------------------------------------------------------------
+The binary loop does not contain any FP arithmetical operations.
+The binary loop is loading 92 bytes.
+The binary loop is storing 72 bytes.
+
+
+Cycles and resources usage
+--------------------------
+Assuming all data fit into the L1 cache, each iteration of the binary loop takes 22.00 cycles. At this rate:
+ - 26% of peak load performance is reached (4.18 out of 16.00 bytes loaded per cycle (GB/s @ 1GHz))
+ - 20% of peak store performance is reached (3.27 out of 16.00 bytes stored per cycle (GB/s @ 1GHz))
+
+Pathological cases
+------------------
+Your loop is processing FP elements but is NOT OR PARTIALLY VECTORIZED and could benefit from full vectorization.
+Since your execution units are vector units, only a fully vectorized loop can use their full power.
+By fully vectorizing your loop, you can lower the cost of an iteration from 22.00 to 14.00 cycles (1.57x speedup).
+Two propositions:
+ - Try another compiler or update/tune your current one:
+  * Intel: use the vec-report option to understand why your loop was not vectorized. If "existence of vector dependences", try the IVDEP directive. If, using IVDEP, "vectorization possible but seems inefficient", try the VECTOR ALWAYS directive.
+ - Remove inter-iterations dependences from your loop and make it unit-stride.
+
+Detected EXPENSIVE INSTRUCTIONS, generating more than one micro-operation.
+Only one of these instructions can be decoded during a cycle and the extra micro-operations increase pressure on execution units.
+IDIV: 1 occurrences
+ - Pass to your compiler a micro-architecture specialization option:
+  * Intel: use axHost or xHost.
+
+Fix as many pathological cases as you can before reading the following sections.
+
+Bottlenecks
+-----------
+Front-end is a bottleneck.
+You can remove this bottleneck by making your loop fit into the loop buffer which is located after instruction predecoding.
+The binary loop has 70 instructions and a size of 330 bytes but the loop buffer can only contain MIN (18 instructions, 64 bytes)
+Try to reduce the loop size. For example:
+ - Pass to your compiler a micro-architecture specialization option:
+  * Intel: use axHost or xHost.
+ - Reduce the loop unroll factor
+
+Load units are a bottleneck.
+Try to reduce the number of loads.
+For example, provide more information to your compiler:
+ - hardcode the bounds of the corresponding 'for' loop,
+
+By removing all these bottlenecks, you can lower the cost of an iteration from 22.00 to 20.00 cycles (1.10x speedup).
+
+
+All innermost loops were analyzed.

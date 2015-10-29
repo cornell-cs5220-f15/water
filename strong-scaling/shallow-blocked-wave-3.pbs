@@ -1,0 +1,11 @@
+#!/bin/sh -l
+
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=0:30:00
+#PBS -N shallow-blocked-wave-3
+#PBS -j oe
+
+module load cs5220
+cd $PBS_O_WORKDIR
+export OMP_NUM_THREADS=3
+../shallow-blocked -i wave -o wave.out -n 1000 -F 100

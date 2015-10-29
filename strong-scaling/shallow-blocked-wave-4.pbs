@@ -2,9 +2,10 @@
 
 #PBS -l nodes=1:ppn=24
 #PBS -l walltime=0:30:00
-#PBS -N shallow
+#PBS -N shallow-blocked-wave-4
 #PBS -j oe
 
 module load cs5220
 cd $PBS_O_WORKDIR
-./shallow -i dam_break -o dam_break.out
+export OMP_NUM_THREADS=4
+../shallow-blocked -i wave -o wave.out -n 1000 -F 100

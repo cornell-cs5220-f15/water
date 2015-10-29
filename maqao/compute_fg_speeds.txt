@@ -1,0 +1,79 @@
+Section 1: Function: Central2D<Shallow2D, MinMod<float> >::compute_fg_speeds(float&, float&)
+============================================================================================
+
+These loops are supposed to be defined in: /home/jbc264/water/shallow2d.h
+
+Section 1.1: Source loop ending at line 483
+===========================================
+
+Composition and unrolling
+-------------------------
+It is composed of the loop 26
+and is not unrolled or unrolled with no peel/tail code (including vectorization).
+The analysis will be displayed for the first found loop: 26
+
+Type of elements and instruction set
+------------------------------------
+14 SSE or AVX instructions are processing arithmetic or math operations on single precision FP elements in scalar mode (one at a time).
+4 SSE or AVX instructions are processing arithmetic or math operations on double precision FP elements in scalar mode (one at a time).
+
+Vectorization
+-------------
+Your loop is probably not vectorized (store and arithmetical SSE/AVX instructions are used in scalar mode and, for others, at least one is in vector mode).
+Only 36% of vector length is used.
+
+Matching between your loop (in the source code) and the binary loop
+-------------------------------------------------------------------
+The binary loop is composed of 16 FP arithmetical operations:
+ - 4: addition or subtraction
+ - 6: multiply
+ - 5: divide
+ - 1: square root
+The binary loop is loading 68 bytes (17 single precision FP elements).
+The binary loop is storing 24 bytes (6 single precision FP elements).
+
+Arithmetic intensity is 0.17 FP operations per loaded or stored byte.
+
+Cycles and resources usage
+--------------------------
+Assuming all data fit into the L1 cache, each iteration of the binary loop takes 72.00 cycles. At this rate:
+ - 2% of peak computational performance is reached (0.22 out of 8.00 FLOP per cycle (GFLOPS @ 1GHz))
+ - 5% of peak load performance is reached (0.94 out of 16.00 bytes loaded per cycle (GB/s @ 1GHz))
+ - 2% of peak store performance is reached (0.33 out of 16.00 bytes stored per cycle (GB/s @ 1GHz))
+
+Pathological cases
+------------------
+Your loop is processing FP elements but is NOT OR PARTIALLY VECTORIZED and could benefit from full vectorization.
+Since your execution units are vector units, only a fully vectorized loop can use their full power.
+By fully vectorizing your loop, you can lower the cost of an iteration from 72.00 to 18.00 cycles (4.00x speedup).
+Two propositions:
+ - Try another compiler or update/tune your current one:
+  * Intel: use the vec-report option to understand why your loop was not vectorized. If "existence of vector dependences", try the IVDEP directive. If, using IVDEP, "vectorization possible but seems inefficient", try the VECTOR ALWAYS directive.
+ - Remove inter-iterations dependences from your loop and make it unit-stride.
+
+Detected EXPENSIVE INSTRUCTIONS, generating more than one micro-operation.
+Only one of these instructions can be decoded during a cycle and the extra micro-operations increase pressure on execution units.
+CVTSD2SS: 2 occurrences
+CVTSS2SD: 3 occurrences
+ - Pass to your compiler a micro-architecture specialization option:
+  * Intel: use axHost or xHost.
+
+Detected expensive conversion instructions (typically from/to single/double precision).
+Use double instead of single precision only when/where needed by numerical stability
+and avoid mixing data with different types. In particular, check if the type of constants
+is the same as array elements. In:
+ - C/C++, FP constants are double precision by default and must be suffixed by 'f' to make them single precision,
+
+Fix as many pathological cases as you can before reading the following sections.
+
+Bottlenecks
+-----------
+The divide/square root unit is a bottleneck.
+Try to reduce the number of division or square root instructions.
+If you accept to loose numerical precision, you can speedup your code by passing the following options to your compiler:
+Intel: this should be automatically done by default
+
+By removing all these bottlenecks, you can lower the cost of an iteration from 72.00 to 16.00 cycles (4.50x speedup).
+
+
+All innermost loops were analyzed.

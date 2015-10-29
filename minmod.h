@@ -6,18 +6,18 @@
 //ldoc on
 /**
  * # MinMod limiter
- * 
+ *
  * Numerical methods for solving nonlinear wave equations are
  * complicated by the fact that even with smooth initial data, a
  * nonlinear wave can develop discontinuities (shocks) in finite time.
- * 
+ *
  * This makes for interesting analysis, since a "strong" solution
  * that satisfies the differential equation no longer makes sense at
  * a shock -- instead, we have to come up with some mathematically
  * and physically reasonable definition of a "weak" solution that
  * satisfies the PDE away from the shock and satisfies some other
  * condition (an entropy condition) at the shock.
- * 
+ *
  * The presence of shocks also makes for interesting *numerical*
  * analysis, because we need to be careful about employing numerical
  * differentiation formulas that sample a discontinuous function at
@@ -32,7 +32,7 @@
  * we can construct methods that have high-order accuracy away from shocks
  * and are at least first-order accurate close to a shock.  These are
  * sometimes called *high-resolution* methods.
- * 
+ *
  * The MinMod (minimum modulus) limiter is one example of a limiter.
  * The MinMod limiter estimates the slope through points $f_-, f_0, f_+$
  * (with the step $h$ scaled to 1) by
@@ -42,7 +42,7 @@
  * where the minmod function returns the argument with smallest absolute
  * value if all arguments have the same sign, and zero otherwise.
  * Common choices of $\theta$ are $\theta = 1.0$ and $\theta = 2.0$.
- * 
+ *
  * The minmod limiter *looks* like it should be expensive to computer,
  * since superficially it seems to require a number of branches.
  * We do something a little tricky, getting rid of the condition
@@ -50,7 +50,7 @@
  * If the compiler does the "right" thing with `max` and `min`
  * for floating point arguments (translating them to branch-free
  * intrinsic operations), this implementation should be relatively fast.
- * 
+ *
  * There are many other potential choices of limiters as well.  We'll
  * stick with this one for the code, but you should feel free to
  * experiment with others if you know what you're doing and think it
@@ -59,22 +59,25 @@
 
 template <class real>
 struct MinMod {
-    static constexpr real theta = 2.0;
+    static constexpr real theta = 2.0f;
 
     // Branch-free computation of minmod of two numbers
     static real xmin(real a, real b) {
-        using namespace std;
-        return ((copysign((real) 0.5, a) +
-                 copysign((real) 0.5, b)) *
-                min( abs(a), abs(b) ));
+      using namespace std;
+
+      return ((copysign((real) 0.5f, a) +
+               copysign((real) 0.5f, b)) *
+              min( abs(a), abs(b) ));
     }
 
     // Limited combined slope estimate
+    #pragma omp declare simd
     static real limdiff(real um, real u0, real up) {
-        real du1 = u0-um;         // Difference to left
-        real du2 = up-u0;         // Difference to right
-        real duc = 0.5*(du1+du2); // Centered difference
-        return xmin( theta*xmin(du1, du2), duc );
+      real du1 = u0 - um;         // Difference to left
+      real du2 = up - u0;         // Difference to right
+      real duc = 0.5f * (du1 + du2); // Centered difference
+
+      return xmin( theta*xmin(du1, du2), duc );
     }
 };
 
