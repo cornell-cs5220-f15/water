@@ -30,7 +30,7 @@
  * limiter:
  */
 
-typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
+typedef Central2D< Shallow2D, MinMod<Shallow2D::real, Shallow2D::vec> > Sim;
 
 /**
  * ## Initial states
@@ -148,7 +148,7 @@ int main(int argc, char** argv)
     int    nx         = 200;
     double width      = 2.0;
     double ftime      = 0.01;
-    int    frames     = 50;
+    int    frames     = 100;
     
     int c;
     extern char* optarg;
@@ -202,16 +202,20 @@ int main(int argc, char** argv)
     } else {
         fprintf(stderr, "Unknown initial conditions\n");
     }
-    
-    Sim sim(width,width, nx,nx);
+    int ratio = 4;
+    nx = ceil(nx/4)*4;   
+    Sim sim(width,width, nx,nx, 0);
     SimViz<Sim> viz(fname.c_str(), sim);
     sim.init(icfun1, icfun2, icfun3);
     sim.solution_check();
+    printf("init done\n");
     viz.write_frame();
 
     double total = 0.0;
     std::ofstream time_file;
     time_file.open("timings.csv");
+    std::ofstream avg_file;
+    avg_file.open("average.csv");
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
@@ -226,7 +230,9 @@ int main(int argc, char** argv)
         sim.solution_check();
         viz.write_frame();
     }
+    avg_file << (total/(double)frames) << std::endl;
     time_file << total << std::endl;
     time_file.close();
+    avg_file.close();
 
 }

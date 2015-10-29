@@ -7,7 +7,7 @@
 #include <vector>
 #include <iostream>
 #include <omp.h>
-
+#include <math.h>
 //ldoc on
 /**
  * # Jiang-Tadmor central difference scheme
@@ -101,11 +101,12 @@ public:
     typedef typename Physics::vec  vec;
 
     Central2D(real w, real h,     // Domain width / height
-              int nx, int ny,     // Number of cells in x/y (without ghosts)
-              real cfl = 0.45) :  // Max allowed CFL number
-        nx(nx), ny(ny),
-        nx_all(nx + 2*nghost),
-        ny_all(ny + 2*nghost),
+              int nx, int ny, // Number of cells in x/y (without ghosts)
+              int time_steps, // Number of time steps done by subgrids, set to 0 for main grid
+			  real cfl = 0.45) :  // Max allowed CFL number
+        nx(nx), ny(ny), time_steps(time_steps), w(w), h(h),
+        nx_all(nx + 2*time_steps*nghost),
+        ny_all(ny + 2*time_steps*nghost),
         dx(w/nx), dy(h/ny),
         cfl(cfl), 
         u_h_   ( nx_all * ny_all),
@@ -154,56 +155,58 @@ public:
     
     // Read / write elements of simulation state
     real& operator()(int i, int j) {
-        return u_h_[offset(i+nghost,j+nghost)];
+        return u_h_[offset(i+time_steps*nghost,j+time_steps*nghost)];
     }
     
     const real& operator()(int i, int j) const {
-        return u_h_[offset(i+nghost,j+nghost)];
+        return u_h_[offset(i+time_steps*nghost,j+time_steps*nghost)];
     }
     
 private:
     static constexpr int nghost = 3;   // Number of ghost cells
-
+	const real w; //added those as variables of object as they need to be passed down to children
+	const real h;
+	const int time_steps;
     const int nx, ny;         // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all; // Total cells in x/y (including ghost)
     const real dx, dy;        // Cell size in x/y
     const real cfl;           // Allowed CFL number
 
-    std::vector<real> u_h_;   // h component of solution
-    std::vector<real> u_hu_;  // hu component of solution
-    std::vector<real> u_hv_;  // hv component of solution
+    vec u_h_;   // h component of solution
+    vec u_hu_;  // hu component of solution
+    vec u_hv_;  // hv component of solution
 
-    std::vector<real> f0_;    // First component of flux in x
-    std::vector<real> f1_;    // Second component of flux in x
-    std::vector<real> f2_;    // Third component of flux in x
+    vec f0_;    // First component of flux in x
+    vec f1_;    // Second component of flux in x
+    vec f2_;    // Third component of flux in x
 
-    std::vector<real> g0_;    // First component of flux in y
-    std::vector<real> g1_;    // Second component of flux in y
-    std::vector<real> g2_;    // Third component of flux in y
+    vec g0_;    // First component of flux in y
+    vec g1_;    // Second component of flux in y
+    vec g2_;    // Third component of flux in y
 
-    std::vector<real> ux_h_;  // x differences of u
-    std::vector<real> ux_hu_; // x differences of u
-    std::vector<real> ux_hv_; // x differences of u
+    vec ux_h_;  // x differences of u
+    vec ux_hu_; // x differences of u
+    vec ux_hv_; // x differences of u
 
-    std::vector<real> uy_h_;  // y differences of u
-    std::vector<real> uy_hu_; // y differences of u
-    std::vector<real> uy_hv_; // y differences of u
+    vec uy_h_;  // y differences of u
+    vec uy_hu_; // y differences of u
+    vec uy_hv_; // y differences of u
 
-    std::vector<real> fx0_;   // x differences of f
-    std::vector<real> fx1_;   // x differences of f
-    std::vector<real> fx2_;   // x differences of f
+    vec fx0_;   // x differences of f
+    vec fx1_;   // x differences of f
+    vec fx2_;   // x differences of f
 
-    std::vector<real> gy0_;   // y differences of g
-    std::vector<real> gy1_;   // y differences of g
-    std::vector<real> gy2_;   // y differences of g
+    vec gy0_;   // y differences of g
+    vec gy1_;   // y differences of g
+    vec gy2_;   // y differences of g
 
-    std::vector<real> v_h_;   // h component of solution values at next step
-    std::vector<real> v_hu_;  // hu component of solution values at next step
-    std::vector<real> v_hv_;  // hv component of solution values at next step
+    vec v_h_;   // h component of solution values at next step
+    vec v_hu_;  // hu component of solution values at next step
+    vec v_hv_;  // hv component of solution values at next step
 	
-    std::vector<real> uh_h_;   // h component of solution values at half step
-    std::vector<real> uh_hu_;  // hu component of solution values at half step
-    std::vector<real> uh_hv_;  // hv component of solution values at half step
+    vec uh_h_;   // h component of solution values at half step
+    vec uh_hu_;  // hu component of solution values at half step
+    vec uh_hv_;  // hv component of solution values at half step
 	
     // Array accessor functions
 
@@ -256,16 +259,17 @@ private:
     real& u_hu_wrap(int ix, int iy)  { return u_hu_[ioffset(ix,iy)]; }
     real& u_hv_wrap(int ix, int iy)  { return u_hv_[ioffset(ix,iy)]; }
 
-    // Apply limiter to all components in a vector
-    static void limdiff(real& du, const real& um, const real& u0, const real& up) {
-        du = Limiter::limdiff(um, u0, up);
-    }
-
     // Stages of the main algorithm
     void apply_periodic();
     void compute_fg_speeds(real& cx, real& cy);
     void limited_derivs();
-    void compute_step(int io, real dt);
+    void compute_fg_speeds_u(real& cx, real& cy);
+    void compute_fg_speeds_v(real& cx, real& cy);
+    void compute_step(int io, real dt);   
+    void init_smallgrid_from_u( Central2D<Physics, Limiter>& sub_sim, int s, int size_ratio );    
+    void init_smallgrid_from_v( Central2D<Physics, Limiter>& sub_sim, int s, int size_ratio );
+    void map_to_u( Central2D<Physics, Limiter>& sub_sim, int s, int size_ratio );
+    void map_to_v( Central2D<Physics, Limiter>& sub_sim, int s, int size_ratio );
 
 };
 
@@ -287,17 +291,17 @@ void Central2D<Physics, Limiter>::init(F f0, F f1, F f2)
 {
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix)
-            f0(u_h(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            f0(u_h(ix,iy), (ix+0.5)*dx, (iy+0.5)*dy);
     }
 
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix)
-            f1(u_hu(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            f1(u_hu(ix,iy), (ix+0.5)*dx, (iy+0.5)*dy);
     }
 
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix)
-            f2(u_hv(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            f2(u_hv(ix,iy), (ix+0.5)*dx, (iy+0.5)*dy);
     }
 }
 
@@ -316,7 +320,7 @@ void Central2D<Physics, Limiter>::init(F f0, F f1, F f2)
  * "canonical", and setting the values for all other cells `(ix,iy)`
  * to the corresponding canonical values `(ix+p*nx,iy+q*ny)` for some
  * integers `p` and `q`.
- */
+ *
 
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
@@ -378,86 +382,30 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     real cx = 1.0e-15;
     real cy = 1.0e-15;
 
-    // Update the FU[0] component
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f00(f0(ix,iy), u_hu(ix,iy));
-        }
+    Physics::flux(f0_, f1_, f2_, g0_, g1_, g2_, u_h_, u_hu_, u_hv_, 0, nx_all, 0, ny_all, nx_all);
+    Physics::wave_speed(cx, cy, u_h_, u_hu_, u_hv_, (nx_all * ny_all));
+    cx_ = cx;
+    cy_ = cy;
+}
 
-    // Update the FU[1] component with hu
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f10(f1(ix,iy), u_hu(ix,iy));
-        }
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::compute_fg_speeds_v(real& cx_, real& cy_)
+{
+    using namespace std;
+    real cx = 1.0e-15;
+    real cy = 1.0e-15;
+    Physics::wave_speed(cx, cy, v_h_, v_hu_, v_hv_, (nx_all * ny_all));
+    cx_ = cx;
+    cy_ = cy;
+}
 
-    // Update the FU[1] component with h
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f12(f1(ix,iy), u_h(ix,iy));
-        }
-    
-    // Update the FU[2] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f20(f2(ix,iy), u_hu(ix,iy));
-        }
-    
-    // Update the FU[2] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f21(f2(ix,iy), u_hv(ix,iy));
-        }
-
-    // Update the FU[2] component with h
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_f22(f2(ix,iy), u_h(ix,iy));
-        }
-            
-    // Update the GU[0] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g00(g0(ix,iy), u_hv(ix,iy));
-        }
-
-    // Update the GU[1] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g10(g1(ix,iy), u_hv(ix,iy));
-        }
-
-    // Update the GU[1] component with hu
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g10(g1(ix,iy), u_hu(ix,iy));
-        }
-
-    // Update the GU[1] component with h
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g12(g1(ix,iy), u_h(ix,iy));
-        }
-    
-    // Update the GU[2] component with hv
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g20(g2(ix,iy), u_hv(ix,iy));
-        }
-
-    // Update the GU[2] component with h
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            Physics::flux_g22(g2(ix,iy), u_h(ix,iy));
-        }
-    
-    //TODO: Maybe there is a better way to vectorize this?
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
-            real cell_cx, cell_cy;
-            Physics::wave_speed(cell_cx, cell_cy, u_h(ix,iy), u_hu(ix,iy), u_hv(ix,iy));
-            cx = max(cx, cell_cx);
-            cy = max(cy, cell_cy);
-        }
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::compute_fg_speeds_u(real& cx_, real& cy_)
+{
+    using namespace std;
+    real cx = 1.0e-15;
+    real cy = 1.0e-15;
+    Physics::wave_speed(cx, cy, u_h_, u_hu_, u_hv_, (nx_all * ny_all));
     cx_ = cx;
     cy_ = cy;
 }
@@ -475,94 +423,18 @@ void Central2D<Physics, Limiter>::limited_derivs()
 {
     #pragma omp parallel 
     {
-        // x derivatives
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy) {
-                for (int ix = 1; ix < nx_all-1; ++ix) {
-                    limdiff( ux_h(ix,iy), u_h(ix-1,iy), u_h(ix,iy), u_h(ix+1,iy) );
-                }
-            }
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( ux_hu(ix,iy), u_hu(ix-1,iy), u_hu(ix,iy), u_hu(ix+1,iy) );
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( ux_hv(ix,iy), u_hv(ix-1,iy), u_hv(ix,iy), u_hv(ix+1,iy) );
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( fx0(ix,iy), f0(ix-1,iy), f0(ix,iy), f0(ix+1,iy) );
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( fx1(ix,iy), f1(ix-1,iy), f1(ix,iy), f1(ix+1,iy) );
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( fx2(ix,iy), f2(ix-1,iy), f2(ix,iy), f2(ix+1,iy) );
-        }
-
-        // y derivatives
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( uy_h(ix,iy), u_h(ix,iy-1), u_h(ix,iy), u_h(ix,iy+1) );
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( uy_hu(ix,iy), u_hu(ix,iy-1), u_hu(ix,iy), u_hu(ix,iy+1) );
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( uy_hv(ix,iy), u_hv(ix,iy-1), u_hv(ix,iy), u_hv(ix,iy+1) );
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( gy0(ix,iy), g0(ix,iy-1), g0(ix,iy), g0(ix,iy+1) );
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( gy1(ix,iy), g1(ix,iy-1), g1(ix,iy), g1(ix,iy+1) );
-        }
-
-        #pragma omp single 
-        {
-            for (int iy = 1; iy < ny_all-1; ++iy)
-                for (int ix = 1; ix < nx_all-1; ++ix)
-                    limdiff( gy2(ix,iy), g2(ix,iy-1), g2(ix,iy), g2(ix,iy+1) );
-        }
-
+    Limiter::limdiff_x( ux_h_, u_h_, nx_all, ny_all );
+    Limiter::limdiff_x( ux_hu_, u_hu_, nx_all, ny_all );
+    Limiter::limdiff_x( ux_hv_, u_hv_, nx_all, ny_all );
+    Limiter::limdiff_x( fx0_, f0_, nx_all, ny_all );
+    Limiter::limdiff_x( fx1_, f1_, nx_all, ny_all );
+    Limiter::limdiff_x( fx2_, f2_, nx_all, ny_all );
+    Limiter::limdiff_y( uy_h_, u_h_, nx_all, ny_all );
+    Limiter::limdiff_y( uy_hu_, u_hu_, nx_all, ny_all );
+    Limiter::limdiff_y( uy_hv_, u_hv_, nx_all, ny_all );
+    Limiter::limdiff_y( gy0_, g0_, nx_all, ny_all );
+    Limiter::limdiff_y( gy1_, g1_, nx_all, ny_all );
+    Limiter::limdiff_y( gy2_, g2_, nx_all, ny_all );
     }
 }
 
@@ -595,13 +467,16 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
+    #pragma omp parallel
+    {
     // Predictor (flux values of f and g at half step)
+    #pragma omp for
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
 			uh_h(ix,iy)=u_h(ix,iy);
             uh_h(ix, iy) -= dtcdx2 * fx0(ix, iy);
             uh_h(ix, iy) -= dtcdy2 * gy0(ix, iy);
-			
+	   
 			uh_hu(ix,iy)=u_hu(ix,iy);
             uh_hu(ix, iy) -= dtcdx2 * fx1(ix, iy);
             uh_hu(ix, iy) -= dtcdy2 * gy1(ix, iy);
@@ -611,82 +486,13 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
             uh_hv(ix, iy) -= dtcdy2 * gy2(ix, iy);
         }
 
-    // Update the FU[0] component
-    for (int iy = 1; iy < ny_all -1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f00(f0(ix,iy), uh_hu(ix,iy));
-        }
-
-    // Update the FU[1] component with hu
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f10(f1(ix,iy), uh_hu(ix,iy));
-        }
-
-    // Update the FU[1] component with h
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f12(f1(ix,iy), uh_h(ix,iy));
-        }
-    
-    // Update the FU[2] component with hu
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f20(f2(ix,iy), uh_hu(ix,iy));
-        }
-    
-    // Update the FU[2] component with hv
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f21(f2(ix,iy), uh_hv(ix,iy));
-        }
-
-    // Update the FU[2] component with h
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_f22(f2(ix,iy), uh_h(ix,iy));
-        }
-            
-    // Update the GU[0] component with hv
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g00(g0(ix,iy), uh_hv(ix,iy));
-        }
-
-    // Update the GU[1] component with hv
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g10(g1(ix,iy), uh_hv(ix,iy));
-        }
-
-    // Update the GU[1] component with hu
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g11(g1(ix,iy), uh_hu(ix,iy));
-        }
-
-    // Update the GU[1] component with h
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g12(g1(ix,iy), uh_h(ix,iy));
-        }
-    
-    // Update the GU[2] component with hv
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g20(g2(ix,iy), uh_hv(ix,iy));
-        }
-
-    // Update the GU[2] component with h
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            Physics::flux_g22(g2(ix,iy), uh_h(ix,iy));
-        }
+    #pragma omp single
+    Physics::flux(f0_, f1_, f2_, g0_, g1_, g2_, uh_h_, uh_hu_, uh_hv_, 1, (nx_all-1), 1, (ny_all-1), nx_all);
 
     // Corrector for h component (finish the step)
-    #pragma omp parallel for collapse(2)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+    #pragma omp for
+    for (int iy = nghost-io; iy < ny_all-(nghost-io); ++iy) // maybe this is wrong?
+        for (int ix = nghost-io; ix < nx_all-(nghost-io); ++ix) {
                 v_h(ix,iy) =
                     0.2500 * ( u_h(ix,  iy) + u_h(ix+1,iy)      +
                                u_h(ix,iy+1) + u_h(ix+1,iy+1))   -
@@ -698,12 +504,11 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
                                f0(ix+1,iy+1)   - f0(ix,iy+1))   -
                     dtcdy2 * ( g0(ix,  iy+1)   - g0(ix,  iy)    +
                                g0(ix+1,iy+1)   - g0(ix+1,iy));
-        }
+	       }
 
-    // Corrector for hu component (finish the step)
-    #pragma omp parallel for collapse(2)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+    #pragma omp for
+    for (int iy = nghost-io; iy < ny_all-(nghost-io); ++iy)
+        for (int ix = nghost-io; ix < nx_all-(nghost-io); ++ix) {
                 v_hu(ix,iy) =
                     0.2500 * ( u_hu(ix,  iy) + u_hu(ix+1,iy)      +
                                u_hu(ix,iy+1) + u_hu(ix+1,iy+1))   -
@@ -717,10 +522,9 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
                                g1(ix+1,iy+1)   - g1(ix+1,iy));
         }
 
-    // Corrector for hv component (finish the step)
-    #pragma omp parallel for collapse(2)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+    #pragma omp for
+    for (int iy = nghost-io; iy < ny_all-(nghost-io); ++iy)
+        for (int ix = nghost-io; ix < nx_all-(nghost-io); ++ix) {
                 v_hv(ix,iy) =
                     0.2500 * ( u_hv(ix,  iy) + u_hv(ix+1,iy)      +
                                u_hv(ix,iy+1) + u_hv(ix+1,iy+1))   -
@@ -735,23 +539,24 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
         }
 
     // Copy from v storage back to main grid
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u_h(i,j) = v_h(i-io,j-io);
-            }
+    #pragma omp for
+    for (int j = nghost; j < ny_all-nghost; ++j)
+        for (int i = nghost; i < nx_all -nghost; ++i){
+            u_h(i,j) = v_h(i-io,j-io);
         }
 
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u_hu(i,j) = v_hu(i-io,j-io);
-            }
+    #pragma omp for
+    for (int j = nghost; j < ny_all -nghost; ++j)
+        for (int i = nghost; i < nx_all - nghost; ++i){
+            u_hu(i,j) = v_hu(i-io,j-io);
         }
 
-        for (int j = nghost; j < ny+nghost; ++j){
-            for (int i = nghost; i < nx+nghost; ++i){
-                u_hv(i,j) = v_hv(i-io,j-io);
-            }
+    #pragma omp for
+    for (int j = nghost; j < ny_all-nghost; ++j)
+        for (int i = nghost; i < nx_all-nghost; ++i){
+            u_hv(i,j) = v_hv(i-io,j-io);
         }
+}
 }
 
 
@@ -769,30 +574,68 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
  * at the end lives on the main grid instead of the staggered grid. 
  */
 
+
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
+
+    
     bool done = false;
     real t = 0;
-    while (!done) {
-        real dt;
-        for (int io = 0; io < 2; ++io) {
-            real cx, cy;
-            apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
-            if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
-                }
-            }
-            compute_step(io, dt);
-            t += dt;
-        }
-    }
+    int size_ratio=4; // big/small
+    int sub_size = nx/size_ratio; // size of subdomain
+    int sub_number = nx*nx/sub_size/sub_size;
+    int f = floor(floor(0.2761*sub_size-2)/2)*2;
+    int time_steps= std::max(2 ,f); // number of time steps done before synchronisation -- MUST BE EVEN
+    bool maptov=false;
+   
+    while (!done) { 
+		maptov = !maptov;
+        	real dt;
+		real cx, cy;
+		if (maptov) { compute_fg_speeds_u(cx, cy); } else { compute_fg_speeds_v(cx,cy);}
+		cx = 1.5*cx; // overestimating cx and cy as we wont be recomputing it for the next #time_steps steps
+		cy=1.5*cy;
+		real maxc=std::max(cx,cy);
+		dt = cfl / std::max(cx/dx, cy/dy);
+		if (t+time_steps*dt >= tfinal){ // if the next #time_steps steps bring us to the end, set dt to be 1/time_steps of that
+			dt = (tfinal-t)/time_steps; // could probably make this better by having two different dt's -- could have at most (time_steps -1) unnecessarily calls
+		}
+		#pragma omp parallel for 
+		for(int s=0; s < sub_number; ++s){
+			Central2D<Physics, Limiter> sub_sim(w/size_ratio, h/size_ratio, sub_size, sub_size, time_steps/2 +1);// builds sub-simulation on smaller grid
+			if (maptov ){ init_smallgrid_from_u(sub_sim, s, size_ratio);}
+			else{init_smallgrid_from_v(sub_sim,s,size_ratio);}
+		
+			real local_cx, local_cy;
+			for (int io = 0; io < time_steps; ++io) {
+
+				sub_sim.compute_fg_speeds(local_cx, local_cy);
+				assert( (local_cx < maxc) && (local_cy < maxc)); 
+				sub_sim.limited_derivs(); 
+				sub_sim.compute_step(io%2, dt);
+
+			}
+			if (maptov){map_to_v( sub_sim, s, size_ratio);}
+			else {map_to_u(sub_sim,s,size_ratio);}
+		}
+
+		if(t+time_steps*dt==tfinal){
+			done=true;}
+		else{t+=time_steps*dt;}
+	}
+	if (maptov){
+	#pragma omp parallel for
+	for( int iy =0; iy < ny_all; ++iy)
+		for( int ix=0; ix < nx_all; ++ix){
+			u_h(ix,iy)=v_h(ix,iy);
+			u_hu(ix,iy)=v_hu(ix,iy);
+			u_hv(ix,iy)=v_hv(ix,iy);
+		}
+	}
+	
 }
+
 
 /**
  * ### Diagnostics
@@ -811,17 +654,17 @@ void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u_h(nghost,nghost);
+    real hmin = u_h(0,0);
     real hmax = hmin;
-    for (int j = nghost; j < ny+nghost; ++j)
-        for (int i = nghost; i < nx+nghost; ++i) {
+    for (int j = 0; j < ny; ++j)
+        for (int i = 0; i < nx; ++i) {
             real h = u_h(i,j);
             h_sum += h;
             hu_sum += u_hu(i,j);
             hv_sum += u_hv(i,j);
             hmax = max(h, hmax);
             hmin = min(h, hmin);
-            assert( h > 0) ;
+            assert( h > 0) ; 
         }
     real cell_area = dx*dy;
     h_sum *= cell_area;
@@ -830,6 +673,109 @@ void Central2D<Physics, Limiter>::solution_check()
     printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
            h_sum, hu_sum, hv_sum, hmin, hmax);
 }
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::init_smallgrid_from_u( Central2D<Physics, Limiter>& sub_sim, int s, int size_ratio ){
+	int ycoor= (s/size_ratio)*sub_sim.nx;
+	int xcoor = (s % size_ratio)*sub_sim.nx;
+	int t = sub_sim.time_steps;
+	int x,y;
 
+	for( int i=0; i < sub_sim.nx_all; ++i){
+		for( int j=0; j < sub_sim.ny_all; ++j){
+	/**		if( xcoor -t*nghost+i < 0){
+				x=nx+(xcoor-t*nghost+i);
+			}else if( xcoor -t*nghost+i >= nx){
+				x=xcoor-t*nghost+i - nx;
+			}else{ x = xcoor-t*nghost+i; }	
+			
+			if( ycoor -t*nghost+j < 0){
+				y=ny+(ycoor-t*nghost+j);
+			}else if( ycoor -t*nghost+j >= ny){
+				y=ycoor-t*nghost+j - ny;
+	
+			}else{ y = ycoor-t*nghost+j; } */
+			x=(nx+xcoor-t*nghost+i)%nx;
+			y=(ny+ycoor-t*nghost+j)%ny;	
+			sub_sim.u_h(i,j)=u_h(x,y);
+			sub_sim.u_hu(i,j)=u_hu(x,y);
+			sub_sim.u_hv(i,j)=u_hv(x,y);
+			
+		}
+	}
+	
+}
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::init_smallgrid_from_v( Central2D<Physics, Limiter>& sub_sim, int s, int size_ratio ){
+	int ycoor= (s/size_ratio)*sub_sim.nx;
+	int xcoor = (s % size_ratio)*sub_sim.nx;
+	int t = sub_sim.time_steps;
+	int x,y;
+
+	for( int i=0; i < sub_sim.nx_all; ++i){
+		for( int j=0; j < sub_sim.ny_all; ++j){
+	/**		if( xcoor -t*nghost+i < 0){
+				x=nx+(xcoor-t*nghost+i);
+			}else if( xcoor -t*nghost+i >= nx){
+				x=xcoor-t*nghost+i - nx;
+			}else{ x = xcoor-t*nghost+i; }	
+			
+			if( ycoor -t*nghost+j < 0){
+				y=ny+(ycoor-t*nghost+j);
+			}else if( ycoor -t*nghost+j >= ny){
+				y=ycoor-t*nghost+j - ny;
+	
+			}else{ y = ycoor-t*nghost+j; } */
+			x=(nx+xcoor-t*nghost+i)%nx;
+			y=(ny+ycoor-t*nghost+j)%ny;	
+			sub_sim.u_h(i,j)=v_h(x,y);
+			sub_sim.u_hu(i,j)=v_hu(x,y);
+			sub_sim.u_hv(i,j)=v_hv(x,y);
+			
+		}
+	}
+	
+}
+/** This function maps the smaller grid back to their position on the big grid
+* does not include the ghost cells of the small grid
+*
+*/
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::map_to_v( Central2D<Physics, Limiter>& sub_sim, int s, int size_ratio ){
+	int ycoor= (s/size_ratio)*sub_sim.nx;
+	int xcoor = (s % size_ratio)*sub_sim.nx;
+	int t = sub_sim.time_steps;
+
+
+	for( int i=0; i < sub_sim.nx; ++i){
+		for( int j=0; j < sub_sim.nx; ++j){
+			v_h(xcoor+i,ycoor+j)= sub_sim.u_h(i+t*nghost,j+t*nghost);
+			v_hu(xcoor+i,ycoor+j)= sub_sim.u_hu(i+t*nghost,j+t*nghost);
+			v_hv(xcoor+i,ycoor+j)= sub_sim.u_hv(i+t*nghost,j+t*nghost);
+			
+		}
+	}
+	
+}
+//*same but maps to u
+//*/
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::map_to_u( Central2D<Physics, Limiter>& sub_sim, int s, int size_ratio ){
+	int ycoor= (s/size_ratio)*sub_sim.nx;
+	int xcoor = (s % size_ratio)*sub_sim.nx;
+	int t = sub_sim.time_steps;
+
+
+	for( int i=0; i < sub_sim.nx; ++i){
+		for( int j=0; j < sub_sim.nx; ++j){
+			u_h(xcoor+i,ycoor+j)= sub_sim.u_h(i+t*nghost,j+t*nghost);
+			u_hu(xcoor+i,ycoor+j)= sub_sim.u_hu(i+t*nghost,j+t*nghost);
+			u_hv(xcoor+i,ycoor+j)= sub_sim.u_hv(i+t*nghost,j+t*nghost);
+			
+		}
+	}
+	
+}
 //ldoc off
 #endif /* CENTRAL2D_H*/

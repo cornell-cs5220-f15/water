@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <array>
+#include <algorithm>
 
 //ldoc on
 /**
@@ -89,78 +90,45 @@ struct Shallow2D {
      * GU[2]            | hv * hv      | hv * hv      | (hv * hv)/h + (0.5*g)*h*h
      * --------------------------------------------------------------------------
      */
-    static void flux_f00(real& f, const real& hu) {
-        f = hu;
-    }
-
-    static void flux_f10(real& f, const real& hu) {
-        f = hu * hu;
-    }
-
-    static void flux_f12(real& f, const real& h) {
-        f = f/h + (0.5*g)*h*h;
-    }
-
-    static void flux_f20(real& f, const real& hu) {
-        f = hu;
-    }
-
-    static void flux_f21(real& f, const real& hv) {
-        f *= hv;
-    }
-
-    static void flux_f22(real& f, const real& h) {
-        f = f/h;
-    }
-
-    static void flux_g00(real& gu, const real& hv) {
-        gu = hv;
-    }
-
-    static void flux_g10(real& gu, const real& hv) {
-        gu = hv;
-    }
-
-    static void flux_g11(real& gu, const real& hu) {
-        gu *= hu;
-    }
-
-    static void flux_g12(real& gu, const real& h) {
-        gu = gu/h;
-    }
-
-    static void flux_g20(real& gu, const real& hv) {
-        gu = hv * hv;
-    }
-
-    static void flux_g22(real& gu, const real& h) {
-        gu = gu/h+ (0.5*g)*h*h;
-    }
-
-    // static void flux(vec& f0, vec& f1, vec& f2, vec& g0, vec& g1, vec& g2,
-            // vec& u_h, vec& u_hu, vec& u_hv) {
+    static void flux(
+            vec& __restrict f0, vec& __restrict f1, vec& __restrict f2, 
+            vec& __restrict g0, vec& __restrict g1, vec& __restrict g2,
+            vec& __restrict u_h, vec& __restrict u_hu, vec& __restrict u_hv, 
+            int x_begin, int x_end, int y_begin, int y_end, int nx) {
     
-    // }
-    // Compute shallow water fluxes F(U), G(U)
-    // static void flux(vec& FU, vec& GU, const vec& U) {
-        // real h = U[0], hu = U[1], hv = U[2];
-
-        // FU[0] = hu;
-        // FU[1] = hu*hu/h + (0.5*g)*h*h;
-        // FU[2] = hu*hv/h;
-
-        // GU[0] = hv;
-        // GU[1] = hu*hv/h;
-        // GU[2] = hv*hv/h + (0.5*g)*h*h;
-    // }
-
-    // Compute shallow water wave speed
-    static void wave_speed(real& cx, real& cy, const real& h, const real& hu, const real& hv) {
-        real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
-        cx = abs(hu/h) + root_gh;
-        cy = abs(hv/h) + root_gh;
+        #pragma simd
+        for(int i=x_begin; i<x_end; i++) {
+            for(int j=y_begin; j<y_end; j++) {
+                real h = u_h[j*nx + i];
+                real hu = u_hu[j*nx + i];
+                real hv = u_hv[j*nx + i];
+                f0[j*nx + i] = hu;
+                g0[j*nx + i] = hv;
+                f1[j*nx + i] = (hu * hu)/h + 0.5 * g * h * h;
+                f2[j*nx + i] = (hu * hv)/h;
+                g1[j*nx + i] = (hu * hv)/h;
+                g2[j*nx + i] = (hv * hv)/h + 0.5 * g * h * h;
+            }
+        }
     }
 
+    static void wave_speed(real &cx, real &cy, 
+            const vec& __restrict u_h, const vec& __restrict u_hu, const vec& __restrict u_hv, int n) {
+
+        #pragma simd
+        for(int i=0; i<n; i++) {
+            real h = u_h[i];
+            real hu = u_hu[i];
+            real hv = u_hv[i];
+            real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
+            real cx_c = std::fabs(hu/h) + root_gh;
+            real cy_c = std::fabs(hv/h) + root_gh;
+            if (cx_c > cx) 
+                cx = cx_c;
+            if (cy_c > cy)
+                cy = cy_c;
+        }
+    }
 };
 
 //ldoc off
