@@ -63,19 +63,21 @@ struct MinMod {
 
     // Branch-free computation of minmod of two numbers
     static real xmin(real a, real b) {
-        using namespace std;
-        return ((copysign((real) 0.5f, a) +
-                 copysign((real) 0.5f, b)) *
-                min( abs(a), abs(b) ));
+      using namespace std;
+
+      return ((copysign((real) 0.5f, a) +
+               copysign((real) 0.5f, b)) *
+              min( abs(a), abs(b) ));
     }
 
     // Limited combined slope estimate
     #pragma omp declare simd
     static real limdiff(real um, real u0, real up) {
-        real du1 = u0-um;         // Difference to left
-        real du2 = up-u0;         // Difference to right
-        real duc = 0.5f*(du1+du2); // Centered difference
-        return xmin( theta*xmin(du1, du2), duc );
+      real du1 = u0 - um;         // Difference to left
+      real du2 = up - u0;         // Difference to right
+      real duc = 0.5f * (du1 + du2); // Centered difference
+
+      return xmin( theta*xmin(du1, du2), duc );
     }
 };
 

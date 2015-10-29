@@ -198,7 +198,6 @@ protected:
     void compute_fg_speeds(real& cx, real& cy);
     void limited_derivs();
     void compute_step(int io, real dt);
-
 };
 
 
@@ -217,9 +216,11 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
-    for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
-            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+  for (int iy = 0; iy < ny; ++iy) {
+    for (int ix = 0; ix < nx; ++ix) {
+      f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+    }
+  }
 }
 
 /**
@@ -242,19 +243,21 @@ void Central2D<Physics, Limiter>::init(F f)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
 {
-    // Copy data between right and left boundaries
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nghost; ++ix) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
-        }
+  // Copy data between right and left boundaries
+  for (int iy = 0; iy < ny_all; ++iy) {
+    for (int ix = 0; ix < nghost; ++ix) {
+        u(ix,          iy) = uwrap(ix,          iy);
+        u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
+    }
+  }
 
-    // Copy data between top and bottom boundaries
-    for (int ix = 0; ix < nx_all; ++ix)
-        for (int iy = 0; iy < nghost; ++iy) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
-        }
+  // Copy data between top and bottom boundaries
+  for (int ix = 0; ix < nx_all; ++ix) {
+    for (int iy = 0; iy < nghost; ++iy) {
+        u(ix,          iy) = uwrap(ix,          iy);
+        u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
+    }
+  }
 }
 
 
@@ -271,26 +274,26 @@ void Central2D<Physics, Limiter>::apply_periodic()
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 {
-    using namespace std;
+  using namespace std;
 
-    real cx = 1.0e-15;
-    real cy = 1.0e-15;
-    
-    for (int iy = 0; iy < ny_all; ++iy) {
-      #pragma ivdep
-      for (int ix = 0; ix < nx_all; ++ix) {
-        real cell_cx, cell_cy;
+  real cx = 1.0e-15;
+  real cy = 1.0e-15;
 
-        Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-        Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+  for (int iy = 0; iy < ny_all; ++iy) {
+    #pragma ivdep
+    for (int ix = 0; ix < nx_all; ++ix) {
+      real cell_cx, cell_cy;
 
-        cx = (cell_cx > cx ? cell_cx : cx);
-        cy = (cell_cy > cy ? cell_cy : cy);
-      }
+      Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
+      Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+
+      cx = (cell_cx > cx ? cell_cx : cx);
+      cy = (cell_cy > cy ? cell_cy : cy);
     }
+  }
 
-    cx_ = cx;
-    cy_ = cy;
+  cx_ = cx;
+  cy_ = cy;
 }
 
 /**
@@ -341,17 +344,18 @@ void Central2D<Physics, Limiter>::limited_derivs()
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 {
-    const real dtcdx2 = 0.5 * dt / dx;
-    const real dtcdy2 = 0.5 * dt / dy;
+    const real dtcdx2 = 0.5f * dt / dx;
+    const real dtcdy2 = 0.5f * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    // #pragma omp for ordered
     for (int iy = 1; iy < ny_all-1; ++iy) {
       for (int ix = 1; ix < nx_all-1; ++ix) {
         vec uh = u(ix,iy);
 
+        // Write this as a single output statement so that the
+        // compiler can catch the vectorization pattern
         for (int m = 0; m < uh.size(); ++m) {
-            uh[m] -= dtcdx2 * fx(ix,iy)[m] + dtcdy2 * gy(ix,iy)[m];
+            uh[m] = uh[m] - dtcdx2 * fx(ix,iy)[m] + dtcdy2 * gy(ix,iy)[m];
         }
 
         Physics::flux(f(ix,iy), g(ix,iy), uh);
@@ -359,7 +363,6 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     }
 
     // Corrector (finish the step)
-    // #pragma omp for ordered
     for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
       for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
         for (int m = 0; m < v(ix, iy).size(); ++m) {
@@ -379,7 +382,6 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     }
 
     // Copy from v storage back to main grid
-    // #pragma omp for ordered
     for (int j = nghost; j < ny+nghost; ++j) {
       for (int i = nghost; i < nx+nghost; ++i) {
         u(i,j) = v(i-io,j-io);
@@ -405,26 +407,31 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
-    bool done = false;
-    real t = 0;
-    while (!done) {
-        real dt;
-          for (int io = 0; io < 2; ++io) {
-            real cx, cy;
-            apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
-            if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
-                }
-            }
-            compute_step(io, dt);
-            t += dt;
-        }
+  bool done = false;
+  real t = 0;
+
+  while (!done) {
+    real dt;
+
+    for (int io = 0; io < 2; ++io) {
+      real cx, cy;
+
+      apply_periodic();
+      compute_fg_speeds(cx, cy);
+      limited_derivs();
+
+      if (io == 0) {
+          dt = cfl / std::max(cx/dx, cy/dy);
+          if (t + 2*dt >= tfinal) {
+              dt = (tfinal-t)/2;
+              done = true;
+          }
+      }
+
+      compute_step(io, dt);
+      t += dt;
     }
+  }
 }
 
 /**
@@ -443,24 +450,33 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
+
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
     real hmin = u(nghost,nghost)[0];
     real hmax = hmin;
-    for (int j = nghost; j < ny+nghost; ++j)
-        for (int i = nghost; i < nx+nghost; ++i) {
-            vec& uij = u(i,j);
-            real h = uij[0];
-            h_sum += h;
-            hu_sum += uij[1];
-            hv_sum += uij[2];
-            hmax = max(h, hmax);
-            hmin = min(h, hmin);
-            assert( h > 0) ;
-        }
+
+    for (int j = nghost; j < ny+nghost; ++j) {
+      for (int i = nghost; i < nx+nghost; ++i) {
+        vec& uij = u(i,j);
+
+        real h = uij[0];
+        h_sum += h;
+
+        hu_sum += uij[1];
+        hv_sum += uij[2];
+
+        hmax = max(h, hmax);
+        hmin = min(h, hmin);
+
+        assert( h > 0) ;
+      }
+    }
+
     real cell_area = dx*dy;
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
+
     printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
            h_sum, hu_sum, hv_sum, hmin, hmax);
 }
