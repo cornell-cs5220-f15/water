@@ -1,0 +1,19 @@
+\section{Profiling}
+
+In order to identify what areas of the original \ttt{C++} code could receive benefits from tuning, we began with the standard profiling tool \textbf{Intel VTune Amplifier XE}. Using the profiler to identify which functions were slowest, we found that in the basic dam break example, the majority of time was spent in the following functions:
+$$
+\begin{tabular}{|c|c|}
+	\hline
+	function & time (seconds) \\
+	\hline
+	\ttt{limited\_derivs} & 1.323 \\
+	\ttt{compute\_step} & 0.683 \\
+	\ttt{compute\_fg\_speed} & 0.236 \\
+	\hline
+\end{tabular}
+$$
+
+We also found that no more than about $20$ milliseconds was spent in any other function.
+Considering that these functions contain the vast majority of the computations, it is not surprising that they took the most time to complete.
+
+We then profiled each of these functions individually to identify which parts were slowest. Unsurprisingly, we learned from profiling these functions that the steps which did real computation inside of \ttt{for} loops was the most expensive. Unfortunately we were unable to profile memory and cache accesses as the Haswell architecture on the chips we are using does not support much memory profiling via \textbf{VTune Amplifier}.

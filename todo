@@ -1,0 +1,9 @@
+run strong/weak scaling studies for:
+    mic - running
+    main processor - will run
+    run for a couple of batch sizes
+    baseline for more n - DONE
+Coding (if we want):
+    get pragma alignment working on mic (if we want)
+    parallelize speed function - DONE
+Write report.

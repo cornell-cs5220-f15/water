@@ -1,0 +1,9 @@
+\section{Introduction}
+
+For this project, our goal is to optimize a simulation of the shallow water equations with periodic boundary conditions. To accomplish this, we will use three main approaches:
+\begin{itemize}
+	\item Use profiling and vectorization reports to determine which parts of the code would benefit most from tuning
+	\item Tune the serial code to maximize performance on a single core
+	\item Implement domain decomposition so that our highly tuned serial code can be run in parallel.
+\end{itemize}
+We will then do scaling studies for our tuned parallel code to see how much we improve over the standard serial code, and compare our results to performance models.
