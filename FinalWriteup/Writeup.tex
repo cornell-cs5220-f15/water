@@ -57,6 +57,7 @@ To vectorize our code, we drew ideas from the vectorized C code produced by Prof
 
 \section{OpenMP Parallelization}
 We parallelized the code using openMP pragmas (\#pragma omp parallel) in the time advancement loop, as well as the -fopenmp flag in the compilation. Some sections, such as the new timestep computation, only needed to be performed by a single processor and so \#pargma omp single was used inside of the parallel call. At the end of each timestep, a barrier was used to allow synchronization of the processors (particularly necessary for the later domain decomposition). As all for loops were encapsulated within the timestep loop (except for the domain initialization), no additional parallel calls were needed. This parallelization was found to immensely improve the time to run the code. \\
+
 The periodic boundary conditions were maintained from the original code, but the number of ghost cells around the domain were varied based on the number of iterations performed within a timestep. \\
 
 \section{Domain Decomposition}
@@ -64,13 +65,89 @@ The periodic boundary conditions were maintained from the original code, but the
 We decomposed the domain by creating rectangles of subdomains within the domain on which each processor solves the shallow wave equations. This was accomplished by obtaining the total number of specified threads, and breaking up the domain into that many rectangles, assuming that the domain is a square with nx=ny cells in each direction. Each thread has a section of the velocity field plus additional ghost cells copied into its own subdomain, and proceeds to solve the equations on that subdomain. After all processors have computed the new velocities for their subdomains (enforced by a barrier), the subdomain velocity fields are copied back into the overall velocity field and the timestep and periodic boundary conditions are updated for the whole domain. As before, the number of ghost cells must be varied for the number of iterations performed in a timestep in order to have enough cells to fully compute the new velocity field on the given subdomain. The number of ghost cells is set as 4*(number of subiterations), considering that the Jiang-Tadmore central difference scheme already contains an additional iteration for the predictor step.\\
 
 \section{Processor Offloading}
-Each compute node on the Totient cluster contains 24 cores. Thus, offloading to the Xeon Phi coprocessors which have 236 threads per node is desirable, particularly for large domains and numbers of desired cores. To offload to the Phis, we simply used the command: \#pragma offload target(mic:thread\_number) immediately inside the parallel section of the code after domain initialization, but prior to the time stepping section. Results comparing the C code containing the domain decomposition, vectorization, and openMP parallelization to the same code offloaded to the Xeon Phi coprocessors, and the oroginal C code, are shown in the following Results section. 
+Each compute node on the Totient cluster contains 24 cores. Thus, offloading to the Xeon Phi coprocessors which have 236 threads per node is desirable, particularly for large domains and numbers of desired cores. To offload to the Phis, we simply used the command: \#pragma offload target(mic:thread\_number) immediately inside the parallel section of the code after domain initialization, but prior to the time stepping section. Results comparing the C code containing the domain decomposition, vectorization, and openMP parallelization to the same code offloaded to the Xeon Phi coprocessors, and the oroginal C code, are shown in the following Results section. \\
 
 Strong scaling is viewable in the strong scaling efficiency graph - better scaling than both original and new c codes on the compute nodes. However, timings for equivalent runs take longer.
-
+\clearpage
 \section{Results}
-Include all graphs and tables here (Being worked on!)
+\subsection{Scaling}
+The code complete with domain decomposition, openMP parallelization, and vectorization was used for strong and weak scaling. Similar scaling cases were done for the same code on the Xeon Phi ncoprocessors, as well as the original C code. \\
 
-\section{References}
+Strong scaling is defined as:
+\begin{equation}
+\textrm{Strong scaling} = \frac{t_{\textrm{serial}}}{t_{\textrm{parallel}}}
+\end{equation}
+\indent and strong scaling efficiency as:
+\begin{equation}
+\textrm{Strong scaling efficiency} =   \frac{t_{\textrm{serial}}}{t_{\textrm{parallel}}}\frac{1}{p}
+\end{equation}
+
+The results, for a 800x800 cell domain with varied thread numbers are shown in Figures~\ref{table:ss_n} -~\ref{table:ss_oc}. Clearly, the new code performs much better than the old code, by an order of magnitude. The Xeon Phi coprocessors should start to perform better at higher thread numbers, and it is assumed that they are slower for the lower number of processors due to the offloading step. \\
+
+\begin{table}[here]
+ \centering
+ \includegraphics[width=0.4\linewidth]{SS_newC.png}
+ \caption{Strong Scaling - New Code}
+ \label{table:ss_n}
+\end{table}
+\begin{table}[here]
+ \centering
+ \includegraphics[width=0.4\linewidth]{SS_XP.png}
+ \caption{Strong Scaling - New Code, Xeon Phis}
+ \label{table:ss_xp}
+\end{table}
+\clearpage
+\begin{table}[here]
+ \centering
+ \includegraphics[width=0.4\linewidth]{SS_oldC.png}
+ \caption{Strong Scaling - Original Code}
+ \label{table:ss_oc}
+\end{table}
+
+A graph comparing the scaling efficiencies of all three codes is shown in Figure~\ref{fig:seff}. \\
+\begin{figure}[here]
+ \centering
+ \includegraphics[width=0.9\linewidth]{scaleff.eps}
+ \caption{Scaling Efficiency Comparison}
+ \label{fig:seff}
+\end{figure}
+\clearpage
+Weak scaling is similarly defined as \\
+\begin{equation}
+\textrm{Weak scaling} = \frac{t_{\textrm{serial}}}{t_{\textrm{parallel}}}
+\end{equation}
+
+Except that for weak scaling, all processors are designated to have the same workload (number of cells); as the number of processors increases, so will the total number of cells in the domain. Tables~\ref{ws_old} -~\ref{ws_new} compare the weak scaling for the new code run on the compute nodes, and the original code. \\
+
+\begin{table}[here]
+ \centering
+ \includegraphics[width=0.4\linewidth]{ws_old.png}
+ \caption{Weak Scaling - Old Code}
+ \label{ws_old}
+\end{table}
+\begin{table}[here]
+ \centering
+ \includegraphics[width=0.4\linewidth]{ws_new.png}
+ \caption{Weak Scaling - New Code}
+ \label{ws_new}
+\end{table}
+\clearpage
+
+\subsection{Number of Iterations}
+A final graph showing the timings based on the number of iterations run per step is shown in Figure~\ref{niter}. All of these timings were performed using the new code on the compute nodes, on a 800x800 domain, with 16 processors. There is clearly a decrease in simulation time for additional iterations beyond 1, however for higher number of iterations, the simulation run time increases. This could be due to several factors, such as increased communications for each subdomain and larger subdomain array sizes to copy. Furthermore, larger subdomains for computations may extend beyond given cache sizes. 
+
+\begin{figure}[here]
+ \centering
+ \includegraphics[width=0.9\linewidth]{t_iter.eps}
+ \caption{Timings Based on Iterations per Step}
+ \label{fig:niter}
+\end{figure}
+
+
+
+\begin{thebibliography}{1}
+\bibitem{iref}Kevin Davis. Accessed 25 Oct, 2015. https://software.intel.com/en-us/articles/effective-use-of-the-intel-compilers-offload-features
+
+\end{thebibliography}
 
 \end{document}

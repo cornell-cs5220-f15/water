@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2013.5.30)  28 OCT 2015 19:25
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2013.5.30)  28 OCT 2015 23:58
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -375,35 +375,149 @@ Underfull \hbox (badness 10000) in paragraph at lines 54--55
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 59--61
+Underfull \hbox (badness 10000) in paragraph at lines 59--60
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 64--65
+Underfull \hbox (badness 10000) in paragraph at lines 61--62
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 65--66
 
  []
 
 [2
 
- <./VTUNE_OrigC.png>] [3] (./Writeup.aux) ) 
+ <./VTUNE_OrigC.png>]
+Underfull \hbox (badness 10000) in paragraph at lines 68--69
+
+ []
+
+[3]
+Underfull \hbox (badness 10000) in paragraph at lines 74--75
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 85--86
+
+ []
+
+<SS_newC.png, id=21, 400.8576pt x 79.9788pt>
+File: SS_newC.png Graphic file (type png)
+ <use SS_newC.png>
+Package pdftex.def Info: SS_newC.png used on input line 89.
+(pdftex.def)             Requested size: 199.46198pt x 39.7977pt.
+
+<SS_XP.png, id=22, 400.8576pt x 79.9788pt>
+File: SS_XP.png Graphic file (type png)
+ <use SS_XP.png>
+Package pdftex.def Info: SS_XP.png used on input line 95.
+(pdftex.def)             Requested size: 199.46198pt x 39.7977pt.
+ [4
+
+ <./SS_newC.png> <./SS_XP.png>] <SS_oldC.png, id=30, 400.8576pt x 79.9788pt>
+File: SS_oldC.png Graphic file (type png)
+ <use SS_oldC.png>
+Package pdftex.def Info: SS_oldC.png used on input line 102.
+(pdftex.def)             Requested size: 199.46198pt x 39.7977pt.
+Package epstopdf Info: Source file: <scaleff.eps>
+(epstopdf)                    date: 2015-10-27 14:17:22
+(epstopdf)                    size: 9658 bytes
+(epstopdf)             Output file: <scaleff-eps-converted-to.pdf>
+(epstopdf)                    date: 2015-10-28 23:14:21
+(epstopdf)                    size: 7764 bytes
+(epstopdf)             Command: <repstopdf --outfile=scaleff-eps-converted-to.p
+df scaleff.eps>
+(epstopdf)             \includegraphics on input line 110.
+Package epstopdf Info: Output file is already uptodate.
+
+<scaleff-eps-converted-to.pdf, id=31, 1356.06625pt x 572.1375pt>
+File: scaleff-eps-converted-to.pdf Graphic file (type pdf)
+
+<use scaleff-eps-converted-to.pdf>
+Package pdftex.def Info: scaleff-eps-converted-to.pdf used on input line 110.
+(pdftex.def)             Requested size: 448.79327pt x 189.34721pt.
+ [5
+
+ <./SS_oldC.png> <./scaleff-eps-converted-to.pdf>]
+Underfull \hbox (badness 10000) in paragraph at lines 115--116
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 120--121
+
+ []
+
+<ws_old.png, id=41, 398.9304pt x 64.5612pt>
+File: ws_old.png Graphic file (type png)
+ <use ws_old.png>
+Package pdftex.def Info: ws_old.png used on input line 124.
+(pdftex.def)             Requested size: 199.46198pt x 32.28052pt.
+
+<ws_new.png, id=42, 398.9304pt x 67.9338pt>
+File: ws_new.png Graphic file (type png)
+ <use ws_new.png>
+Package pdftex.def Info: ws_new.png used on input line 130.
+(pdftex.def)             Requested size: 199.46198pt x 33.96681pt.
+ [6
+
+ <./ws_old.png> <./ws_new.png>]
+
+LaTeX Warning: Reference `niter' on page 7 undefined on input line 137.
+
+Package epstopdf Info: Source file: <t_iter.eps>
+(epstopdf)                    date: 2015-10-27 11:41:22
+(epstopdf)                    size: 8646 bytes
+(epstopdf)             Output file: <t_iter-eps-converted-to.pdf>
+(epstopdf)                    date: 2015-10-28 23:28:28
+(epstopdf)                    size: 6875 bytes
+(epstopdf)             Command: <repstopdf --outfile=t_iter-eps-converted-to.pd
+f t_iter.eps>
+(epstopdf)             \includegraphics on input line 141.
+Package epstopdf Info: Output file is already uptodate.
+<t_iter-eps-converted-to.pdf, id=48, 940.51375pt x 591.20876pt>
+File: t_iter-eps-converted-to.pdf Graphic file (type pdf)
+
+<use t_iter-eps-converted-to.pdf>
+Package pdftex.def Info: t_iter-eps-converted-to.pdf used on input line 141.
+(pdftex.def)             Requested size: 448.79327pt x 282.10806pt.
+
+Underfull \hbox (badness 2376) in paragraph at lines 149--150
+[]\OT1/cmr/m/n/10 Kevin Davis. Ac-cessed 25 Oct, 2015. https://software.intel.c
+om/en-us/articles/effective-use-of-the-intel-
+ []
+
+[7
+
+ <./t_iter-eps-converted-to.pdf>] (./Writeup.aux)
+
+LaTeX Warning: There were undefined references.
+
+ ) 
 Here is how much of TeX's memory you used:
- 5227 strings out of 493315
- 77316 string characters out of 6137904
- 147067 words of memory out of 5000000
- 8615 multiletter control sequences out of 15000+600000
- 9496 words of font info for 36 fonts, out of 8000000 for 9000
+ 5286 strings out of 493315
+ 78187 string characters out of 6137904
+ 147126 words of memory out of 5000000
+ 8663 multiletter control sequences out of 15000+600000
+ 11503 words of font info for 45 fonts, out of 8000000 for 9000
  957 hyphenation exceptions out of 8191
- 38i,6n,38p,1169b,279s stack positions out of 5000i,500n,10000p,200000b,80000s
-</usr/local/texlive/2013/texmf-dist/
-fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/local/texlive/2013/texmf-dist/f
-onts/type1/public/amsfonts/cm/cmr10.pfb></usr/local/texlive/2013/texmf-dist/fon
-ts/type1/public/amsfonts/cm/cmr12.pfb></usr/local/texlive/2013/texmf-dist/fonts
-/type1/public/amsfonts/cm/cmr17.pfb>
-Output written on Writeup.pdf (3 pages, 221644 bytes).
+ 38i,7n,38p,1169b,281s stack positions out of 5000i,500n,10000p,200000b,80000s
+</usr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb
+></usr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb>
+</usr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><
+/usr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></u
+sr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr
+/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/l
+ocal/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb>
+Output written on Writeup.pdf (7 pages, 367663 bytes).
 PDF statistics:
- 35 PDF objects out of 1000 (max. 8388607)
- 21 compressed objects within 1 object stream
+ 83 PDF objects out of 1000 (max. 8388607)
+ 48 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
- 11 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 46 words of extra memory for PDF output out of 10000 (max. 10000000)
 
