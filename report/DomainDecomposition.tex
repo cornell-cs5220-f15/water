@@ -31,3 +31,39 @@ Using this approach, we developed the following algorithm (written here in pseud
 \end{algorithm}
 
 We note that we have had to decrease the size of the time step $\ttt{dt}$ as we are now computing multiple time steps between each calculation of $\ttt{dt}$. While decreasing the time step increases the amount of computational time for simulations, decreasing the time step can lead to instability of the numerical method. Our current choice of $0.9$ times the CFL condition of $0.45$ is heuristic, and could very likely be improved.
+
+However, we found when profiling that frequently the majority of our time was spent waiting for other processors, rather than doing any computation. Because of this, we decided to look for additional areas where we could improve the parallelization of our code. The two major serial components of our code were applying the periodic boundary conditions, and computing the maximum time step we could take. 
+
+Parallelizing the periodic boundary conditions seemed difficult to implement while still avoiding race conditions, so we figured the performance gains would likely not be worth the development time. 
+
+However, we realized that computing the maximum speed was just finding the maximum of a bunch of local computations. Thus, we decided to parallelize this computation by finding the maximum speed in each subdomain, and then taking the maximum of the speeds for each subdomain. Our final algorithm can be seen below:
+
+\begin{algorithm}[hh]
+\begin{algorithmic}[1]
+\item \#pragma omp parallel
+    \While {!done}
+    \item \# pragma omp single
+    \item Apply periodic boundary conditions to \ttt{domain}
+    \State \ttt{subdomain} $\gets$ relevant part of \ttt{domain}
+    \item Find $\ttt{local\_max\_speed}$ in \ttt{subdomain}
+    \item \# pragma omp critical
+    \State $\ttt{global\_max\_speed}$ $\gets$ max($\ttt{local\_max\_speed}$,$\ttt{global\_max\_speed}$)
+    \item \# pragma omp barrier
+    \State $\ttt{dt} \gets 0.9*\ttt{cfl} / \ttt{max\_speed}$
+    \For {i = 1,2,...,b}
+    	\State \ttt{subdomain} $\gets$ \Call{compute\_step}{0} 
+    	\State \ttt{subdomain} $\gets$ \Call{compute\_step}{1}
+    \EndFor
+    \State \ttt{domain} $\gets$ \ttt{subdomain}
+    \item \# pragma omp single
+    \State t $\gets$ t+b*dt
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+We found that parallelizing speed significantly improved performance when using a large number of cores (such as on the Phi coprocessors).
+
+\newpage
+
+
+	
