@@ -172,6 +172,9 @@ The strong scaling study for the domain decomposed version of the solution shows
     \label{fig:strong_scaling_dd}
 \end{figure} 
 
+In the current implementation, each thread get a n/4 by n/4 part of the main grid, which might explain the speed up being relatively constant after 16. Although note that the extra thread are used anyway in the parallel computation of each subgrid.
+
+
 
 \subsubsection{Weak Scaling Study}
 
@@ -191,13 +194,15 @@ In the single domain, parallelized approach, we observe a exponential decrease i
 
 \paragraph{Parallel domain decomposition}
 
-The implementation can be found at the \texttt{spatial\_vector\_merge} branch.
-
+The implementation can be found at the \texttt{spatial\_vector\_merge} branch. In the domain decomposition case, we observe a strong decrease in speedup as the number of OMP threads grow. On top of load imbalance between threads and thread scheduling, this might be related to the increasing synchronization and computation cost that occur when n increases. Indeed, when n increases the number of time steps before synchronization increases, therefore each subgrid gets more ghost cells and therefore more work and more communication (cf section 2.4.5).
  \begin{figure}[H]
     \includegraphics[width=0.9\textwidth]{./weak_scaling/weak_scaling.png}
     \caption{Speedup as a function of the number of threads}
     \label{fig:weak_scaling_dd}
 \end{figure} 
+
+
+
 
 \begin{thebibliography}{9}
 \bibitem{vectorization} 
