@@ -10,8 +10,9 @@
 
 using namespace std;
 
+// (nx / SUBDOMAIN_SIZE)
 const int num_thread = 4;
-// needs to divide nx evenly
+// needs to divide nx evenly (nx / sqrt(num_thread))
 const int SUBDOMAIN_SIZE = 100;
 
 
@@ -435,17 +436,20 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
         for (int x = 0; x < SUBDOMAIN_SIZE; ++x) {
             int ix = (x - io + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
             for (int m = 0; m < v(ix,iy).size(); ++m) {
+                int iyN = (iy+1) % SIZE_WITH_GHOST;
+                int ixN = (ix+1) % SIZE_WITH_GHOST;
+                
                 castIndex(V, ix, iy)[m] =
-                    0.2500 * ( castIndex(U, ix, iy)[m] + castIndex(U, (ix+1) % SIZE_WITH_GHOST, iy)[m] +
-                               castIndex(U, ix, (iy+1) % SIZE_WITH_GHOST)[m] + castIndex(U, (ix+1) % SIZE_WITH_GHOST, (iy+1) % SIZE_WITH_GHOST)[m] ) -
-                    0.0625 * ( castIndex(UX, (ix+1) % SIZE_WITH_GHOST, iy)[m] - castIndex(UX, ix, iy)[m] +
-                               castIndex(UX, (ix+1) % SIZE_WITH_GHOST, (iy+1) % SIZE_WITH_GHOST)[m] - castIndex(UX, ix, (iy+1) % SIZE_WITH_GHOST)[m] +
-                               castIndex(UY, ix, (iy+1) % SIZE_WITH_GHOST)[m] - castIndex(UY, ix, iy)[m] +
-                               castIndex(UY, (ix+1) % SIZE_WITH_GHOST, (iy+1) % SIZE_WITH_GHOST)[m] - castIndex(UY, (ix+1) % SIZE_WITH_GHOST, iy)[m] ) -
-                    dtcdx2 * ( castIndex(fluxX, (ix+1) % SIZE_WITH_GHOST, iy)[m] - castIndex(fluxX, ix, iy)[m] +
-                               castIndex(fluxX, (ix+1) % SIZE_WITH_GHOST, (iy+1) % SIZE_WITH_GHOST)[m] - castIndex(fluxX, ix, (iy+1) % SIZE_WITH_GHOST)[m] ) -
-                    dtcdy2 * ( castIndex(fluxY, ix, (iy+1) % SIZE_WITH_GHOST)[m] - castIndex(fluxY, ix, iy)[m] +
-                               castIndex(fluxY, (ix+1) % SIZE_WITH_GHOST, (iy+1) % SIZE_WITH_GHOST)[m] - castIndex(fluxY, (ix+1) % SIZE_WITH_GHOST, iy)[m] );
+                    0.2500 * ( castIndex(U, ix, iy)[m] + castIndex(U, ixN, iy)[m] +
+                               castIndex(U, ix, iyN)[m] + castIndex(U, ixN, iyN)[m] ) -
+                    0.0625 * ( castIndex(UX, ixN, iy)[m] - castIndex(UX, ix, iy)[m] +
+                               castIndex(UX, ixN, iyN)[m] - castIndex(UX, ix, iyN)[m] +
+                               castIndex(UY, ix, iyN)[m] - castIndex(UY, ix, iy)[m] +
+                               castIndex(UY, ixN, iyN)[m] - castIndex(UY, ixN, iy)[m] ) -
+                    dtcdx2 * ( castIndex(fluxX, ixN, iy)[m] - castIndex(fluxX, ix, iy)[m] +
+                               castIndex(fluxX, ixN, iyN)[m] - castIndex(fluxX, ix, iyN)[m] ) -
+                    dtcdy2 * ( castIndex(fluxY, ix, iyN)[m] - castIndex(fluxY, ix, iy)[m] +
+                               castIndex(fluxY, ixN, iyN)[m] - castIndex(fluxY, ixN, iy)[m] );
             }
         }
     }
@@ -518,16 +522,15 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     
                     // if outside domain, copy zero
                     if(xCoord < nx && yCoord < ny) {
-						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y] = u(nghost+xCoord, nghost+yCoord);
+						(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x] = u(nghost+xCoord, nghost+yCoord);
                         
                     } else {
                         // should never get in here
-						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][0] = 0;
-						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][1] = 0;
-						(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][2] = 0;
+						(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][0] = 0;
+						(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][1] = 0;
+						(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][2] = 0;
                     }
-                    //printf("(%i,%i)\n", xCoord, yCoord);
-                    //printf("Initial (%i,%i): %f, %f, %f\n", xCoord, yCoord, (*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][0],(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][1],(*subDomainPointers_u[index])[x * SIZE_WITH_GHOST + y][2]);
+                    //printf("Initial (%i,%i): %f, %f, %f\n", xCoord, yCoord, (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][0],(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][1],(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][2]);
                 }
             }
         }
@@ -546,6 +549,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             int myID = omp_get_thread_num();
             int totalThreads = omp_get_num_threads();
             
+            // assign block as function of threadID (1 to 1)
             int myXBlock = myID / NUM_BLOCKS_Y;
             int myYBlock = myID % NUM_BLOCKS_Y;
             //printf("Thread ID: %i\t(%i,%i)\n", myID, myXBlock, myYBlock);
@@ -560,7 +564,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             std::vector<vec>* myFX = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
             std::vector<vec>* myGY = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
             
-            for (int io = 0; io < 1; ++io) {
+            for (int io = 0; io < 2; ++io) {
                 real cx, cy;
                 maxCx = 1.0e-15;
                 maxCy = 1.0e-15;
@@ -627,8 +631,40 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                         done = true;
                     }
                 }
-                
+                /**
+                // print values for debugging
+                #pragma omp critical
+                {
+                    cout << "thread " << myID << "\t(" << myXBlock << ", " << myYBlock << ")\n";
+                    for(int x=0; x<SIZE_WITH_GHOST; ++x) {
+                        //printf("\t");
+                        for(int y=0; y<SIZE_WITH_GHOST; ++y) {
+                            vec& v = castIndex(myU, y, x);
+                            //printf("%f, ", v[0]);
+                        }
+                        //printf("\n");
+                    }
+                    //printf("\n");
+                    
+                    
+                }**/
                 compute_step(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY, io, dt);
+                /**
+                #pragma omp barrier
+                #pragma omp critical
+                {
+                    cout << "thread " << myID << "\t(" << myXBlock << ", " << myYBlock << ") after\n";
+                    for(int x=0; x<SIZE_WITH_GHOST; ++x) {
+                        printf("\t");
+                        for(int y=0; y<SIZE_WITH_GHOST; ++y) {
+                            vec& v = castIndex(myUX, y, x);
+                            printf("%f, ", v[2]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
+                }
+                #pragma omp barrier**/
                 t += dt;
             }
             free(myFluxX);
@@ -660,7 +696,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     
                     // ignore ghost cells
                     if(xCoord < nx && yCoord < ny) {
-                        u(nghost+xCoord, nghost+yCoord) = myU[x * SIZE_WITH_GHOST + y];
+                        u(nghost+xCoord, nghost+yCoord) = myU[y * SIZE_WITH_GHOST + x];
                     }
                     
                     //printf("Final (%i,%i): %f, %f, %f\n", x, y, u(xCoord, yCoord)[0],u(xCoord, yCoord)[1],u(xCoord, yCoord)[2]);
