@@ -95,10 +95,11 @@ int main(int argc, char** argv)
     double width = 2.0;
     double ftime = 0.01;
     int    frames = 50;
+    int threads = 2;
     
     int c;
     extern char* optarg;
-    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
+    while ((c = getopt(argc, argv, "hi:o:n:w:t:F:f:")) != -1) {
         switch (c) {
         case 'h':
             fprintf(stderr,
@@ -109,9 +110,10 @@ int main(int argc, char** argv)
                     "\t-n: number of cells per side (%d)\n"
                     "\t-w: domain width in cells (%g)\n"
                     "\t-f: time between frames (%g)\n"
+                    "\t-t: number of domains to be executed (%d)\n"
                     "\t-F: number of frames (%d)\n",
                     argv[0], ic.c_str(), fname.c_str(), 
-                    nx, width, ftime, frames);
+                    nx, width, ftime, threads, frames);
             return -1;
         case 'i':  ic     = optarg;          break;
         case 'o':  fname  = optarg;          break;
@@ -119,6 +121,7 @@ int main(int argc, char** argv)
         case 'w':  width  = atof(optarg);    break;
         case 'f':  ftime  = atof(optarg);    break;
         case 'F':  frames = atoi(optarg);    break;
+        case 't': threads = atoi(optarg);    break;
         default:
             fprintf(stderr, "Unknown option (-%c)\n", c);
             return -1;
@@ -138,7 +141,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "Unknown initial conditions\n");
     }
     
-    Sim sim(width,width, nx,nx);
+    Sim sim(width,width, nx, nx, threads, threads);
     SimViz<Sim> viz(fname.c_str(), sim);
     sim.init(icfun);
     sim.solution_check();
