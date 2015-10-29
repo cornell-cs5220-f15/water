@@ -136,7 +136,7 @@ For parallelization, we list the functions that take up the most CPU time and th
 
 
 \subsubsection{Strong Scaling Study}
-Using a 500x500 grid and 100 frames, we observe the speedup with respect to the number of threads in our parallel implementation. Here, speedup $s$ is defined to be,  
+We observe the speedup with respect to the number of threads in our parallel implementation. Here, speedup $s$ is defined to be,  
 
 \begin{equation}
 	\mathrm{s} = \dfrac{t_{parallel}}{t_{serial}}
@@ -144,7 +144,7 @@ Using a 500x500 grid and 100 frames, we observe the speedup with respect to the 
 
 \paragraph{Parallel approach with vectorization}
 
-Following is the strong scaling study where we solve the problem using a single domain with parallelization and vectorization. The observed best performance occurs when the number of threads are $\approx10$. Increasing the number of threads further results in plateauing in speedup which can be attributed to extra threads not being employed due to limited parallelization. The plateau is lower than the observed maximum speedup. We believe that this is due to thread scheduling overhead. Note that the original solution has a speedup $< 1$ in the following plot. The implementation of this version can be found at the \texttt{vector\_parallel} branch.
+Following is the strong scaling study where we solve the problem using a single domain with parallelization and vectorization. We solve the problem on a 500x500 grid for 100 frames. The observed best performance occurs when the number of threads are $\approx10$. Increasing the number of threads further results in plateauing in speedup which can be attributed to extra threads not being employed due to limited parallelization. The plateau is lower than the observed maximum speedup. We believe that this is due to thread scheduling overhead. Note that the original solution has a speedup $< 1$ in the following plot. The implementation of this version can be found at the \texttt{vector\_parallel} branch.
 
 \begin{figure}[H]
     \includegraphics[width=0.9\textwidth]{./strong_scaling/strong_scaling_vector_parallel.png}
@@ -155,7 +155,7 @@ Following is the strong scaling study where we solve the problem using a single 
 
 \paragraph{Parallel domain decomposition}
 
-The strong scaling study for the domain decomposed version of the solution shows good speedup with increasing number of threads.
+The strong scaling study for the domain decomposed version of the solution shows good speedup with increasing number of threads. The problem was solved on a 1000x1000 grid for 100 frames.
 
 \begin{figure}[H]
     \includegraphics[width=0.9\textwidth]{./strong_scaling/strong_scaling.png}
