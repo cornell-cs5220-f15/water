@@ -12,7 +12,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <unistd.h>
-
+#include <fstream>
 
 //ldoc on
 /**
@@ -30,7 +30,7 @@
  * limiter:
  */
 
-typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
+typedef Central2D< Shallow2D, MinMod<Shallow2D::real, Shallow2D::vec> > Sim;
 
 /**
  * ## Initial states
@@ -52,6 +52,25 @@ void dam_break(Sim::vec& u, double x, double y)
     u[2] = 0;
 }
 
+// Circular dam break problem
+// The 3-vector is decoupled for efficiency
+void dam_break_h(Sim::real& h, double x, double y)
+{
+    x -= 1;
+    y -= 1;
+    h = 1.0 + 0.5*(x*x + y*y < 0.25+1e-5);
+}
+
+void dam_break_hu(Sim::real& hu, double x, double y)
+{
+    hu = 0;
+}
+
+void dam_break_hv(Sim::real& hv, double x, double y)
+{
+    hv = 0;
+}
+
 // Still pond (ideally, nothing should move here!)
 void pond(Sim::vec& u, double x, double y)
 {
@@ -60,12 +79,36 @@ void pond(Sim::vec& u, double x, double y)
     u[2] = 0;
 }
 
+void pond_h(Sim::real& h, double x, double y) {
+    h = 1.0;
+}
+
+void pond_hu(Sim::real& hu, double x, double y) {
+    hu = 0.0;
+}
+
+void pond_hv(Sim::real& hv, double x, double y) {
+    hv = 0.0;
+}
+
 // River (ideally, the solver shouldn't do much with this, either)
 void river(Sim::vec& u, double x, double y)
 {
     u[0] = 1.0;
     u[1] = 1.0;
     u[2] = 0;
+}
+
+void river_h(Sim::real& h, double x, double y) {
+    h = 1.0;
+}
+
+void river_hu(Sim::real& hu, double x, double y) {
+    hu = 1.0;
+}
+
+void river_hv(Sim::real& hv, double x, double y) {
+    hv = 0.0;
 }
 
 
@@ -78,6 +121,17 @@ void wave(Sim::vec& u, double x, double y)
     u[2] = 0;
 }
 
+void wave_h(Sim::real& h, double x, double y) {
+    h = 1.0 + 0.2 * sin(M_PI*x);
+}
+
+void wave_hu(Sim::real& hu, double x, double y) {
+    hu = 1.0;
+}
+
+void wave_hv(Sim::real& hv, double x, double y) {
+    hv = 0.0;
+}
 
 /**
  * ## Main driver
@@ -89,12 +143,12 @@ void wave(Sim::vec& u, double x, double y)
 
 int main(int argc, char** argv)
 {
-    std::string fname = "waves.out";
-    std::string ic = "dam_break";
-    int    nx = 200;
-    double width = 2.0;
-    double ftime = 0.01;
-    int    frames = 50;
+    std::string fname = "wave.out";
+    std::string ic    = "dam_break";
+    int    nx         = 200;
+    double width      = 2.0;
+    double ftime      = 0.01;
+    int    frames     = 100;
     
     int c;
     extern char* optarg;
@@ -125,34 +179,60 @@ int main(int argc, char** argv)
         }
     }
 
-    void (*icfun)(Sim::vec& u, double x, double y) = dam_break;
+    //TODO: Add 3 initializations
+    void (*icfun1)(Sim::real& h, double x, double y) = dam_break_h;
+    void (*icfun2)(Sim::real& hu, double x, double y) = dam_break_hu;
+    void (*icfun3)(Sim::real& hv, double x, double y) = dam_break_hv;
     if (ic == "dam_break") {
-        icfun = dam_break;
+        icfun1 = dam_break_h;
+        icfun2 = dam_break_hu;
+        icfun3 = dam_break_hv;
     } else if (ic == "pond") {
-        icfun = pond;
+        icfun1 = pond_h;
+        icfun2 = pond_hu;
+        icfun3 = pond_hv;
     } else if (ic == "river") {
-        icfun = river;
+        icfun1 = river_h;
+        icfun2 = river_hu;
+        icfun3 = river_hv;
     } else if (ic == "wave") {
-        icfun = wave;
+        icfun1 = wave_h;
+        icfun2 = wave_hu;
+        icfun3 = wave_hv;
     } else {
         fprintf(stderr, "Unknown initial conditions\n");
     }
-    
-    Sim sim(width,width, nx,nx);
+    int ratio = 4;
+    nx = ceil(nx/4)*4;   
+    Sim sim(width,width, nx,nx, 0);
     SimViz<Sim> viz(fname.c_str(), sim);
-    sim.init(icfun);
+    sim.init(icfun1, icfun2, icfun3);
     sim.solution_check();
+    printf("init done\n");
     viz.write_frame();
+
+    double total = 0.0;
+    std::ofstream time_file;
+    time_file.open("timings.csv");
+    std::ofstream avg_file;
+    avg_file.open("average.csv");
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
         sim.run(ftime);
         double t1 = omp_get_wtime();
         printf("Time: %e\n", t1-t0);
+        time_file << t1-t0 << std::endl;
+        total += (t1 - t0);
 #else
         sim.run(ftime);
 #endif
         sim.solution_check();
         viz.write_frame();
     }
+    avg_file << (total/(double)frames) << std::endl;
+    time_file << total << std::endl;
+    time_file.close();
+    avg_file.close();
+
 }

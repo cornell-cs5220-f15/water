@@ -1,0 +1,6 @@
+Early exits
+
+(Assert statement)
+LOOP BEGIN at central2d.h(429,9) inlined into driver.cc(144,9)
+   remark #15520: loop was not vectorized: loop with early exits cannot be vectorized unless it meets search loop idiom criteria
+LOOP END
