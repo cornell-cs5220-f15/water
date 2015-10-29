@@ -1,6 +1,6 @@
 #ifndef STEPPER_H
 #define STEPPER_H
-
+#include "shallow2d.h"
 #include <math.h>
 
 //ldoc

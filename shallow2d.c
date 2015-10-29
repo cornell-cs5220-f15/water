@@ -1,6 +1,7 @@
+#pragma offload_attribute(push, target(mic))
 #include <string.h>
 #include <math.h>
-
+#include <omp.h>
 //ldoc on
 /**
  * ## Implementation
@@ -84,3 +85,4 @@ void shallow2d_speed(float* cxy, const float* U,
 {
     shallow2dv_speed(cxy, U, U+field_stride, U+2*field_stride, g, ncell);
 }
+#pragma offload_attribute(pop)
