@@ -12,7 +12,7 @@ We will also use $b$ to refer to the batch size, meaning that $2b$ is the number
 
 For our implementation of domain decomposition, we maintained a global copy of the domain which is used to store the current state of the entire simulation. We then divide the domain into $p$ equally sized subdomains, with one processor being responsible for each. There were two approaches we considered for allowing each processor to compute the subdomain it was responsible for. The first approach is to keep only one copy of the whole domain and each processor will read and write to this shared memory. The second approach would be to have each processor maintain a copy of its subdomain and periodically synchronize up with the global copy of the domain. The first approach requires less copying of memory back and forth. However, since the subdomains overlap with each other, it requires us to guarantee thread safety for the shared global domain. The second approach requires more copying of memory but it can be done without needing to worry about thread safety. In addition to decreasing implementation complexity, the second approach is able to use the cache more efficiently. Since each subdomain will now be stored in a contiguous region of memory, this allows us to make more efficient use of spatial locality. 
 
-Using this approach, we developed the following algorithm (written here in pseudocode):
+Using this approach, we developed the algorithm (written in pseudocode) shown in Algorithm~\ref{alg:a1}.
 
 \begin{algorithm}
 \begin{algorithmic}[1]
@@ -28,15 +28,17 @@ Using this approach, we developed the following algorithm (written here in pseud
 	\State \ttt{domain} $\gets$ \ttt{subdomain}
 \EndFor
 \end{algorithmic}
+\caption{Domain decomposition}
+\label{alg:a1}
 \end{algorithm}
 
 We note that we have had to decrease the size of the time step $\ttt{dt}$ as we are now computing multiple time steps between each calculation of $\ttt{dt}$. While decreasing the time step increases the amount of computational time for simulations, decreasing the time step can lead to instability of the numerical method. Our current choice of $0.9$ times the CFL condition of $0.45$ is heuristic, and could very likely be improved.
 
-However, we found when profiling that frequently the majority of our time was spent waiting for other processors, rather than doing any computation. Because of this, we decided to look for additional areas where we could improve the parallelization of our code. The two major serial components of our code were applying the periodic boundary conditions, and computing the maximum time step we could take. 
+However, we found when profiling that frequently the majority of our time was spent waiting for other processors, rather than doing any computation. Because of this, we decided to look for additional areas where we could improve the parallelization of our code. The two major serial components of our code were applying the periodic boundary conditions, and computing the maximum time step we could take.
 
-Parallelizing the periodic boundary conditions seemed difficult to implement while still avoiding race conditions, so we figured the performance gains would likely not be worth the development time. 
+Parallelizing the periodic boundary conditions seemed difficult to implement while still avoiding race conditions, so we figured the performance gains would likely not be worth the development time.
 
-However, we realized that computing the maximum speed was just finding the maximum of a bunch of local computations. Thus, we decided to parallelize this computation by finding the maximum speed in each subdomain, and then taking the maximum of the speeds for each subdomain. Our final algorithm can be seen below:
+However, we realized that computing the maximum speed was just finding the maximum of a bunch of local computations. Thus, we decided to parallelize this computation by finding the maximum speed in each subdomain, and then taking the maximum of the speeds for each subdomain. This leaves us with just a few barriers, two minor serial computations, and a a single processor computing boundary conditions as our non-parallel sections. Our final algorithm can be seen in Algorithm~\ref{alg:a2}.
 
 \begin{algorithm}[hh]
 \begin{algorithmic}[1]
@@ -59,11 +61,10 @@ However, we realized that computing the maximum speed was just finding the maxim
     \State t $\gets$ t+b*dt
 \EndWhile
 \end{algorithmic}
+\caption{Domain decomposition with parallel speed computation}
+\label{alg:a2}
 \end{algorithm}
 
 We found that parallelizing speed significantly improved performance when using a large number of cores (such as on the Phi coprocessors).
 
 \newpage
-
-
-	
