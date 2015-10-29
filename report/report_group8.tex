@@ -155,7 +155,7 @@ Following is the strong scaling study where we solve the problem using a single 
 
 \paragraph{Parallel domain decomposition}
 
-The strong scaling study for the domain decomposed version of the solution shows good speedup with increasing number of threads. The problem was solved on a 1000x1000 grid for 100 frames.
+The strong scaling study for the domain decomposed version of the solution shows good speedup with increasing number of threads. The problem was solved on a 1000x1000 grid for 100 frames. The implementation can be found at the \texttt{spatial\_vector\_merge} branch.
 
 \begin{figure}[H]
     \includegraphics[width=0.9\textwidth]{./strong_scaling/strong_scaling.png}
@@ -171,7 +171,8 @@ plot the speedup observed while increasing the number of threads and the problem
 
 \paragraph{Parallel approach with vectorization}
 
-In the single domain, parallelized approach, we observe a exponential decrease in speedup per core. We believe that this can be attributed to load imbalance between threads and thread scheduling overhead. 
+In the single domain, parallelized approach, we observe a exponential decrease in speedup per core. We believe that this can be attributed to load imbalance between threads and thread scheduling overhead. The implementation of this version can be found at the \texttt{vector\_parallel} branch.
+ 
 
  \begin{figure}[H]
     \includegraphics[width=0.9\textwidth]{./weak_scaling/weak_scaling_vector_parallel.png}
@@ -180,6 +181,8 @@ In the single domain, parallelized approach, we observe a exponential decrease i
 \end{figure} 
 
 \paragraph{Parallel domain decomposition}
+
+The implementation can be found at the \texttt{spatial\_vector\_merge} branch.
 
  \begin{figure}[H]
     \includegraphics[width=0.9\textwidth]{./weak_scaling/weak_scaling.png}
