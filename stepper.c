@@ -5,6 +5,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <omp.h>
 
 //ldoc on
 /**
@@ -13,12 +14,10 @@
  * ### Structure allocation
  */
 
-central2d_t* central2d_init(float w, float h, int nx, int ny,
-                            int nfield, flux_t flux, speed_t speed,
-                            float cfl)
+central2d_t* central2d_init(float w, float h, int nx, int ny, int nfield, flux_t flux, speed_t speed, float cfl)
 {
     // We extend to a four cell buffer to avoid BC comm on odd time steps
-    int ng = 4;
+    int ng = NGHOST;
 
     central2d_t* sim = (central2d_t*) malloc(sizeof(central2d_t));
     sim->nx = nx;
@@ -61,6 +60,50 @@ int central2d_offset(central2d_t* sim, int k, int ix, int iy)
 }
 
 
+board2d_t* board2d_init(int nx_whole, int ny_whole, int sep_x, int sep_y, float w, float h, int nfield, flux_t flux, speed_t speed, float cfl)
+{
+
+    board2d_t* board = (board2d_t*) malloc(sizeof(board2d_t));
+ 
+    board->nx_whole  = nx_whole;
+    board->ny_whole  = ny_whole;
+    board->sep_x     = sep_x;
+    board->sep_y     = sep_y;
+    board->nfield    = nfield;
+    board->dx        = w/nx_whole;
+    board->dy        = h/ny_whole;
+
+    board->ub       = (float*) malloc((nx_whole * ny_whole * nfield) * sizeof(float));
+
+    board->central_b = (central2d_t*) malloc(sep_x * sep_y * sizeof(central2d_t));
+
+    for (int i = 0; i < sep_x * sep_y; i++)
+        board->central_b[i] = *central2d_init( ((nx_whole-1)/sep_x + 1) * board->dx, ((ny_whole-1)/sep_y + 1) * board->dy, (nx_whole-1)/sep_x + 1, (ny_whole-1)/sep_y + 1, nfield, flux, speed, cfl);
+
+    return board;
+}
+
+
+void board2d_free(board2d_t* board)
+{
+    for (int i = 0; i < board->sep_x * board->sep_y; i++)
+    {
+        free(board->central_b[i].u);
+    }
+
+    free(board->ub);
+    free(board->central_b);
+    free(board);
+}   
+
+
+int board2d_offset(board2d_t* board, int k, int ix, int iy)
+{
+    int nx_whole = board->nx_whole, ny_whole = board->ny_whole;
+    return (k*ny_whole+iy)*nx_whole+ix;
+}
+
+
 /**
  * ### Boundary conditions
  *
@@ -77,38 +120,46 @@ int central2d_offset(central2d_t* sim, int k, int ix, int iy)
  */
 
 static inline
-void copy_subgrid(float* restrict dst,
-                  const float* restrict src,
-                  int nx, int ny, int stride)
+int gx_pos(int i, int sep_x, int nx, int nx_whole, int ng, int td_num)
 {
-    for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
-            dst[iy*stride+ix] = src[iy*stride+ix];
+    int gx_position = ((td_num % sep_x) * nx + i - ng + nx_whole) % nx_whole;
+
+    return gx_position;
 }
 
-void central2d_periodic(float* restrict u,
-                        int nx, int ny, int ng, int nfield)
+static inline
+int gy_pos(int j, int sep_x, int ny, int ny_whole, int ng, int td_num)
+{
+    int gy_position = ((td_num / sep_x) * ny + j - ng + ny_whole) % ny_whole;
+
+    return gy_position;
+}
+
+void write_in(float* restrict u, float* ub, int nx, int ny, int ng, int nfield, int td_num, int nx_whole, int ny_whole, int sep_x, int sep_y)
 {
     // Stride and number per field
-    int s = nx + 2*ng;
-    int field_stride = (ny+2*ng)*s;
-
-    // Offsets of left, right, top, and bottom data blocks and ghost blocks
-    int l = nx,   lg = 0;
-    int r = ng,   rg = nx+ng;
-    int b = ny*s, bg = 0;
-    int t = ng*s, tg = (nx+ng)*s;
+    int stride_dst       = nx + 2*ng;
+    int stride_src       = nx_whole;
+    int field_stride_dst = (ny+2*ng)*stride_dst;
+    int field_stride_src = ny_whole*stride_src;
 
     // Copy data into ghost cells on each side
-    for (int k = 0; k < nfield; ++k) {
-        float* uk = u + k*field_stride;
-        copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s);
-        copy_subgrid(uk+rg, uk+r, ng, ny+2*ng, s);
-        copy_subgrid(uk+tg, uk+t, nx+2*ng, ng, s);
-        copy_subgrid(uk+bg, uk+b, nx+2*ng, ng, s);
+    for (int k = 0; k < nfield; ++k) 
+    {
+        float* uk  = u  + k * field_stride_dst;
+        float* ubk = ub + k * field_stride_src;
+        
+        for (int j = 0; j < ny + 2*ng; j++)
+        {
+            int y_pos = gy_pos(j, sep_x, ny, ny_whole, ng, td_num);
+            for (int i = 0; i < nx + 2*ng; i++)
+            {
+                int x_pos = gx_pos(i, sep_x, nx, nx_whole, ng, td_num);
+                uk[j * (nx + 2*ng) + i] = ubk[y_pos * nx_whole + x_pos];
+            }
+        }
     }
 }
-
 
 /**
  * ### Derivatives with limiters
@@ -219,12 +270,15 @@ void central2d_predict(float* restrict v,
 {
     float* restrict fx = scratch;
     float* restrict gy = scratch+nx;
-    for (int k = 0; k < nfield; ++k) {
-        for (int iy = 1; iy < ny-1; ++iy) {
+    for (int k = 0; k < nfield; ++k) 
+    {
+        for (int iy = 1; iy < ny-1; ++iy) 
+        {
             int offset = (k*ny+iy)*nx+1;
             limited_deriv1(fx+1, f+offset, nx-2);
             limited_derivk(gy+1, g+offset, nx-2, nx);
-            for (int ix = 1; ix < nx-1; ++ix) {
+            for (int ix = 1; ix < nx-1; ++ix) 
+            {
                 int offset = (k*ny+iy)*nx+ix;
                 v[offset] = u[offset] - dtcdx2 * fx[ix] - dtcdy2 * gy[ix];
             }
@@ -327,11 +381,11 @@ void central2d_step(float* restrict u, float* restrict v,
 
     flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
 
-    central2d_predict(v, scratch, u, f, g, dtcdx2, dtcdy2,
-                      nx_all, ny_all, nfield);
+    central2d_predict(v, scratch, u, f, g, dtcdx2, dtcdy2, nx_all, ny_all, nfield);
 
     // Flux values of f and g at half step
-    for (int iy = 1; iy < ny_all-1; ++iy) {
+    for (int iy = 1; iy < ny_all-1; ++iy) 
+    {
         int jj = iy*nx_all+1;
         flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
     }
@@ -342,6 +396,33 @@ void central2d_step(float* restrict u, float* restrict v,
                       nx_all, ny_all, nfield);
 }
 
+void write_back(float* restrict u, float* ub, int nx, int ny, int ng, int nfield, int td_num, int nx_whole, int ny_whole, int sep_x, int sep_y)
+{
+    // Stride and number per field
+    int stride_dst       = nx + 2*ng;
+    int stride_src       = nx_whole;
+    int field_stride_dst = (ny+2*ng)*stride_dst;
+    int field_stride_src = ny_whole*stride_src;
+
+    int diffx = (td_num % sep_x == sep_x - 1) ? sep_x * nx - nx_whole : 0;
+    int diffy = (td_num / sep_x == sep_y - 1) ? sep_y * ny - ny_whole : 0;
+
+    for (int k = 0; k < nfield; ++k) 
+    {
+        float* uk  = u  + k * field_stride_dst;
+        float* ubk = ub + k * field_stride_src;
+        
+        for (int j = ng; j < ny + ng - diffy; j++)
+        {
+            int y_pos = gy_pos(j, sep_x, ny, ny_whole, ng, td_num);
+            for (int i = ng; i < nx + ng - diffx; i++)
+            {
+                int x_pos = gx_pos(i, sep_x, nx, nx_whole, ng, td_num);
+                ubk[y_pos * nx_whole + x_pos] = uk[j * (nx + 2*ng) + i];
+            }
+        }
+    }
+}
 
 /**
  * ### Advance a fixed time
@@ -364,42 +445,70 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float* restrict g,
                    int nx, int ny, int ng,
                    int nfield, flux_t flux, speed_t speed,
-                   float tfinal, float dx, float dy, float cfl)
+                   float tfinal, float dx, float dy, 
+                   float cfl, int td_num,
+                   float* ub, int nx_whole, int ny_whole, int sep_x, int sep_y)
 {
     int nstep = 0;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
     bool done = false;
     float t = 0;
-    while (!done) {
+
+    while (!done) 
+    {
         float cxy[2] = {1.0e-15f, 1.0e-15f};
-        central2d_periodic(u, nx, ny, ng, nfield);
+        write_in(u, ub, nx, ny, ng, nfield, td_num, nx_whole, ny_whole, sep_x, sep_y);
+        #pragma omp barrier
+        
         speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
         float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-        if (t + 2*dt >= tfinal) {
-            dt = (tfinal-t)/2;
-            done = true;
+
+        dt = 0.0011;
+
+        for (int i = 0; (i < (ng - 1) / 3) && (!done); i++)
+        {
+            if (t + 2*dt >= tfinal) 
+            {
+                dt = (tfinal-t)/2;
+                done = true;
+            }
+       
+            central2d_step(u, v, scratch, f, g, 0, nx+2*ng-i*6-4, ny+2*ng-i*6-4, i*3+2, nfield, flux, speed, dt, dx, dy);
+            central2d_step(v, u, scratch, f, g, 1, nx+2*ng-i*6-8, ny+2*ng-i*6-8, i*3+4, nfield, flux, speed, dt, dx, dy);
+            
+            t += 2*dt;
+            nstep += 2;
         }
-        central2d_step(u, v, scratch, f, g,
-                       0, nx+4, ny+4, ng-2,
-                       nfield, flux, speed,
-                       dt, dx, dy);
-        central2d_step(v, u, scratch, f, g,
-                       1, nx, ny, ng,
-                       nfield, flux, speed,
-                       dt, dx, dy);
-        t += 2*dt;
-        nstep += 2;
+
+        write_back(u, ub, nx, ny, ng, nfield, td_num, nx_whole, ny_whole, sep_x, sep_y);
+        #pragma omp barrier
     }
+
     return nstep;
 }
 
 
-int central2d_run(central2d_t* sim, float tfinal)
+int central2d_run(central2d_t* sim, float tfinal, int td_num, float* ub, int nx_whole, int ny_whole, int sep_x, int sep_y)
 {
     return central2d_xrun(sim->u, sim->v, sim->scratch,
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl);
+                          tfinal, sim->dx, sim->dy, sim->cfl, td_num,
+                          ub, nx_whole, ny_whole, sep_x, sep_y);
+}
+
+int board2d_run(board2d_t* board, float tfinal)
+{
+    int nstep = 0;
+
+    #pragma omp parallel num_threads(board->sep_x * board->sep_y) reduction(+:nstep)
+    {
+        int td_num = omp_get_thread_num();
+        
+        nstep = central2d_run(&(board->central_b[td_num]), tfinal, td_num, board->ub, board->nx_whole, board->ny_whole, board->sep_x, board->sep_y);
+    }
+
+    return (nstep / (board->sep_x * board->sep_y));
 }

@@ -14,6 +14,9 @@
 #include <assert.h>
 #include <stdio.h>
 
+#define SEP_X 4 
+#define SEP_Y 3 
+
 //ldoc on
 /**
  * # Driver code
@@ -33,28 +36,30 @@
  * of water heights).
  */
 
-void solution_check(central2d_t* sim)
+void solution_check(board2d_t* board)
 {
-    int nx = sim->nx, ny = sim->ny;
-    float* u = sim->u;
+    int nx = board->nx_whole, ny = board->ny_whole;
+    float* u = board->ub;
     float h_sum = 0, hu_sum = 0, hv_sum = 0;
-    float hmin = u[central2d_offset(sim,0,0,0)];
+    float hmin = u[board2d_offset(board,0,0,0)];
     float hmax = hmin;
     for (int j = 0; j < ny; ++j)
-        for (int i = 0; i < nx; ++i) {
-            float h = u[central2d_offset(sim,0,i,j)];
+    {
+        for (int i = 0; i < nx; ++i) 
+        {
+            float h = u[board2d_offset(board,0,i,j)];
             h_sum += h;
-            hu_sum += u[central2d_offset(sim,1,i,j)];
-            hv_sum += u[central2d_offset(sim,2,i,j)];
+            hu_sum += u[board2d_offset(board,1,i,j)];
+            hv_sum += u[board2d_offset(board,2,i,j)];
             hmax = fmaxf(h, hmax);
             hmin = fminf(h, hmin);
         }
-    float cell_area = sim->dx * sim->dy;
+    }
+    float cell_area = board->dx * board->dy;
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
-    printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-           h_sum, hu_sum, hv_sum, hmin, hmax);
+    printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n", h_sum, hu_sum, hv_sum, hmin, hmax);
     assert(hmin > 0);
 }
 
@@ -68,11 +73,12 @@ void solution_check(central2d_t* sim)
  * single-precision raster pictures.
  */
 
-FILE* viz_open(const char* fname, central2d_t* sim)
+FILE* viz_open(const char* fname, board2d_t* board)
 {
     FILE* fp = fopen(fname, "w");
-    if (fp) {
-        float xy[2] = {sim->nx, sim->ny};
+    if (fp) 
+    {
+        float xy[2] = {board->nx_whole, board->nx_whole};
         fwrite(xy, sizeof(float), 2, fp);
     }
     return fp;
@@ -83,12 +89,15 @@ void viz_close(FILE* fp)
     fclose(fp);
 }
 
-void viz_frame(FILE* fp, central2d_t* sim)
+void viz_frame(FILE* fp, board2d_t* board)
 {
     if (fp)
-        for (int iy = 0; iy < sim->ny; ++iy)
-            fwrite(sim->u + central2d_offset(sim,0,0,iy),
-                   sizeof(float), sim->nx, fp);
+    {
+        for (int iy = 0; iy < board->ny_whole; ++iy)
+        {
+            fwrite(board->ub + board2d_offset(board,0,0,iy), sizeof(float), board->nx_whole, fp);
+        }
+    }
 }
 
 /**
@@ -110,7 +119,8 @@ void viz_frame(FILE* fp, central2d_t* sim)
 double lget_number(lua_State* L, const char* name, double x)
 {
     lua_getfield(L, 1, name);
-    if (lua_type(L, -1) != LUA_TNIL) {
+    if (lua_type(L, -1) != LUA_TNIL) 
+    {
         if (lua_type(L, -1) != LUA_TNUMBER)
             luaL_error(L, "Expected %s to be a number", name);
         x = lua_tonumber(L, -1);
@@ -123,7 +133,8 @@ double lget_number(lua_State* L, const char* name, double x)
 int lget_int(lua_State* L, const char* name, int x)
 {
     lua_getfield(L, 1, name);
-    if (lua_type(L, -1) != LUA_TNIL) {
+    if (lua_type(L, -1) != LUA_TNIL) 
+    {
         if (lua_type(L, -1) != LUA_TNUMBER)
             luaL_error(L, "Expected %s to be a number", name);
         x = lua_tointeger(L, -1);
@@ -155,26 +166,28 @@ const char* lget_string(lua_State* L, const char* name, const char* x)
  * a table at index 1.
  */
 
-void lua_init_sim(lua_State* L, central2d_t* sim)
+void lua_init_board(lua_State* L, board2d_t* board)
 {
     lua_getfield(L, 1, "init");
     if (lua_type(L, -1) != LUA_TFUNCTION)
         luaL_error(L, "Expected init to be a string");
 
-    int nx = sim->nx, ny = sim->ny, nfield = sim->nfield;
-    float dx = sim->dx, dy = sim->dy;
-    float* u = sim->u;
+    int nx = board->nx_whole, ny = board->ny_whole, nfield = board->nfield;
+    float dx = board->dx, dy = board->dy;
+    float* u = board->ub;
 
-    for (int ix = 0; ix < nx; ++ix) {
+    for (int ix = 0; ix < nx; ++ix) 
+    {
         float x = (ix + 0.5) * dx;
-        for (int iy = 0; iy < ny; ++iy) {
+        for (int iy = 0; iy < ny; ++iy) 
+        {
             float y = (iy + 0.5) * dy;
             lua_pushvalue(L, -1);
             lua_pushnumber(L, x);
             lua_pushnumber(L, y);
             lua_call(L, 2, nfield);
             for (int k = 0; k < nfield; ++k)
-                u[central2d_offset(sim,k,ix,iy)] = lua_tonumber(L, k-nfield);
+                u[board2d_offset(board,k,ix,iy)] = lua_tonumber(L, k-nfield);
             lua_pop(L, nfield);
         }
     }
@@ -212,39 +225,46 @@ int run_sim(lua_State* L)
     int frames = lget_int(L, "frames", 50);
     const char* fname = lget_string(L, "out", "sim.out");
 
-    central2d_t* sim = central2d_init(w,h, nx,ny,
-                                      3, shallow2d_flux, shallow2d_speed, cfl);
-    lua_init_sim(L,sim);
+    board2d_t* board = board2d_init(nx, ny, SEP_X, SEP_Y, w, h, 3, shallow2d_flux, shallow2d_speed, cfl);
+
+    lua_init_board(L, board);
     printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
-    FILE* viz = viz_open(fname, sim);
-    solution_check(sim);
-    viz_frame(viz, sim);
+    FILE* viz = viz_open(fname, board);
+    solution_check(board);
+    viz_frame(viz, board);
+
+    printf("ldrive ftime:%f\n", ftime);
 
     double tcompute = 0;
-    for (int i = 0; i < frames; ++i) {
-#ifdef _OPENMP
+    for (int i = 0; i < frames; ++i) 
+    {
+        #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        int nstep = central2d_run(sim, ftime);
+        int nstep = board2d_run(board, ftime);
         double t1 = omp_get_wtime();
         double elapsed = t1-t0;
-#elif defined SYSTIME
+
+        #elif defined SYSTIME
         struct timeval t0, t1;
         gettimeofday(&t0, NULL);
-        int nstep = central2d_run(sim, ftime);
+        int nstep = board2d_run(board, ftime);
         gettimeofday(&t1, NULL);
         double elapsed = (t1.tv_sec-t0.tv_sec) + (t1.tv_usec-t0.tv_usec)*1e-6;
-#else
-        int nstep = central2d_run(sim, ftime);
+        
+        #else
+        int nstep = board2d_run(board, ftime);
         double elapsed = 0;
-#endif
-        solution_check(sim);
+        
+        #endif
+        
+        solution_check(board);
         tcompute += elapsed;
         printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
-        viz_frame(viz, sim);
+        viz_frame(viz, board);
     }
     printf("Total compute time: %e\n", tcompute);
 
-    central2d_free(sim);
+    board2d_free(board);
     return 0;
 }
 
@@ -263,7 +283,8 @@ int run_sim(lua_State* L)
 
 int main(int argc, char** argv)
 {
-    if (argc < 2) {
+    if (argc < 2) 
+    {
         fprintf(stderr, "Usage: %s fname args\n", argv[0]);
         return -1;
     }
@@ -273,14 +294,15 @@ int main(int argc, char** argv)
     lua_register(L, "simulate", run_sim);
 
     lua_newtable(L);
-    for (int i = 2; i < argc; ++i) {
+    for (int i = 2; i < argc; ++i) 
+    {
         lua_pushstring(L, argv[i]);
         lua_rawseti(L, 1, i-1);
     }
     lua_setglobal(L, "args");
 
     if (luaL_dofile(L, argv[1]))
-        printf("%s\n", lua_tostring(L,-1));
+        printf("hahaha:%s\n", lua_tostring(L,-1));
     lua_close(L);
     return 0;
 }

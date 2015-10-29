@@ -1,5 +1,6 @@
 #ifndef STEPPER_H
 #define STEPPER_H
+#define NGHOST 16 
 
 #include <math.h>
 
@@ -16,10 +17,9 @@
  * of the solution and fluxes are separated by `field_stride`.
  *
  */
-typedef void (*flux_t)(float* FU, float* GU, const float* U,
-                       int ncell, int field_stride);
-typedef void (*speed_t)(float* cxy, const float* U,
-                        int ncell, int field_stride);
+typedef void (*flux_t)(float* FU, float* GU, const float* U, int ncell, int field_stride);
+
+typedef void (*speed_t)(float* cxy, const float* U, int ncell, int field_stride);
 
 
 /**
@@ -35,7 +35,8 @@ typedef void (*speed_t)(float* cxy, const float* U,
  * but I haven't done so yet.
  *
  */
-typedef struct central2d_t {
+typedef struct central2d_t 
+{
 
     int nfield;   // Number of components in system
     int nx, ny;   // Grid resolution in x/y (without ghost cells)
@@ -62,9 +63,8 @@ typedef struct central2d_t {
  * structure.  The exceptions are the constructor and destructor
  * functions.
  */
-central2d_t* central2d_init(float w, float h, int nx, int ny,
-                            int nfield, flux_t flux, speed_t speed,
-                            float cfl);
+central2d_t* central2d_init(float w, float h, int nx, int ny, int nfield, flux_t flux, speed_t speed, float cfl);
+
 void central2d_free(central2d_t* sim);
 
 /**
@@ -74,7 +74,7 @@ void central2d_free(central2d_t* sim);
  * (zero-based) cell index, where cell `(0,0)` is a corner
  * real (non-ghost) cell.
  */
-int  central2d_offset(central2d_t* sim, int k, int ix, int iy);
+int central2d_offset(central2d_t* sim, int k, int ix, int iy);
 
 /**
  * ### Running the simulation
@@ -85,7 +85,7 @@ int  central2d_offset(central2d_t* sim, int k, int ix, int iy);
  * that we always take steps in multiples of two so that we end
  * at the reference grid.
  */
-int central2d_run(central2d_t* sim, float tfinal);
+int central2d_run(central2d_t* sim, float tfinal, int td_num, float* ub, int nx_whole, int ny_whole, int sep_x, int sep_y);
 
 /**
  * ### Applying boundary conditions
@@ -101,6 +101,30 @@ int central2d_run(central2d_t* sim, float tfinal);
  * for applying the BCs.
  */
 void central2d_periodic(float* u, int nx, int ny, int ng, int nfield);
+
+typedef struct board2d_t
+{
+    
+    int nx_whole, ny_whole;
+    int sep_x, sep_y;
+    int nfield;
+    float dx, dy;
+
+    float* ub;
+
+    central2d_t* central_b;
+
+} board2d_t;
+
+
+board2d_t* board2d_init(int nx_whole, int ny_whole, int sep_x, int sep_y, float w, float h, int nfield, flux_t flux, speed_t speed, float cfl);
+
+void board2d_free(board2d_t* board);
+
+int board2d_offset(board2d_t* board, int k, int ix, int iy);
+
+int board2d_run(board2d_t* board, float ftime);
+
 
 //ldoc off
 #endif /* STEPPER_H */

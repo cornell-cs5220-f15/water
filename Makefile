@@ -82,7 +82,7 @@ wave.mp4: wave.out
 # Generate output files
 
 dam_break.out: lshallow
-	./lshallow tests.lua dam
+	./lshallow tests.lua dam 200 
 
 wave.out: lshallow
 	./lshallow tests.lua wave

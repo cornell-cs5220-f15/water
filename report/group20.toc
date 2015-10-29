@@ -1,0 +1,8 @@
+\contentsline {section}{Our approach}{4}
+\contentsline {subsection}{Profiling}{5}
+\contentsline {subsection}{Copy Optimization}{6}
+\contentsline {subsection}{Data alignment}{6}
+\contentsline {subsection}{Vectorization}{7}
+\contentsline {subsection}{Compiler optimization}{8}
+\contentsline {subsection}{L2 blocking}{9}
+\contentsline {section}{Summary}{10}

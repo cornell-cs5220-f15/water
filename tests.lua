@@ -3,22 +3,26 @@
 --
 nx = tonumber(args[2]) or 200
 
-pond = {
+pond = 
+{
   init = function(x,y) return 1, 0, 0 end,
   out = "pond.out",
   nx = nx
 }
 
-river = {
+river = 
+{
   init = function(x,y) return 1, 1, 0 end,
   out = "river.out",
   nx = nx
 }
 
-dam = {
+dam = 
+{
   init = function(x,y)
     if (x-1)*(x-1) + (y-1)*(y-1) < 0.25 then
-      return 1.5, 0, 0
+--    if x < 1 then  
+        return 1.5, 0, 0
     else
       return 1, 0, 0
     end
@@ -27,7 +31,8 @@ dam = {
   nx = nx
 }
 
-wave = {
+wave = 
+{
   init = function(x,y)
     return 1.0 + 0.2 * math.sin(math.pi * x), 1, 0
   end,
