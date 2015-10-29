@@ -12,9 +12,10 @@ def make_plot(runs):
     for arg in runs:
         df = pd.read_csv("timing-{0}.csv".format(arg))
         df = df.sort('threads')
-        plt.plot(df['threads'], df['time'], label=arg)
+        nrm = df['time'][0]
+        plt.plot(df['threads'], df['time']/nrm, label=arg)
     plt.xlabel('Threads')
-    plt.ylabel('Time')
+    plt.ylabel('Time (normalized)')
 
 def show(runs):
     "Show plot of timing runs (for interactive use)"
