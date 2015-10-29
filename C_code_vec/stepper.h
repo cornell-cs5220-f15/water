@@ -48,11 +48,11 @@ typedef struct central2d_t {
     speed_t speed;
 
     // Storage
-    float* u;
-    float* v;
-    float* f;
-    float* g;
-    float* scratch;
+    float* u __attribute__((aligned( 32 )));
+    float* v __attribute__((aligned( 32 )));
+    float* f __attribute__((aligned( 32 )));
+    float* g __attribute__((aligned( 32 )));
+    float* scratch __attribute__((aligned( 32 )));
 
 } central2d_t;
 
@@ -85,7 +85,7 @@ int  central2d_offset(central2d_t* sim, int k, int ix, int iy);
  * that we always take steps in multiples of two so that we end
  * at the reference grid.
  */
-int central2d_run(central2d_t* sim, float tfinal);
+int central2d_run(central2d_t* sim, float tfinal, int p);
 
 /**
  * ### Applying boundary conditions

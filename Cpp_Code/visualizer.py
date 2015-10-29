@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/Users/robertcarson/miniconda3/bin/python
 
 """
 Visualize shallow water simulation results.
@@ -16,7 +16,7 @@ import matplotlib.animation as manimation
 import sys
 
 
-def main(infile="waves.out", outfile="out.mp4", startpic="start.png"):
+def main(infile="wave.out", outfile="out.mp4", startpic="start.png"):
     """Visualize shallow water simulation results.
 
     Args:

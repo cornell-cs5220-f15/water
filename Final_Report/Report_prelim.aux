@@ -1,0 +1,65 @@
+\relax 
+\@writefile{toc}{\contentsline {section}{\numberline {1}Initial Profiling}{1}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Whole Program - Advanced Hotspots}{1}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Top 10 most time consuming functions in the wave simulation. Generated using Intel's VTUNE on Totient.}}{1}}
+\newlabel{top10}{{1}{1}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}\texttt  {limited\_derivs} - Advanced Hotspots}{1}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Time taken to perform each loop present in \texttt  {limited\_derivs}, recorded in core-seconds.}}{2}}
+\newlabel{init_lim_deriv}{{2}{2}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}\texttt  {compute\_step} - Advanced Hotspots}{2}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4}\texttt  {compute\_fg\_speeds} - Advanced Hotspots}{2}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Time taken to perform each loop present in \texttt  {compute\_step}, recorded in core-seconds.}}{3}}
+\newlabel{init_compute_step}{{3}{3}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Time taken to perform each loop present in \texttt  {compute\_fg\_speeds}, recorded in core-seconds.}}{3}}
+\newlabel{init_compute_fg_speeds}{{4}{3}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Parallelization}{4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Naive Implementation of OpenMP}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Timing of entire simulation using naive implementation of OpenMP parallelized for-loops. Generated using Intel's VTUNE on Totient and recorded in core-seconds.}}{4}}
+\newlabel{naive_omp}{{5}{4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}OpenMP for with \texttt  {collapse}}{4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}OpenMP thread creation limited:}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Timing of entire simulation using implementation of OpenMP parallelized for-loops with \texttt  {collapse} option. Generated using Intel's VTUNE on Totient and recorded in core-seconds.}}{5}}
+\newlabel{collapse_omp}{{6}{5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Timing of five costliest functions using fewer thread creation events. Generated using Intel's VTUNE on Totient.}}{6}}
+\newlabel{ThreadMovement}{{7}{6}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}OpenMP nowait implementation:}{6}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Timing of five costliest functions using \texttt  {nowait} pragma command. Generated using Intel's VTUNE on Totient.}}{6}}
+\newlabel{bindoff}{{8}{6}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Thread Affinity:}{6}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Timing of five costliest functions using \texttt  {proc\_bind(close)} pragma command for run 1. Generated using Intel's VTUNE on Totient.}}{7}}
+\newlabel{nowait}{{9}{7}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Timing of five costliest functions using \texttt  {proc\_bind(close)} pragma command for run 2. Generated using Intel's VTUNE on Totient.}}{7}}
+\newlabel{nowait2}{{10}{7}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Analysis}{7}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Strong and Weak Scaling}{7}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Timing of five costliest functions using \texttt  {proc\_bind(spread)} pragma command. Generated using Intel's VTUNE on Totient.}}{8}}
+\newlabel{bindspread}{{11}{8}}
+\newlabel{strongscale}{{1}{8}}
+\newlabel{normss}{{2}{8}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Strong scaling for wave simulation with 1000 mesh points in each direction and 100 timesteps between frames.}}{8}}
+\newlabel{sstable}{{1}{8}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Plot of strong scaling, representing the data shown in Table\nobreakspace  {}1\hbox {}.}}{8}}
+\newlabel{ssplot}{{12}{8}}
+\newlabel{ws}{{3}{9}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Weak scaling for wave simulation with 1000 mesh points in each direction and 100 timesteps between frames.}}{9}}
+\newlabel{wstable}{{2}{9}}
+\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Plot of weak scaling, representing the data shown in Table\nobreakspace  {}2\hbox {}.}}{9}}
+\newlabel{wsplot}{{13}{9}}
+\newlabel{part}{{4}{10}}
+\newlabel{exps}{{5}{10}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Post Initial Report Work:}{10}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Swapping Programming Languages:}{10}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Vectorization and other optimizations of the code base:}{10}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Comparison of baseline and aligned C code bases for a simulation with a 1000 mesh points and 50 frames}}{11}}
+\newlabel{opttable}{{3}{11}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Naive OpenMP Implementation:}{11}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Weak and Strong Scaling for C code:}{12}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Strong scaling for wave simulation with 400 mesh points in each direction and 50 timesteps between frames.}}{13}}
+\newlabel{sscale_c}{{4}{13}}
+\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Plot of weak scaling, representing the data shown in Table\nobreakspace  {}4\hbox {}.}}{13}}
+\newlabel{ssplot_c}{{14}{13}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Future Work}{13}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Weak scaling for wave simulation with 50 frames and N varying mesh size.}}{14}}
+\newlabel{wscale_c}{{5}{14}}
+\@writefile{lof}{\contentsline {figure}{\numberline {15}{\ignorespaces Plot of weak scaling, representing the data shown in Table\nobreakspace  {}5\hbox {}.}}{14}}
+\newlabel{wsplot_c}{{15}{14}}

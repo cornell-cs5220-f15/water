@@ -33,10 +33,13 @@ void shallow2dv_flux(float* restrict fh,
 {
     memcpy(fh, hu, ncell * sizeof(float));
     memcpy(gh, hv, ncell * sizeof(float));
-    #pragma omp for
-    for (int i = 0; i < ncell; ++i) {
-        float hi = h[i], hui = hu[i], hvi = hv[i];
-        float inv_h = 1/hi;
+    float hi, hui, hvi, inv_h;
+    int i;
+//    #pragma omp for private(i, hi, hui, hvi, inv_h)
+    #pragma vector aligned
+    for (i = 0; i < ncell; ++i) {
+        hi = h[i], hui = hu[i], hvi = hv[i];
+        inv_h = 1/hi;
         fhu[i] = hui*hui*inv_h + (0.5f*g)*hi*hi;
         fhv[i] = hui*hvi*inv_h;
         ghu[i] = hui*hvi*inv_h;
@@ -55,13 +58,16 @@ void shallow2dv_speed(float* restrict cxy,
 {
     float cx = cxy[0];
     float cy = cxy[1];
-    #pragma omp for
-    for (int i = 0; i < ncell; ++i) {
-        float hi = h[i];
-        float inv_hi = 1.0f/h[i];
-        float root_gh = sqrtf(g * hi);
-        float cxi = fabsf(hu[i] * inv_hi) + root_gh;
-        float cyi = fabsf(hv[i] * inv_hi) + root_gh;
+    float hi, inv_hi, root_gh, cxi, cyi;
+    int i;
+//    #pragma omp for private(i, hi, inv_hi, root_gh, cxi, cyi)
+    #pragma vector aligned
+    for (i = 0; i < ncell; ++i) {
+        hi = h[i];
+        inv_hi = 1.0f/h[i];
+        root_gh = sqrtf(g * hi);
+        cxi = fabsf(hu[i] * inv_hi) + root_gh;
+        cyi = fabsf(hv[i] * inv_hi) + root_gh;
         if (cx < cxi) cx = cxi;
         if (cy < cyi) cy = cyi;
     }

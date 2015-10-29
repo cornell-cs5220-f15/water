@@ -1,10 +1,12 @@
 #include "stepper.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <immintrin.h>
 #include <omp.h>
 
 //ldoc on
@@ -21,7 +23,7 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
     // We extend to a four cell buffer to avoid BC comm on odd time steps
     int ng = 4;
 
-    central2d_t* sim = (central2d_t*) malloc(sizeof(central2d_t));
+    central2d_t* sim = (central2d_t*) _mm_malloc(sizeof(central2d_t), 32);
     sim->nx = nx;
     sim->ny = ny;
     sim->ng = ng;
@@ -36,7 +38,7 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
     int ny_all = ny + 2*ng;
     int nc = nx_all * ny_all;
     int N  = nfield * nc;
-    sim->u  = (float*) malloc((4*N + 6*nx_all)* sizeof(float));
+    sim->u  = (float*) _mm_malloc((4*N + 6*nx_all)* sizeof(float), 32);
     sim->v  = sim->u +   N;
     sim->f  = sim->u + 2*N;
     sim->g  = sim->u + 3*N;
@@ -48,8 +50,8 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
 
 void central2d_free(central2d_t* sim)
 {
-    free(sim->u);
-    free(sim);
+    _mm_free(sim->u);
+    _mm_free(sim);
 }
 
 
@@ -82,9 +84,11 @@ void copy_subgrid(float* restrict dst,
                   const float* restrict src,
                   int nx, int ny, int stride)
 {
-    #pragma omp for
-    for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
+    int iy, ix;
+    #pragma vector aligned
+    for (iy = 0; iy < ny; ++iy)
+        #pragma vector aligned
+        for (ix = 0; ix < nx; ++ix)
             dst[iy*stride+ix] = src[iy*stride+ix];
 }
 
@@ -100,11 +104,13 @@ void central2d_periodic(float* restrict u,
     int r = ng,   rg = nx+ng;
     int b = ny*s, bg = 0;
     int t = ng*s, tg = (nx+ng)*s;
+    float* uk;
 
     // Copy data into ghost cells on each side
 //    #pragma omp for
+    #pragma vector aligned
     for (int k = 0; k < nfield; ++k) {
-        float* uk = u + k*field_stride;
+        uk = u + k*field_stride;
         copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s);
         copy_subgrid(uk+rg, uk+r, ng, ny+2*ng, s);
         copy_subgrid(uk+tg, uk+t, nx+2*ng, ng, s);
@@ -160,8 +166,10 @@ void limited_deriv1(float* restrict du,
                     const float* restrict u,
                     int ncell)
 {
-    #pragma omp for
-    for (int i = 0; i < ncell; ++i)
+    int i;
+    #pragma vector aligned
+    #pragma omp for private(i)
+    for (i = 0; i < ncell; ++i)
         du[i] = limdiff(u[i-1], u[i], u[i+1]);
 }
 
@@ -173,8 +181,10 @@ void limited_derivk(float* restrict du,
                     int ncell, int stride)
 {
     assert(stride > 0);
-    #pragma omp for
-    for (int i = 0; i < ncell; ++i)
+    int i;
+    #pragma vector aligned
+    #pragma omp for private(i)
+    for (i = 0; i < ncell; ++i)
         du[i] = limdiff(u[i-stride], u[i], u[i+stride]);
 }
 
@@ -224,15 +234,19 @@ void central2d_predict(float* restrict v,
 {
     float* restrict fx = scratch;
     float* restrict gy = scratch+nx;
+    int offset;
 //    #pragma omp for
+    #pragma vector aligned
     for (int k = 0; k < nfield; ++k) {
+        #pragma vector aligned
         for (int iy = 1; iy < ny-1; ++iy) {
-            int offset = (k*ny+iy)*nx+1;
+            offset = (k*ny+iy)*nx+1;
             limited_deriv1(fx+1, f+offset, nx-2);
             limited_derivk(gy+1, g+offset, nx-2, nx);
 //            #pragma omp for
+            #pragma vector aligned
             for (int ix = 1; ix < nx-1; ++ix) {
-                int offset = (k*ny+iy)*nx+ix;
+                offset = (k*ny+iy)*nx+ix;
                 v[offset] = u[offset] - dtcdx2 * fx[ix] - dtcdy2 * gy[ix];
             }
         }
@@ -252,14 +266,17 @@ void central2d_correct_sd(float* restrict s,
                           float dtcdx2, float dtcdy2,
                           int xlo, int xhi)
 {
-    #pragma omp for nowait
-    for (int ix = xlo; ix < xhi; ++ix)
+    int ix;
+    #pragma omp for nowait private(ix)
+    #pragma vector aligned
+    for (ix = xlo; ix < xhi; ++ix)
         s[ix] =
             0.2500f * (u [ix] + u [ix+1]) +
             0.0625f * (ux[ix] - ux[ix+1]) +
             dtcdx2  * (f [ix] - f [ix+1]);
-    #pragma omp for nowait
-    for (int ix = xlo; ix < xhi; ++ix)
+    #pragma omp for nowait private(ix)
+    #pragma vector aligned
+    for (ix = xlo; ix < xhi; ++ix)
         d[ix] =
             0.0625f * (uy[ix] + uy[ix+1]) +
             dtcdy2  * (g [ix] + g [ix+1]);
@@ -288,6 +305,7 @@ void central2d_correct(float* restrict v,
     float* restrict d1 = scratch + 5*nx;
 
 //    #pragma omp for
+    #pragma vector aligned
     for (int k = 0; k < nfield; ++k) {
 
         float*       restrict vk = v + k*ny*nx;
@@ -300,7 +318,7 @@ void central2d_correct(float* restrict v,
         central2d_correct_sd(s1, d1, ux, uy,
                              uk + ylo*nx, fk + ylo*nx, gk + ylo*nx,
                              dtcdx2, dtcdy2, xlo, xhi);
-
+        #pragma vector aligned
         for (int iy = ylo; iy < yhi; ++iy) {
 
             float* tmp;
@@ -313,6 +331,7 @@ void central2d_correct(float* restrict v,
                                  uk + (iy+1)*nx, fk + (iy+1)*nx, gk + (iy+1)*nx,
                                  dtcdx2, dtcdy2, xlo, xhi);
 //            #pragma omp for
+            #pragma vector aligned
             for (int ix = xlo; ix < xhi; ++ix)
                 vk[iy*nx+ix] = (s1[ix]+s0[ix])-(d1[ix]-d0[ix]);
         }
@@ -341,9 +360,12 @@ void central2d_step(float* restrict u, float* restrict v,
                       nx_all, ny_all, nfield);
 
     // Flux values of f and g at half step
-//    #pragma omp for
+    
+    int jj;
+    #pragma omp for
+    #pragma vector aligned
     for (int iy = 1; iy < ny_all-1; ++iy) {
-        int jj = iy*nx_all+1;
+        jj = iy*nx_all+1;
         flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);
     }
 
@@ -375,7 +397,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float* restrict g,
                    int nx, int ny, int ng,
                    int nfield, flux_t flux, speed_t speed,
-                   float tfinal, float dx, float dy, float cfl)
+                   float tfinal, float dx, float dy, float cfl, int p)
 {
     int nstep = 0;
     float dt = 0.0;
@@ -385,12 +407,14 @@ int central2d_xrun(float* restrict u, float* restrict v,
     float t = 0;
     while (!done) {
         float cxy[2] = {1.0e-15f, 1.0e-15f};
+        omp_set_num_threads(p);
         #pragma omp parallel
+        {
+        #pragma omp single
         {
         central2d_periodic(u, nx, ny, ng, nfield);
         speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
-        #pragma omp single
-        {
+
         dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
         if (t + 2*dt >= tfinal) {
             dt = (tfinal-t)/2;
@@ -416,11 +440,11 @@ int central2d_xrun(float* restrict u, float* restrict v,
 }
 
 
-int central2d_run(central2d_t* sim, float tfinal)
+int central2d_run(central2d_t* sim, float tfinal, int p)
 {
     return central2d_xrun(sim->u, sim->v, sim->scratch,
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl);
+                          tfinal, sim->dx, sim->dy, sim->cfl, p);
 }

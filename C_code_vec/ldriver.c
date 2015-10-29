@@ -210,6 +210,7 @@ int run_sim(lua_State* L)
     int nx = lget_int(L, "nx", 200);
     int ny = lget_int(L, "ny", nx);
     int frames = lget_int(L, "frames", 50);
+    int p = lget_int(L, "p", p);
     const char* fname = lget_string(L, "out", "sim.out");
 
     central2d_t* sim = central2d_init(w,h, nx,ny,
@@ -224,17 +225,17 @@ int run_sim(lua_State* L)
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        int nstep = central2d_run(sim, ftime);
+        int nstep = central2d_run(sim, ftime, p);
         double t1 = omp_get_wtime();
         double elapsed = t1-t0;
 #elif defined SYSTIME
         struct timeval t0, t1;
         gettimeofday(&t0, NULL);
-        int nstep = central2d_run(sim, ftime);
+        int nstep = central2d_run(sim, ftime, p);
         gettimeofday(&t1, NULL);
         double elapsed = (t1.tv_sec-t0.tv_sec) + (t1.tv_usec-t0.tv_usec)*1e-6;
 #else
-        int nstep = central2d_run(sim, ftime);
+        int nstep = central2d_run(sim, ftime, p);
         double elapsed = 0;
 #endif
         solution_check(sim);
