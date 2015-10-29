@@ -1,72 +1,58 @@
+\newcommand{\cps}{\frac{\text{cells}}{s}}
+
 \section{Evaluation}\label{sec:evaluation}
+We used two metrics to measure the performance of our simulators. First, we
+measured the number of cells our simulators can process in one second. Second,
+we measured the total execution time of our simulator. The cell throughput
+metric is desirable because it is not dependent on the size of the underlying
+grid being simulated. However, the cells throughput isn't easily interpreted.
+Similarly, total execution time is easy to interpret, yet it varies with the
+size of the underlying grid. In this section, we evaluate our simulators using
+these two metrics.
 
-\subsection{What Worked Before Review Stage}
-In the mid report, we swept nx from 100 to 500 to see how the performance works
-given $nx$. First, like we have mentioned above, we could see timing is
-proportional to $ nx^{3} $. In terms of performance improvement, we could
-achieve quite good improvement by just doing vectorization. If you see Figure
-~\ref{fig:vector_timing_result1}, vectorization did more jobs per second.
+We developed three shallow water simulators.
+\begin{enumerate}
+  \item \ttt{vec}.
+    Our \ttt{vec} simulator is a vectorized version of the initial unoptimized
+    compiler. It includes all the optimizations discussed in
+    \secref{vectorization}.
 
-We evaluate our different simulators using our own timing plots. Timing result
-with vectorization can be found at Figure ~\ref{fig:vector_timing_result1} and
-Figure ~\ref{fig:vector_timing_result2}. In Figure
-~\ref{fig:vector_timing_result1}, we plot cells/seconds vs. $nx$. We used the
-cube of cells. As discussed in Piazza (Referring to Prof. Bindel's answer),
-there are two important factors: the time between frames, and the time step.
-Total time is proportional to $ nx^{3} $. In Figure
-~\ref{fig:vector_timing_result2}, we can clearly see timing is proportional to
-$ nx^{3} $. Note that "copy" is our initial result from the very first scratch
-(i.e. no modification), and "vec" indicates our vectorization result.
+  \item \ttt{block}.
+    Our \ttt{block} simulator introduces blocking in addition to vectorization.
+    It includes all the optimizations described in \secref{vectorization} and
+    \secref{domaindecomp}.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{figs/vec-timing1.pdf}
-    \caption{Vector Timing Result - Mid result ($cells/seconds$ vs. $nx$)}
-    \label{fig:vector_timing_result1}
-\end{figure}
+  \item \ttt{opt}.
+    Our \ttt{opt} simulator is a fully optimized simulator that includes
+    vectorization, blocking, and parallelization. It includes all the
+    optimizations described in \secref{vectorization}, \secref{domaindecomp},
+    and \secref{parallelization}.
+\end{enumerate}
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{figs/vec-timing2.pdf}
-    \caption{Vector Timing Result - Mid result  ($seconds$ vs. $nx$)}
-    \label{fig:vector_timing_result2}
-\end{figure}
+The cell throughput and total execution time of these three simulators and the
+release simulator for various values of $nx$ are given in
+\figref{final-timing-result1} and \figref{final-timing-result2}. Our \ttt{vec}
+simulator performs better than the release simulator for most values of $nx$,
+though surprisingly it performs worse for large grids. Our \ttt{block}
+simulator expectedly performs better than both the release and \ttt{vec}
+simulator especially for large values of $nx$. Our \ttt{opt} simulator performs
+significantly better than almost all other simulators.
 
-\subsection{What Did Not Work Before Review Stage}
-We tried OpenMP to make it parallel. Like we said at earlier section, OpenMP is
-a powerful tool to use to increase performance, but we noticed that it actually
-decreases the performance. Since it exceeded wall clock time, we could not even
-get the result yet.
-
-\subsection{What Worked After Review Stage}
-After the review stages, we further tried blocking and domain decomposition,
-while keep improving our vectorization and OpenMP stuffs.
-
-This time, we swept $ nx $ from 500 to 1500 to check our performance with
-reasonable size of $ nx $. See Figure ~\ref{fig:final_timing_result1} and
-Figure ~\ref{fig:final_timing_result2}. Here, "shallow" is the initial version,
-while "opt" indicates our final optimized version.
-
-Based on our qualitative and quantitative evaluations, we could see that our
-optimal version was able to spread computation very well over the clusters. We
-were able to improve the performance only with blocking or only with
-vectorization. By exploiting vectorization and blocking all together, howver,
-performance can be even more improved than before. In our experiments, the
-performance got improved by 7-8x in average and up to 10x when $ nx $ is 700.
-We expect this can be even higher, as we tuned our design more, but we firmly
-believe that 10x improvement is still good to see. In minor, we found that the
-performance is sometimes degraded when $ nx $ is too small.
+Based on our qualitative and quantitative evaluations, we see that our
+\ttt{opt} simulator is able to spread computation very well over multiple
+threads. The \ttt{opt} simulator completes 7 to 8 times faster on average and
+up to 10 times faster than the reference simulator.
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.8\textwidth]{figs/final-timing1.pdf}
   \caption{Final Timing Result ($cells/seconds$ vs. $nx$)}
-  \label{fig:final_timing_result1}
+  \label{fig:final-timing-result1}
 \end{figure}
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.8\textwidth]{figs/final-timing2.pdf}
   \caption{Final Timing Result ($seconds$ vs. $nx$)}
-  \label{fig:final_timing_result2}
+  \label{fig:final-timing-result2}
 \end{figure}
