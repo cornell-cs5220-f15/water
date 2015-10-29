@@ -62,7 +62,7 @@ $$
 
 \section{Design Decisions}
 
-The following sections describe the implementation changes from the original code found at \url{https://github.com/cornell-cs5220-f15/water}. The current stable solution can be found at \url{https://github.com/sheroze1123/water/tree/vector_parallel} branch. 
+The following sections describe the implementation changes from the original code found at \url{https://github.com/cornell-cs5220-f15/water}. Our solution can be found at \url{https://github.com/sheroze1123/water} in the \texttt{master} branch. 
 
 \subsection{Memory Layout}
 The original solution a two dimensional vectors of 3-vectors to represent $U_t$, $F(U)_x$, and $G(U)_y$. During each time step, the solution accesses each element in the 2-D grid sequentially. Then, the \texttt{vector<vector<real>>} representation leads to memory accesses that are not local spatially. \\
