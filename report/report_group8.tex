@@ -105,7 +105,7 @@ However, the rest of the grid is not contaminated with error, as information spr
 \subsubsection{Estimating the wave speed}
 The main barrier to in adopting domain decomposition parallelization for this simulation is that we need to estimate the wave speed at each time step to be able to estimate a how big of a time step we can perform for the next iteration. Hence to allow each sub-grid to run from time $t=0$ to time $t=t_{final}$, we would need know in advance the speeds at time $t$, $t + dt_1$, $t + (dt_1+dt_2)$ ... $t+\sum_{i=1}^{k-1}dt_i$. But we obviously do not have access to those speeds at time $t$. \\
 
-The problem is that we need to know at least an upper bound on the wave speed at each time step to be able to decide how many time steps it will take to reach $t_{final}$, as the number of time steps needed is directly proportional to the number of ghost cells we need to allocate for each sub-grid at time $t$. Our solution is to estimate an upper bound on the max wave speed, set the max wave speed for the next $k$ iterations to a be a multiple $r$ of the speed of the wave at time $t$ which we can compute before parallelizing. (in our code, we set $r=2$). \\
+The problem is that we need to know at least an upper bound on the wave speed at each time step to be able to decide how many time steps it will take to reach $t_{final}$, as the number of time steps needed is directly proportional to the number of ghost cells we need to allocate for each sub-grid at time $t$. Our solution is to estimate an upper bound on the max wave speed, set the max wave speed for the next $k$ iterations to a be a multiple $r$ of the speed of the wave at time $t$ which we can compute before parallelizing. (in our code, we set $r=1.5$). \\
 
 Furthermore, for each sub grid at each time checks independently if the wave speed on the subdomain is greater than our bound, if it is the case our program throws an error and stops. This failure check occurs locally to each thread, so there is no need for synchronization. 
 
@@ -113,6 +113,15 @@ Furthermore, for each sub grid at each time checks independently if the wave spe
 In order to avoid the race condition that can occur by a thread mapping back the state of the simulation on a later time steps onto the main grid before another thread got to copy from the main grid the simulation at the current time step, we use two different main grid (main grid 1 and main grid 2). At the first iteration (which computes multiple time steps), all thread copy from main grid 1, do computations, and write onto main grid 2. When the first iteration is done, all thread copy from main grid 2, do computations, and write onto main grid 1. We alternate between the grids in this manner until we have reached tfinal, making sure that the final state is written onto main grid 1 (which is passed to the driver function). In this manner, we avoid race conditions between the threads, and keep the synchronization costs to a minimum.
 
 
+
+\subsubsection{Choosing a number of time steps}
+The size of the computation that each subgrid has to do for each time steps depends on the number of time steps it has to accomplish before synchronizing back to the main grid. Specifically, the subgrid with ghost cells have sizes
+$(n+2(t\frac{3}{2}+3))^2$ where n is the size of the part of the main grid that is assigned to that the subgrid, and t is the number of time steps taken before synchronization. The 3/2 factor is due to the fact that the information spreads at the rate of 3 layers per 2 time steps in our computation, the 2 factor to account for the the fact that we need one layers on each side of the grid, and the constant 3 is implementation dependent. We use the following heuristic to choose the number of time steps that we perform: the work per time steps on the subgrid with ghost cells has to be at most a multiple $c$ (in our code, we use $c=1.5$) of the work that would be performed on the subgrid alone (with no ghost cells). This leads us to the inequation:
+$$ (n+2(t\frac{3}{2}+3))^2 \leq c n^2$$
+A few algebra steps lead us to:
+$$ t \leq \frac{(\sqrt c-1)n}{3}-2$$
+We choose the largest even number t that satisfies this bound, or 2, whichever is largest.
+ 
 
 \section{Analysis}
 \subsection{Profiling} \label{sec:prof}
