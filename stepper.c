@@ -1,5 +1,4 @@
 #include "stepper.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -505,8 +504,6 @@ int board2d_run(board2d_t* board, float tfinal)
     float cxy[2] = {1.0e-15f, 1.0e-15f};
     board->speed(cxy, board->ub, board->nx_whole * board->ny_whole, board->nx_whole * board->ny_whole);
     float dt = board->cfl / fmaxf(cxy[0]/board->dx, cxy[1]/board->dy);
-
-    printf("---dt:%f\n", dt);
 
     #pragma omp parallel num_threads(board->sep_x * board->sep_y) reduction(+:nstep)
     {

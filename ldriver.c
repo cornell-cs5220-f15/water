@@ -14,8 +14,8 @@
 #include <assert.h>
 #include <stdio.h>
 
-#define SEP_X 2 
-#define SEP_Y 2
+#define SEP_X 6
+#define SEP_Y 6
 
 //ldoc on
 /**
@@ -228,7 +228,7 @@ int run_sim(lua_State* L)
     board2d_t* board = board2d_init(nx, ny, SEP_X, SEP_Y, w, h, 3, shallow2d_flux, shallow2d_speed, cfl);
 
     lua_init_board(L, board);
-    printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
+    printf("%d %d %d %d %g %d %g\n", SEP_X, SEP_Y, nx, ny, cfl, frames, ftime);
     FILE* viz = viz_open(fname, board);
     solution_check(board);
     viz_frame(viz, board);
@@ -302,7 +302,7 @@ int main(int argc, char** argv)
     lua_setglobal(L, "args");
 
     if (luaL_dofile(L, argv[1]))
-        printf("hahaha:%s\n", lua_tostring(L,-1));
+        printf("%s\n", lua_tostring(L,-1));
     lua_close(L);
     return 0;
 }

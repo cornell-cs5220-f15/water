@@ -1,6 +1,6 @@
 #ifndef STEPPER_H
 #define STEPPER_H
-#define NGHOST 16 
+#define NGHOST 4 
 
 #include <math.h>
 
@@ -85,7 +85,7 @@ int central2d_offset(central2d_t* sim, int k, int ix, int iy);
  * that we always take steps in multiples of two so that we end
  * at the reference grid.
  */
-int central2d_run(central2d_t* sim, float tfinal, int td_num, float* ub, int nx_whole, int ny_whole, int sep_x, int sep_y);
+int central2d_run(central2d_t* sim, float tfinal, int td_num, float* ub, int nx_whole, int ny_whole, int sep_x, int sep_y, float dt);
 
 /**
  * ### Applying boundary conditions
