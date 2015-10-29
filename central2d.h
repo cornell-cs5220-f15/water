@@ -11,7 +11,7 @@
 using namespace std;
 
 const int num_thread = 4;
-// needs to divide nx and ny evenly
+// needs to divide nx evenly
 const int SUBDOMAIN_SIZE = 100;
 
 
@@ -293,7 +293,6 @@ void Central2D<Physics, Limiter>::apply_periodic(std::vector<vec>* U,
             (*U)[yOffset + ix + nghost*SIZE_WITH_GHOST] = (*upper_u)[ix + yOffset - nghost*SIZE_WITH_GHOST];
         }
     
-    #pragma omp parallel for
     // copy data from corners
     for( int ix = 0; ix < nghost; ++ix ) {
         int xOffset = SUBDOMAIN_SIZE + ix;
@@ -451,6 +450,7 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
         }
     }
 
+    
     // if broken, loop bounds were nghost to (nx/y + nghost)
     // Copy from v storage back to main grid
 	#pragma omp parallel for
@@ -538,8 +538,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     while (!done) {
         real dt;
         
-        real maxCx = 1.0e-15;
-        real maxCy = 1.0e-15;
+        real maxCx, maxCy;
         
         #pragma omp parallel num_threads(num_thread)
         {
@@ -547,9 +546,9 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             int myID = omp_get_thread_num();
             int totalThreads = omp_get_num_threads();
             
-            int myXBlock = myID / 2;
-            int myYBlock = myID % 2;
-            //printf("Thread ID: %i\t(%i,%i)\n",myID, myXBlock, myYBlock);
+            int myXBlock = myID / NUM_BLOCKS_Y;
+            int myYBlock = myID % NUM_BLOCKS_Y;
+            //printf("Thread ID: %i\t(%i,%i)\n", myID, myXBlock, myYBlock);
             std::vector<vec>* myU = subDomainPointers_u[computeBlockOffset(myXBlock, myYBlock, NUM_BLOCKS_X)];
             
             
@@ -563,14 +562,14 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             
             for (int io = 0; io < 1; ++io) {
                 real cx, cy;
+                maxCx = 1.0e-15;
+                maxCy = 1.0e-15;
                 
                 // grab adjacent block arrays, needed for ghost cell copying
                 int upBlock = (myYBlock - 1 + NUM_BLOCKS_Y) % NUM_BLOCKS_Y;
                 int leftBlock = (myXBlock - 1 + NUM_BLOCKS_X) % NUM_BLOCKS_X;
                 int rightBlock = (myXBlock + 1) % NUM_BLOCKS_X;
                 int downBlock = (myYBlock + 1) % NUM_BLOCKS_Y;
-                //printf("NUM_BLOCKS_X = %i\tNUM_BLOCKS_Y = %i\n", NUM_BLOCKS_X, NUM_BLOCKS_Y);
-                //printf("ThreadID: %i\t(%i,%i)\nupBlock = %i\nleftBlock = %i\nrightBlock = %i\ndownBlock = %i\n", myID, myXBlock, myYBlock, upBlock, leftBlock, rightBlock, downBlock);
                 
                 std::vector<vec>* upperL_u = subDomainPointers_u[computeBlockOffset(leftBlock, upBlock, NUM_BLOCKS_X)];
                 std::vector<vec>* upper_u = subDomainPointers_u[computeBlockOffset(myXBlock, upBlock, NUM_BLOCKS_X)];
@@ -583,28 +582,46 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                 
                 // TODO: handle case where nx % SUBDOMAIN_SIZE > 0
                 // this is difficult when copying ghost cells
-                
-                // TODO: optimize with static to avoid so many arguments (fatal bad_alloc error)
                 apply_periodic(myU, upperL_u, upper_u, upperR_u, left_u,
                                right_u, lowerL_u, lower_u, lowerR_u);
                 
                 
                 compute_fg_speeds(myU, myFluxX, myFluxY, cx, cy);
                 
-                #pragma omp critical
-                {
-                    maxCx = max(maxCx, cx);
-                    maxCy = max(maxCy, cx);
-                }
-                // TODO: place barrier here to sync max speed
                 #pragma omp barrier
                 
-                //printf("(%i,%i) is max (cx,cy)\n",maxCx, maxCy);
-                //cout << "thread " << maxCx << "\t" << maxCy << "\n";
+                #pragma omp flush (maxCx, maxCy)
+                {
+                    #pragma omp critical
+                    {
+                        //cout << "thread " << myID << "\t(" << myXBlock << ", " << myYBlock << ")\n";
+                        //cout << "\t" << maxCx << ", " << maxCy << "\n";
+                        if(cx > maxCx) {
+                            maxCx = cx;
+                            //cout << "\t\tnew max x by: " << cx-maxCx << "\n";
+                        }
+                        if(cy > maxCy) {
+                            maxCy = cy;
+                            //cout << "\t\tnew max y by: " << cy-maxCy << "\n";
+                        }
+                        
+                        //cout << "\t" << cx << ", " << cy << "\n";
+                        //cout << "\t" << maxCx << ", " << maxCy << "\n";
+                    }
+                }
+                
+                #pragma omp barrier
+                /**#pragma omp critical
+                {
+                    // instead, use maxCx and maxCy for the rest of the iteration
+                    cx = maxCx;
+                    cy = maxCy;
+                    cout << "thread " << myID << "\t(" << myXBlock << ", " << myYBlock << ")\n\t" << cx << ", " << cy << "\n";
+                }**/
                 
                 limited_derivs(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY);
                 if (io == 0) {
-                    dt = cfl / std::max(cx/dx, cy/dy);
+                    dt = cfl / std::max(maxCx/dx, maxCy/dy);
                     if (t + 2*dt >= tfinal) {
                         dt = (tfinal-t)/2;
                         done = true;
@@ -620,7 +637,6 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             free(myUX);
             free(myFX);
             free(myGY);
-            //done = true;
         }
     }
     
