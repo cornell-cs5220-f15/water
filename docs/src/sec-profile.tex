@@ -48,7 +48,7 @@ and arithmetic intensity of the loops were computed.  The results can be seen in
 \end{center}
 
 Figure~\ref{fig-roofline} displays the roofline model for a single node, with the red
-shaded area representing our range of arithmetic intensity.
+shaded area representing our range of arithmetic intensity
 \footnote{Maximum memory bandwidth found at 
 
 \url{http://ark.intel.com/products/83352/Intel-Xeon-Processor-E5-2620-v3-15M-Cache-2_40-Ghz} 
@@ -56,6 +56,8 @@ shaded area representing our range of arithmetic intensity.
 and maximum compute speed found at 
 
 \url{http://download.intel.com/support/processors/xeon/sb/xeon_E5-2600.pdf}}.
+As can be seen in the figure, we are well into the memory-bound range, and thus 
+regularizing memory access is likely to lead to good speedups.
 
 \input{fig-roofline}
 

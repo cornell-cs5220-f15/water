@@ -38,9 +38,7 @@ before every timestep, there is an unnecessarily high overhead of
 transferring data between the host and device memories.
 
 We continued to optimize the parallel implementation for the accelerator
-by offloading the entire \textt{run()} function of the simulator.
-
-, but we believe
+by offloading the entire \texttt{run()} function of the simulator, but we believe
 that using efficient batching will help us alleviate this
 issue. Currently, the parallel implementation for the accelerator board
 runs roughly an order of magnitude slower than the implementation for the
