@@ -89,6 +89,8 @@ void wave(Sim::vec& u, double x, double y)
 
 int main(int argc, char** argv)
 {
+    double t0 , t1;
+    t0 = omp_get_wtime();
     std::string fname = "waves.out";
     std::string ic = "dam_break";
     int    nx = 200;
@@ -96,9 +98,11 @@ int main(int argc, char** argv)
     double ftime = 0.01;
     int    frames = 50;
     
+    int nprocx=6;
+    int nprocy=4;
     int c;
     extern char* optarg;
-    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
+    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:x:y:")) != -1) {
         switch (c) {
         case 'h':
             fprintf(stderr,
@@ -109,9 +113,11 @@ int main(int argc, char** argv)
                     "\t-n: number of cells per side (%d)\n"
                     "\t-w: domain width in cells (%g)\n"
                     "\t-f: time between frames (%g)\n"
-                    "\t-F: number of frames (%d)\n",
+                    "\t-F: number of frames (%d)\n"
+                    "\t-x: threads in x (%d)\n"
+                    "\t-y: threads in y (%d)\n",
                     argv[0], ic.c_str(), fname.c_str(), 
-                    nx, width, ftime, frames);
+                    nx, width, ftime, frames,nprocx,nprocy);
             return -1;
         case 'i':  ic     = optarg;          break;
         case 'o':  fname  = optarg;          break;
@@ -119,11 +125,14 @@ int main(int argc, char** argv)
         case 'w':  width  = atof(optarg);    break;
         case 'f':  ftime  = atof(optarg);    break;
         case 'F':  frames = atoi(optarg);    break;
+        case 'x':  nprocx = atoi(optarg);    break;
+        case 'y':  nprocy = atoi(optarg);    break;
         default:
             fprintf(stderr, "Unknown option (-%c)\n", c);
             return -1;
         }
     }
+
 
     void (*icfun)(Sim::vec& u, double x, double y) = dam_break;
     if (ic == "dam_break") {
@@ -143,16 +152,65 @@ int main(int argc, char** argv)
     sim.init(icfun);
     sim.solution_check();
     viz.write_frame();
+
+    double cfl=0.45;
+    double dx=width/nx;
+    double cx, cy;
+    int nproc=nprocx*nprocy;
+#pragma omp parallel num_threads(nproc)
+  {
+
+    Sim sim_(width/nprocx,width/nprocy, nx/nprocx,nx/nprocy);
+
+    int rankx,ranky;
+    int rank = omp_get_thread_num();
+    ranky = rank/nprocx;
+    rankx = rank%nprocx;
+ 
+    sim_.init2(sim,rankx,ranky,nprocx,nprocy);
     for (int i = 0; i < frames; ++i) {
-#ifdef _OPENMP
-        double t0 = omp_get_wtime();
-        sim.run(ftime);
-        double t1 = omp_get_wtime();
-        printf("Time: %e\n", t1-t0);
-#else
-        sim.run(ftime);
-#endif
+    
+      bool done = false;
+      double t = 0;
+      while (!done) {
+          double dt;
+          for (int io = 0; io < 2; ++io) {
+
+#pragma omp barrier
+           
+              sim_.copyfrom(sim,rankx,ranky,nprocx,nprocy);
+
+#pragma omp parallel reduction(max : cx,cy)
+              {
+                sim_.compute_fg_speeds(cx, cy);
+              }
+              sim_.limited_derivs();
+              if (io == 0) {
+                  dt = cfl / std::max(cx/dx, cy/dx);
+                  if (t + 2*dt >= ftime) {
+                      dt = (ftime-t)/2;
+                      done = true;
+                  }
+              }
+              sim_.compute_step(io, dt);
+              t += dt;
+              sim_.copyto(sim,rankx,ranky);
+          }
+
+      }
+    
+
+#pragma omp master
+      {
+
         sim.solution_check();
         viz.write_frame();
+      }
+
     }
+
+  }    
+  t1 = omp_get_wtime();
+  printf("Time: %e\n", t1-t0);
+
 }

@@ -1,6 +1,8 @@
 #ifndef CENTRAL2D_H
 #define CENTRAL2D_H
 
+#include "shallow2d.h"
+#include "minmod.h"
 #include <cstdio>
 #include <cmath>
 #include <cassert>
@@ -115,8 +117,9 @@ public:
         gy_(nx_all * ny_all),
         v_ (nx_all * ny_all) {}
 
+
     // Advance from time 0 to time tfinal
-    void run(real tfinal);
+    //void run(real tfinal);
 
     // Call f(Uxy, x, y) at each cell center to set initial conditions
     template <typename F>
@@ -137,9 +140,16 @@ public:
     const vec& operator()(int i, int j) const {
         return u_[offset(i+nghost,j+nghost)];
     }
+    void init2(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky, int nprocx, int nprocy);
+    void copyfrom(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky, int nprocx, int nprocy);
+    void copyto(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky);
     
-private:
+    void apply_periodic();
+    void compute_fg_speeds(double& cx, double& cy);
+    void limited_derivs();
+    void compute_step(int io, real dt);
     static constexpr int nghost = 3;   // Number of ghost cells
+private:
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
@@ -184,10 +194,6 @@ private:
     }
 
     // Stages of the main algorithm
-    void apply_periodic();
-    void compute_fg_speeds(real& cx, real& cy);
-    void limited_derivs();
-    void compute_step(int io, real dt);
 
 };
 
@@ -259,7 +265,7 @@ void Central2D<Physics, Limiter>::apply_periodic()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
+void Central2D<Physics, Limiter>::compute_fg_speeds(double& cx_, double& cy_)
 {
     using namespace std;
     real cx = 1.0e-15;
@@ -367,6 +373,46 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 }
 
 
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::init2(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky, int nprocx, int nprocy)
+{
+    for (int iy = 0; iy < ny; ++iy)
+        for (int ix = 0; ix < nx; ++ix)
+            u(nghost+ix,nghost+iy) = big.u(big.nghost+nx*rankx+ix,big.nghost+ny*ranky+iy);
+}
+
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::copyfrom(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky, int nprocx, int nprocy)
+{
+        for (int iy = 0; iy < ny_all; ++iy)
+            for (int ix = 0; ix < nghost; ++ix)
+              { 
+                u(ix,iy) = big.uwrap(nx*rankx+ix,ny*ranky+iy);
+                u(ix+nx+nghost,iy) = big.uwrap(nx*rankx+ix+nx+nghost,ny*ranky+iy);
+              }
+
+        for (int ix = 0; ix < nx_all; ++ix)
+            for (int iy = 0; iy < nghost; ++iy) 
+              {
+                u(ix,iy) = big.uwrap(nx*rankx+ix,ny*ranky+iy);
+                u(ix,iy+ny+nghost) = big.uwrap(nx*rankx+ix,ny*ranky+iy+ny+nghost);
+              }
+
+
+}
+
+
+template <class Physics, class Limiter>
+void Central2D<Physics, Limiter>::copyto(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky)
+{
+    for (int iy = 0; iy < ny; ++iy)
+        for (int ix = 0; ix < nx; ++ix)
+            big.u(big.nghost+nx*rankx+ix,big.nghost+ny*ranky+iy) = u(nghost+ix,nghost+iy);
+}
+
+
+
 /**
  * ### Advance time
  * 
@@ -381,30 +427,12 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
  * at the end lives on the main grid instead of the staggered grid. 
  */
 
-template <class Physics, class Limiter>
+/*template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
-    bool done = false;
-    real t = 0;
-    while (!done) {
-        real dt;
-        for (int io = 0; io < 2; ++io) {
-            real cx, cy;
-            apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
-            if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
-                }
-            }
-            compute_step(io, dt);
-            t += dt;
-        }
-    }
 }
+*/
+
 
 /**
  * ### Diagnostics
