@@ -1,5 +1,5 @@
 # Fdb version 3
-["pdflatex"] 1445315790 "group18.tex" "group18.pdf" "group18" 1445315790
+["pdflatex"] 1446171112 "group18.tex" "group18.pdf" "group18" 1446171112
   "/usr/share/texlive/texmf-dist/tex/context/base/supp-pdf.mkii" 1337017135 71627 94eb9990bed73c364d7f53f960cc8c5b ""
   "/usr/share/texlive/texmf-dist/tex/generic/ifxetex/ifxetex.sty" 1284331290 1458 43ab4710dc82f3edeabecd0d099626b2 ""
   "/usr/share/texlive/texmf-dist/tex/generic/oberdiek/etexcmds.sty" 1335995445 7612 c47308d923ec19888707b0f1792b326a ""
@@ -24,6 +24,7 @@
   "/usr/share/texlive/texmf-dist/tex/latex/amsmath/amstext.sty" 1362954379 2637 846ebe982d3549c7ede7ce135456f54a ""
   "/usr/share/texlive/texmf-dist/tex/latex/base/article.cls" 1254151887 20571 b8bd218bf2e18b4f5817ee643cd9c515 ""
   "/usr/share/texlive/texmf-dist/tex/latex/base/ifthen.sty" 1254151887 5022 2ec7815b07dc68e65542e23a180bc839 ""
+  "/usr/share/texlive/texmf-dist/tex/latex/base/omscmr.fd" 1254151887 2109 c400bd6c901edc4a09e4d53fcffd3b3c ""
   "/usr/share/texlive/texmf-dist/tex/latex/base/size11.clo" 1254151887 9058 640f9c40a6d912e30839a669c8a999ec ""
   "/usr/share/texlive/texmf-dist/tex/latex/fancyhdr/fancyhdr.sty" 1160175134 20521 e5d13d98d57bd53d4fed3aa61bd29c86 ""
   "/usr/share/texlive/texmf-dist/tex/latex/float/float.sty" 1137110151 6749 16d2656a1984957e674b149555f1ea1d ""
@@ -50,11 +51,13 @@
   "/usr/share/texlive/texmf-dist/tex/latex/oberdiek/kvoptions.sty" 1335995445 22417 c74ff4af6a1aa2b65d1924020edbbe11 ""
   "/usr/share/texlive/texmf-dist/tex/latex/pdftex-def/pdftex.def" 1306616590 55368 3c8a0d99822330f2dfabc0dfb09ce897 ""
   "/usr/share/texlive/texmf-dist/tex/latex/tools/calc.sty" 1254151720 10075 18f0ccff816231e9905cd2b3a482a622 ""
-  "group18.aux" 1445315790 364 5f5579965bcbc9739621ab3f0ba724ca ""
-  "group18.tex" 1445315789 4933 ca743e839de5d938e717492c23f730c2 ""
+  "group18.aux" 1446171112 1024 b64379f54c49a612884ad85d6b10c8e2 ""
+  "group18.tex" 1446171111 14679 8303936fe022e11066e6823f4352e284 ""
+  "strong.png" 1446168436 98278 e6f7af8b36e2a3a7431e563c4ce634ba ""
   "table1.txt" 1445310800 560 1eda2acd0c4b0498002535bd1449fa63 ""
   "table2.txt" 1445310748 566 27d2e8fba96800dbf6a646b5834c2b5b ""
+  "weak.png" 1446168447 105773 896bbe88edcd4f0bfa11d4bf1a2d36db ""
   (generated)
-  "group18.aux"
   "group18.pdf"
+  "group18.aux"
   "group18.log"

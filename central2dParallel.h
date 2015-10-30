@@ -66,7 +66,6 @@ private:
     // Apply limiter to all components in a vector
 
     static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
-      #pragma ivdep
         for (int m = 0; m < du.size(); ++m)
             du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
     }
@@ -172,16 +171,17 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
+
+
+    for (iom2 = 0; iom2 < 2*Nsteps; iom2 ++) {
+      io = iom2%2;
+      
       // Flux computation
       for ( iy = 0; iy < nyt_all; ++iy)
         for ( ix = 0; ix < nxt_all; ++ix) {
     	  Physics::flux(ft_[ix+iy*nxt_all], gt_[ix+iy*nxt_all], ut_[ix+iy*nxt_all]);
         }
 
-
-    for (iom2 = 0; iom2 < 2*Nsteps; iom2 ++) {
-      io = iom2%2;
-      
       // x and y Derivative
       for ( iy = 1; iy < nyt_all-1; ++iy) {
         for ( ix = 1; ix < nxt_all-1; ++ix) {
@@ -200,7 +200,6 @@ void Central2D<Physics, Limiter>::run(real tfinal)
       for ( iy = 1; iy < nyt_all-1; ++iy)
         for ( ix = 1; ix < nxt_all-1; ++ix) {
     	  vec uh = ut_[ix+iy*nxt_all];
-	  
     	  for (int m = 0; m < uh.size(); ++m) {
     	    uh[m] -= dtcdx2 * fxt_[ix+iy*nxt_all][m];
     	    uh[m] -= dtcdy2 * gyt_[ix+iy*nxt_all][m];
