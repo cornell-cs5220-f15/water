@@ -85,11 +85,15 @@ struct Shallow2D {
 
     // global constants for alignment
     TARGET_MIC
-    static constexpr int vec_size   = 4;
+    static constexpr int vec_size  = 4;
     TARGET_MIC
-    static constexpr int VEC_ALIGN  = 16;
-    TARGET_MIC
-    static constexpr int BYTE_ALIGN = 64;
+    static constexpr int VEC_ALIGN = 16;
+    #if defined _PARALLEL_DEVICE
+        TARGET_MIC
+        static constexpr int BYTE_ALIGN = 64;
+    #else
+        static constexpr int BYTE_ALIGN = 32;
+    #endif
 
     // Type parameters for solver
     typedef float real;
