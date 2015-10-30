@@ -1,8 +1,0 @@
-CXX=g++
-CXXFLAGS=-std=c++14 -g 
-
-# If you're using icc, these are good flags to try
-OPTFLAGS=-O3 -march=native -fopenmp
-
-CXXFLAGS+=$(OPTFLAGS)
-PYTHON=python

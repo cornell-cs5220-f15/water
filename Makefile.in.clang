@@ -1,8 +1,0 @@
-CXX=clang++
-CXXFLAGS=-std=c++14 -g 
-
-# If you're using clang, these are good flags to try
-OPTFLAGS=-Ofast -march=native
-
-CXXFLAGS+=$(OPTFLAGS)
-PYTHON=python
