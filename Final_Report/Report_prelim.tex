@@ -384,7 +384,7 @@ The strong scaling for the naive OpenMP implementation can be seen in Table ~\re
 		\begin{figure}[h]
 			\begin{center}
 				\includegraphics[width=0.5\columnwidth]{sscale_plot}
-				\caption{Plot of weak scaling, representing the data shown in Table~\ref{sscale_c}.}
+				\caption{Plot of strong scaling efficiancy, representing the data shown in Table~\ref{sscale_c}.}
 				\label{ssplot_c}
 			\end{center}
 		\end{figure}
@@ -416,13 +416,68 @@ Next, the weak scaling can be seen in Table ~\ref{wscale_c} and Figure ~\ref{wsp
 
 It can be seen from these scalings that in order to even attempt at getting better performance out of the code a subdomain implementation of OpenMP will need to be used.
 
-% Need to create and insert charts
+\subsection{Parallelization}
+The C code was explicitly decomposed into subdomains using OpenMP with a distributed memory type paradigm. In \texttt{ldriver.c}, a thread team is launched that decomposes the domain by \texttt{npx} processors in the x-direction and \texttt{npy} processors in the y-direction, where \texttt{npx} and \texttt{npy} can be set by the lua script. It is required in the code, however, that the size of the domain be evenly divisible by the number of processors. Once the thread team is launched, the location of the subdomain on the global domain is noted for each processor for easy copying to the global domain. After this point, each subdomain is not aware of the others and the simulation is effectively distributed memory. For exchanging information between threads and informing the ghost cells, the global domain is used. Communication is handled as followed. While in the flow solver, boundary cell values are pushed to their correct location on the global domain. Next, one processor runs the original periodic boundary condition function. Then, each subdomain fills its ghost cells using the global domain. This is not the most efficient method due to the barriers required while one processor performs the periodic boundary condition update on the global domain, however provided easy implementation. The one other quantity communicated between the processors is the time step, used to restrict the time step each processor used to the most stringent time step in the entire global domain. This required large modifications to the \texttt{central2d\_t} structure and other portions of the code. The modified code can be seen in the \texttt{dist\_par} subdirectory of the git repository. As shown below, significant improvements in strong and weak scaling were gained when compared to a naive OpenMP parallel-for implementation.
 
-\section{Future Work}
-Once the code has been parallelized with subdomains using OpenMP, use of the Xeon Phi chips will be implemented in the code. Thus far, we have had trouble using the Xeon Phi chips via the \texttt{\#pragma offload target (mic:0)} command. We are not entirely sure of the issue, but believe it has to do with the use of templates in the C++ version of the code.
+\subsubsection{Strong and Weak Scaling}
+The strong and weak scaling for this parallelization can also be analyzed as before. Although it will not be a direct comparison to the study done using the naive OpenMP implementation and more tuned C code, the same running parameters will be used, allowing some small comparison. The strong scaling study was run for a simulation with 400 mesh points per side and 50 frames, the results of which can be seen in Table~\ref{sscale_c_dist} and Figure~\ref{ssplot_c_dist}. Strong scaling was once again calculated using Eq.~\ref{strongscale}, with the normalized strong scaling calculated with Eq.~\ref{normss}.
 
-Once the code is parallelized into subdomains and effectively offloaded to the Xeon Phi chip, we will attempt to vectorize the loops. Preliminarily, we have had trouble vectorizing the loops within the C++ memory structure currently used, and have not managed to use the \texttt{restrict} keyword. Without this, the compiler is easily confused about dependencies inside the loop, as it cannot be sure where separate pointers are pointing to. It may be necessary to switch to the C version of the code that was written by Professor Bindel in order to tune the code for better vectorization.
+\begin{table}[h]
+	\begin{center}
+		\begin{tabular}{|c c c c|}
+			\hline
+			Threads & Total Time (seconds) & Strong Scaling & Strong Scaling Efficiency(\%) \\ \hline
+			1 & 5.974 & 1.00  & 100.0 \\ \hline
+			2 & 3.272 & 1.82 &  91.0 \\ \hline
+			4 & 1.695 &  3.52&  88.0  \\ \hline
+			8 & 0.9780 &  6.11&  76.4  \\ \hline
+			16 & 0.8821 & 6.77 &  42.3 \\ \hline
+		\end{tabular}
+		\caption{Strong scaling for wave simulation with 400 mesh points in each direction and 50 timesteps between frames using distributed memory paradigm.}
+		\label{sscale_c_dist}
+	\end{center}
+\end{table}
 
+\begin{figure}[h]
+	\begin{center}
+		\includegraphics[width=0.5\columnwidth]{ssplot_c_dist}
+		\caption{Plot of strong scaling efficiency, representing the data shown in Table~\ref{sscale_c_dist}.}
+		\label{ssplot_c_dist}
+	\end{center}
+\end{figure}
+
+There are three important facts to note from the strong scaling study. First, running this parallelized version with one processor (in serial) is a little less than three times slower than the tuned version of C we also presented. This is most likely due to the more complicated boundary condition handling and the existence of two grids, even when running the parallel code in serial. Second, the strong scaling shown here for this parallelized C version performs much better than the naively OpenMP parallelized version. This is due to the separation of the thread team during the driver stage and limited communication afterwards. Third, There is a stark degradation in strong scaling between 8 processors and 16 processors. This is most likely due to the fact that the processors used now exist on two separate chips on the node. This will significantly increase communication costs which will impact performance, as seen in Table~\ref{sscale_c_dist}. 
+
+Similarly, a weak scaling study can also be performed. This is shown in Table~\ref{wscale_c_dist} and Figure~\ref{wsplot_c_dist}. Weak scaling was once again calculated using Eq.~\ref{ws}.
+
+
+\begin{table}[h]
+	\begin{center}
+		\begin{tabular}{|c c c c|}
+			\hline
+			Threads & Cells Per Side & Total Time (seconds) & Weak Scaling(\%) \\ \hline
+			1 & 200 & 0.8876 & 100.0   \\ \hline
+			2 & 284 & 1.308 &  67.9 \\ \hline
+			4 & 400 & 1.708 &  52.0   \\ \hline
+			8 & 566 & 2.655 & 33.4   \\ \hline
+		\end{tabular}
+		\caption{Weak scaling for wave simulation with 50 frames and N varying mesh size using distributed memory paradigm.}
+		\label{wscale_c_dist}
+	\end{center}
+\end{table}
+
+\begin{figure}[h]
+	\begin{center}
+		\includegraphics[width=0.5\columnwidth]{wsplot_c_dist}
+		\caption{Plot of weak scaling, representing the data shown in Table~\ref{wscale_c_dist}.}
+		\label{wsplot_c_dist}
+	\end{center}
+\end{figure}
+Once again, the weak scaling with this parallelization method proves to be much more effective than the naively implemented OpenMP parallelized code used on the tuned C code. This is due to the much lower communication and synchronization in this parallelization method as opposed to the naive OpenMP implementation. Please note, the number of cells per side were slightly modified to make them evenly divisible by the number of processors for that side, a requirement of this parallelization method.
+
+\section{Conclusion}
+
+The C++ and C code implementation showed the different effects that parallelization can have on different effects forms of code. In the C++ code base where the level of abstraction and structure of arrays setup made it difficult to vectorize the code, it was seen that a basic OpenMP implementation could lead to a nice speed up of the code. On the other hand, the C code was fairly well optimized and vectorized already, so the cost of communication between threads can not hide between the calculations time. Therefore, the naive OpenMP implementation leads to a performance degradation.  When the subdomain decomposition was added, it could be seen that a performance boost could be had by adding a parallelization portion of the code.
 
 %\FloatBarrier
 %	\bibliography{report.bib} 
