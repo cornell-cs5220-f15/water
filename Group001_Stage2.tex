@@ -528,7 +528,7 @@ gives a potential speed up around \texttt{3.840}.
 \\
 Figures 7 and 8 show the results when we add \texttt{\#pragma simd} and
 \texttt{\#ivdep} in certain chunks.
-
+\\
 However, adding annotations like this and some others like \texttt{\#pragma simd},
 \texttt{\#pragma always vectorize} and \texttt{\#pragma omp declare simd} are not
 guaranteed to successively vectorize every loop.
@@ -554,7 +554,7 @@ Since the data structure issue discussed above no long exists in C code, we were
 playing around with annotations trying to get some bonus performance improvement.
 As the results shown below, there is very limited room for further improvement
 on the well-written C code. Great job Professor Bindel!
-
+\\
 See Figure 9,10 for C code with annotations \texttt{\#pragma ivdep}.
 
 \subsection{Offload}
@@ -782,6 +782,8 @@ We set up both strong and weak scaling studies, varying the number of threads we
 
 We fix the number of cells per side $nx = 200$ and vary the number of threads $p = 1^2, \cdots, 8^2$. Therefore, the total number of cells is $nx^2$, which does not change as the number of threads $p$ changes.
 \\
+The x-axis in all the plots should be $\sqrt{p}$.
+\\
 According to Amdahl's law, we have the speedup as
 \\
 $S(p) = \frac{T_\textrm{serial}}{\textrm{T}_\textrm{parallel}(p)} = \frac{1}{\alpha + (1-\alpha)p} \leq \frac{1}{\alpha}$
@@ -791,6 +793,8 @@ where $\alpha$ is the fraction of the serial work.
 \subsection{Weak Scaling Study}
 
 We vary both the number of cells per side $nx = 200 \times p$ and the number of threads $p = 1^2, \cdots, 8^2$. Therefore, the total number of cells is $nx^2$, which is proportional to the number of threads $p$.
+\\
+The x-axis in all the plots should be $\sqrt{p}$.
 \\
 According to Gustafson's law, we have the speedup as
 \\
@@ -846,7 +850,7 @@ where $\alpha=a/(a+b)$ is the fraction of serial work.
    \begin{subfigure}
       \centering
         \begin{center}
-      \includegraphics[width=0.85\textwidth] {plots/2_for_strong}
+      \includegraphics[width=0.85\textwidth] {plots/1_for_strong}
         \end{center}
       \label{aload0}
       \caption{strong scaling}
@@ -854,7 +858,7 @@ where $\alpha=a/(a+b)$ is the fraction of serial work.
   \begin{subfigure}
       \centering
         \begin{center}
-      \includegraphics[width=0.85\textwidth] {plots/2_for_weak}
+      \includegraphics[width=0.85\textwidth] {plots/1_for_weak}
         \end{center}
       \label{aload1}
       \caption{weak scaling}
