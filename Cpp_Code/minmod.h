@@ -64,9 +64,12 @@ struct MinMod {
     // Branch-free computation of minmod of two numbers
     static real xmin(real a, real b) {
         using namespace std;
+        real comp;
+        comp = abs(a);
+        if (abs(b) < abs(a)) comp = abs(b);
         return ((copysign((real) 0.5, a) +
                  copysign((real) 0.5, b)) *
-                min( abs(a), abs(b) ));
+                comp);
     }
 
     // Limited combined slope estimate
