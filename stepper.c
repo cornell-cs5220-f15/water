@@ -9,7 +9,11 @@
 #include <stdbool.h>
 #include <omp.h>
 #define NBATCH 6 //2*k
-#define NUMPARA 10 // we should let NUMPARA devide by nx
+/* #define NUMPARA 10 // we should let NUMPARA devide by nx */
+#define NUMPARA npara
+
+/* extern int npara; */
+
 //ldoc on
 /**
  * ## Implementation
@@ -383,17 +387,18 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float* restrict g,
                    int nx, int ny, int ng,
                    int nfield, flux_t flux, speed_t speed,
-                   float tfinal, float dx, float dy, float cfl)
+                   float tfinal, float dx, float dy, float cfl, int npara)
 {
-    int nstep = 0;
-    int nx_all = nx + 2*ng;
-    int ny_all = ny + 2*ng;
-    bool done = false;
-    float t = 0;
-#pragma offload_attribute(pop)
+  int nstep = 0;
+  int nx_all = nx + 2*ng;
+  int ny_all = ny + 2*ng;
+  bool done = false;
+  float t = 0;
 	// set up the pointers for each sub-domain
-#pragma offload target(mic) inout(u,v,f,g:length(nx_all*ny_all*nfield)) in(scratch:length(6*nx_all)) out(nstep)
+#pragma offload target(mic) inout(u,v,f,g:length(nx_all*ny_all*nfield)) in(scratch:length(6*nx_all))   /* out(nstep); */
     {
+	/* printf("nstep: %d, time %f\n", nstep, t); */
+
     float** fblock=(float**)malloc(NUMPARA* sizeof(float*));
     float** gblock=(float**)malloc(NUMPARA* sizeof(float*));
     float** ublock=(float**)malloc(NUMPARA* sizeof(float*));
@@ -411,12 +416,13 @@ int central2d_xrun(float* restrict u, float* restrict v,
         sblock[i] = gblock[i]+myN;
     }
     while (!done) {
-        
+      /* printf("nstep: %d, time %f\n", nstep, t); */
+      /* 	fflush(stdout); */
         float cxy[2] = {1.0e-15f, 1.0e-15f};
         shallow2d_speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
         central2d_periodic(u, nx, ny, ng, nfield);
         float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-		printf("time dt %f", dt);
+	/* printf("time dt %f, cfl %f", dt,cfl); */
         if (t + NBATCH*dt >= tfinal) {
             dt = (tfinal-t)/NBATCH;
             done = true;
@@ -461,6 +467,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
         }
         t =t+NBATCH*dt;
         nstep = nstep+NBATCH;        
+	/* printf("nstep: %d, time %f\n", nstep, t); */
+	/* fflush(stdout); */
     }
     free(ublock[0]);
     } // offload
@@ -468,11 +476,12 @@ int central2d_xrun(float* restrict u, float* restrict v,
 }
 
 
-int central2d_run(central2d_t* sim, float tfinal)
+int central2d_run(central2d_t* sim, float tfinal, int npara)
 {
     return central2d_xrun(sim->u, sim->v, sim->scratch,
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl);
+                          tfinal, sim->dx, sim->dy, sim->cfl, npara);
 }
+#pragma offload_attribute(pop)
