@@ -1,0 +1,68 @@
+-Assignment Lessons
+	-Git bisect
+	-Code structure vs Computation details
+	-Diff compiler capabilities
+	-Vectorization and vec reports
+	-C, C++ and troubles of aliasing
+	-Getting the compiler to understand reductions
+	-Profiling with Intruments
+	-Ghost cells
+	-Statring thread teams, parallel for (starts a new thread team, cost to make new thread team vs MPI for), blocking
+	
+-Finishing up with MPI commentary
+	-Ghost cell exchange
+	-Parallel prefix oeprations
+	-Example: distributed bucket sort and matrix distribution
+
+-Impact of floating point
+	-Some part with floating points if error does not add up easily
+	-Reproducability (execute multiple times) and consistency (single run redundant computation, ensure all processors go to same branch) can introduce issues with correctness
+
+1. Conflict between locality & vectorization?
+Vectorization - h	[0,1,2..]		Struct of arrays, parallel arrays, good for vec but might have cache misses
+		hu	[N, N+1, ...]
+		hv	[2N, 2N+1, ...]
+Locality	h	hu	hv		Array of structs (original C++ code)	
+		[0,	1,	2]
+		[3,	...	 ]
+
+2. Overhead of Synchronization
+	Half step and differences, but needs finish step
+Divide arrays into supercells, add ghost cells and then divide the work and then sync, reduces sync time
+Ghost cell example:
+Copy up row, down row, left column, right column.
+Up row with bottom most row, and vice versa. Copy left column with data from rightmost column
+
+[0,1,2				=>		[8,6,7,8,6]
+3,4,5						[2,0,1,2,0]
+6,7,8]						[5,3,4,5,3]
+						[8,6,7,8,6]
+						[2,0,1,2,0]
+
+Ghost Cell Protocol (Exchange or periodic BCs)
+
+[0,1		[2,3
+4,5]		6,7]
+
+[8,9		[10,11
+12,13]		14,15]
+
+----------Becomes:
+
+[-,-,-,-		[8,-,-,-
+-,0,1,2			1,2,3,-
+-,4,5,6			5,6,7,-
+-,8,9,10]		9,10,11,-]
+
+[-,4,5,6		[5,6,7,-
+-,8,9,10,		9,10,11,-
+-12,13,14		13,14,15,-
+-,-,-,-]		-,-,-,-]
+
+
+Optimizations:
+*Mac instrument profiller (iprofiller - time)
+*if based minmax - dont use max function confuses compiler
+*convert memcpy to pointer swap
+*
+
