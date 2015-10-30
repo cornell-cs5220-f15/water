@@ -1,5 +1,5 @@
 CXX=clang++
-CXXFLAGS=-std=c++14 -g 
+CXXFLAGS=-std=c++11 -g 
 
 # If you're using clang, these are good flags to try
 OPTFLAGS=-Ofast -march=native
