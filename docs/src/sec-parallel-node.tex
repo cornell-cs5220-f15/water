@@ -125,8 +125,47 @@ The preliminary results comparing the performance of the serial and
 parallel implementations of the shallow water equation solver running the
 compute nodes is shown in Figure~\ref{fig-parallel-node-results}.
 
-Currently we only support square block sizes and block sizes that evenly
-divide the grid dimensions, so we only experiment with running 4 and 16
-threads for the parallel implementation for all initial
-conditions. Overall, in a strong scaling study, we achieve speedups of
-~3X using 4 threads and ~5--6X using 16 threads.
+For the strong scaling study, we sweep the number of threads used for the
+parallel implementation using the same 200x200 grid size and normalize
+the execution time results against the serial implementation. In general,
+we see a pseudo-linear speedup with the number of threads until 6
+threads, then the performance tapers off with any additional increase in
+parallelization. This is to be expected, especially with a smaller
+dataset, since the synchronization overhead begins to dominate the amount
+of work per thread with more threads. There is an interesting phenomenon
+for the performance of the 6 and 12 threads configurations in which the
+performance stops monotonically increasing and is inconsistent across
+different initial conditions. We believe the reason for this is
+two-fold. First, there is suboptimal load balancing for block dimensions
+that do not evenly divide the grid dimensions. Specifically, for a
+200x200 grid, splitting the grid into 3 blocks in any dimension (e.g.,
+3x2 for 6 threads, 4x3 for 12 threads) will assign less work to the
+boundary blocks. Second, there might be an increase in cache conflicts
+for certain block dimensions. This effect would be most noticeable during
+the copying of data to and from the per-thread local state, which occurs
+after every timestep. The interplay between this effect and the fact that
+smaller blocks are more likely to fit in each thread's (i.e., core's)
+private L1 cache, could be a possible cause of the inconsistency we see
+for the performance of certain block dimensions.
+
+For the weak scaling study, we increase the grid size with the same
+factor as the increase in the number of threads. For example, the 4
+thread configuration uses a 400x400 grid, whereas the serial
+configuration uses a 200x200 grid. An ideal weak scaling parallel
+implementation would have a roughly constant speedup for increasing
+numbers of threads. These studies help programmers to identify the impact
+of synchronization overheads in their parallel implementations. In our
+results, we see an approximate exponential decay in performance as we
+scale the problem size with the number of threads, implying that our
+synchronization overhead does not scale linearly with the number of
+threads. However, it is important to keep in mind that this trend is
+likely partly due to the fact that increasing the grid dimensions
+increases the computational complexity by an order of N^3, rather than
+N^2. This is because we are not only increasing the total number of
+elements on the grid, but we are also increasing the total number of
+timesteps required to compute a single frame (i.e., requires more
+timesteps to reach convergence for a larger grid). Since we are
+increasing the number of timesteps, it is natural that the number of
+synchronization boundaries between timesteps increase as well.
+
+

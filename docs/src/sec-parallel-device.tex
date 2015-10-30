@@ -18,7 +18,7 @@ approach, there is a greater burden on the programmer to identify and
 parallelize the most compute-intensive section of the code, but allows
 him or her more flexibility in choosing which sections to accelerate.
 
-As a starting point, we choose the second approach of offloading specific
+As a starting point, we chose the second approach of offloading specific
 sections of the computation to the accelerator and build off of the
 parallel implementation for the compute nodes discussed in
 Section~\ref{sec-parallel-node}. In this naive first-pass, we offload the
@@ -33,10 +33,14 @@ flattened elements of the global grid passed in by the host to the local
 grid vectors. Once the copy is complete, the other functions in the
 offloaded kernel can take a pointer to the per-thread \texttt{LocalState} object
 as an argument and access the vectors in this object similar to before.
-
-Although this naive implementation requires us to offload computation
+Because this naive implementation requires us to offload computation
 before every timestep, there is an unnecessarily high overhead of
-transferring data between the host and device memories, but we believe
+transferring data between the host and device memories.
+
+We continued to optimize the parallel implementation for the accelerator
+by offloading the entire \textt{run()} function of the simulator.
+
+, but we believe
 that using efficient batching will help us alleviate this
 issue. Currently, the parallel implementation for the accelerator board
 runs roughly an order of magnitude slower than the implementation for the

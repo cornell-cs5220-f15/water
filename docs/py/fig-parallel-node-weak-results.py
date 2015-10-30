@@ -20,7 +20,7 @@ inches_per_pt = 1.0/72.27                     # convert pt to inch
 
 aspect_ratio  = 0.70
 
-fig_width     = 6.0                           # width in inches
+fig_width     = 6.5                           # width in inches
 fig_height    = fig_width * aspect_ratio      # height in inches
 fig_size      = [ fig_width, fig_height ]
 
@@ -52,9 +52,13 @@ num_bmarks = len( bmarks )
 # Configurations
 
 configs = [
-  'serial',
-  'parallel (4 threads)',
-  'parallel (16 threads)',
+  '1',
+  '2',
+  '4',
+  '6',
+  '8',
+  '12',
+  '16',
 ]
 
 num_configs = len( configs )
@@ -69,10 +73,34 @@ perf_data = [
     4.43e-2, 2.91e-2, 3.60e-2, 4.40e-2,
   ],
 
+  # parallel (2 threads)
+
+  [
+    5.80e-2, 4.92e-2, 5.78e-2, 6.58e-2,
+  ],
+
   # parallel (4 threads)
 
   [
     1.02e-1, 5.87e-2, 1.00e-1, 1.11e-1,
+  ],
+
+  # parallel (6 threads)
+
+  [
+    1.08e-1, 8.76e-2, 1.14e-1, 1.27e-1,
+  ],
+
+  # parallel (8 threads)
+
+  [
+    2.47e-1, 1.70e-1, 2.21e-1, 2.44e-1,
+  ],
+
+  # parallel (12 threads)
+
+  [
+    5.42e-1, 4.46e-1, 6.54e-1, 6.10e-1,
   ],
 
   # parallel (16 threads)
@@ -96,11 +124,19 @@ mid = num_configs / 2.0
 
 # Bar widths
 
-width = 0.25
+width = 0.10
 
 # Colors
 
 colors = [
+  '#FFCCCC',
+  '#FF9999',
+  '#FF6666',
+  '#FF3333',
+  '#FF0000',
+  '#CC0000',
+  '#990000',
+  '#660000',
   '#ff6666',
   '#66cccc',
   '#ff9966',
@@ -156,7 +192,8 @@ plt.axhline( y=1, color='k', linewidth=1.5 )
 
 # Legend
 
-ax.legend( rects, configs, loc=8, bbox_to_anchor=(0.01,1.02,0.98,0.1), ncol=5, borderaxespad=0, prop={'size':14}, frameon=False )
+ax.legend( rects, configs, loc=8, bbox_to_anchor=(0.01,1.02,0.98,0.1), ncol=4,
+           borderaxespad=0, prop={'size':12}, frameon=False )
 
 # Pretty layout
 
