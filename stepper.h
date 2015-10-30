@@ -1,6 +1,6 @@
 #ifndef STEPPER_H
 #define STEPPER_H
-
+#include "shallow2d.h"
 #include <math.h>
 
 //ldoc
@@ -85,7 +85,7 @@ int  central2d_offset(central2d_t* sim, int k, int ix, int iy);
  * that we always take steps in multiples of two so that we end
  * at the reference grid.
  */
-int central2d_run(central2d_t* sim, float tfinal);
+int central2d_run(central2d_t* sim, float tfinal, int npara);
 
 /**
  * ### Applying boundary conditions

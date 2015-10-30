@@ -229,17 +229,17 @@ int run_sim(lua_State* L)
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        int nstep = central2d_run(sim, ftime);
+        int nstep = central2d_run(sim, ftime, npara);
         double t1 = omp_get_wtime();
         double elapsed = t1-t0;
 #elif defined SYSTIME
         struct timeval t0, t1;
         gettimeofday(&t0, NULL);
-        int nstep = central2d_run(sim, ftime);
+        int nstep = central2d_run(sim, ftime, npara);
         gettimeofday(&t1, NULL);
         double elapsed = (t1.tv_sec-t0.tv_sec) + (t1.tv_usec-t0.tv_usec)*1e-6;
 #else
-        int nstep = central2d_run(sim, ftime);
+        int nstep = central2d_run(sim, ftime, npara);
         double elapsed = 0;
 #endif
         solution_check(sim);

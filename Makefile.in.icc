@@ -3,6 +3,7 @@ CFLAGS=-std=c99 -g
 
 # If you're using icc, these are good flags to try
 OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo -openmp
+# -offload-target-attribute=mic
 
 # Add this for the vectorization reports
 ANALYSIS=-qopt-report=1 -qopt-report-phase=vec 

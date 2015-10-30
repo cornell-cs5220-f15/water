@@ -32,8 +32,8 @@ ldriver.o: ldriver.c shallow2d.h
 shallow2d.o: shallow2d.c
 	$(CC) $(CFLAGS) -c $<
 
-stepper.o: stepper.c
-	$(CC) $(CFLAGS) -c $<
+stepper.o: stepper.c shallow2d.o
+	$(CC) $(CFLAGS) -c $< shallow2d.o
 
 lshallow.dSYM: lshallow
 	dsymutil lshallow -o lshallow.dSYM
