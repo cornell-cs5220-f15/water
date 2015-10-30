@@ -1,0 +1,33 @@
+\section{Improved Build System}\label{sec:build}
+The development of an efficient shallow water simulator is a complicated task
+that involves a lot of rapid prototyping, and the efficiency with which we can
+develop simulators is limited in part by the overhead of creating, modifying,
+and running simulators. In order to reduce this overhead, we improved and
+streamlined the build system.
+
+The original \ttt{water} build system did not accommodate an easy way to run
+multiple versions of a shallow water simulator. Instead, we were forced to
+modify the type definitions at the top of \ttt{driver.cc} before compilation
+which is slow and error-prone. To alleviate this burden, we modified
+\ttt{driver.cc} to instantiate one of a set of simulators based on a macro
+which is provided at the command line during compilation. For example, assume
+we have two simulators \ttt{SimA} and \ttt{SimB}. To build \ttt{driver.cc} to
+use \ttt{SimA}, we run a command similar to \ttt{icpc -DVERSION\_a -o
+shallow\_a driver.cc}. Similarly, to build \ttt{driver.cc} to use \ttt{SimB},
+we run something similar to \ttt{icpc -DVERSION\_b -o shallow\_b driver.cc}.
+Moreover, we abstract these commands using the Makefile so that we only have to
+run \ttt{make shallow\_a} or \ttt{make shallow\_b}.
+
+We also modified our build system to make it easy to enable and disable the
+verification presented in \secref{verification}. We enable verification when
+debugging and developing our applications. However, since verification involves
+executing two simulators and repeatedly checking for grid equivalence, it is
+expensive. Thus, when we time and evaluate our simulators, we disable
+verification.
+
+Our build system also involves commands for profiling simulators, running
+multiple simulators at once, running a simulator with various values of $nx$,
+etc.
+
+Overall, the improved build system makes it much easier to develop and evaluate
+many versions of simulators simultaneously.

@@ -1,0 +1,24 @@
+\section{Domain Decomposition}\label{sec:domaindecomp}
+Our shallow water simulators represent a region of water as a two-dimensional
+grid of water heights. The simulation proceeds in several steps, and during
+each step, values from one grid are transformed into values of another grid.
+Symbolically, if one step of the simulation transforms values from a grid $A$
+to a grid $B$ using a function $f$, then the following formula is used to
+populate $B$.
+\[
+  \forall i, j.\, B_{ij} = f(A_{ij})
+\]
+
+A naive implementation of this pattern iterates over all values of $i$ and $j$
+transforming values from $A$ to $B$. This implementation is analogous to a
+naive implementation of matrix multiplication and suffers from the same
+problems. More specifically, the naive implementation has poor cache locality
+leading to poor performance on large grids.
+
+To improve cache locality, we implemented blocking, or domain decomposition, in
+which we operate on grids one block at a time. Domain decomposition not only
+increases cache locality; it also allows for very easy parallelization. This is
+discussed in detail in \secref{parallelization}.
+
+The details of our implementation are not discussed here; they can be found in
+\ttt{central2d\_block.h}.

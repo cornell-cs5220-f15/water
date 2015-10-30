@@ -1,9 +1,26 @@
 CXX=icpc
 CXXFLAGS=-std=c++14 -g -openmp
 
+OPTFLAGS1 = \
+	-O3 \
+	-no-prec-div \
+	-ipo \
+	-qopt-report=5 \
+	-qopt-report-phase=vec \
+	-xCORE-AVX2 \
+	-restrict \
+	# -fast \
+
+OPTFLAGS2 = \
+	-unroll-aggresive \
+	-align \
+	# -opt-prefetch=4 \
+	# -ansi-alias \
+	# -fno-alias \
+
 # If you're using icc, these are good flags to try
-OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo \
-	-qopt-report=5 -qopt-report-phase=vec
+OPTFLAGS = \
+    $(OPTFLAGS1) $(OPTFLAGS2)
 
 CXXFLAGS+=$(OPTFLAGS)
 PYTHON=python

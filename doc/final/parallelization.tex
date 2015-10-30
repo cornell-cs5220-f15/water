@@ -1,0 +1,47 @@
+\section{Parallelization using OpenMP}\label{sec:parallelization}
+
+In the initial stage of the project, we used Open Multi-threads Programming
+(OpenMP) to parallelize our code and improve its performance. OpenMP is an
+industry standard API of C/\cplusplus{} for shared memory parallel programming.
+OpenMP first decomposes work into smaller chunks, and then assigns the chunks
+to different threads such that multiple threads can perform work in parallel.
+When the work is done, the threads synchronize implicitly.
+
+Although OpenMP is a very powerful tool that can greatly improve the
+performance of code, we found that using OpenMP alone without any blocking or
+vectorization actually worsened performance. Two of the reasons were load
+imbalance overhead and parallel overhead. Load imbalance occurs when threads
+perform unequal amounts of work. Faster threads need to wait for the other
+slower threads to finish their work before they can synchronize.
+
+Parallel overhead is the accumulated time that it takes to start threads,
+distribute tasks to threads, etc. Using Vtune to analyze the runtime of our
+code, it appears that the time for the processor to compute information in most
+of our for-loops was in the range of micro-seconds. As a result, using
+\ttt{\#pragma omp parallel for} was not beneficial because the time to
+distribute work to threads was larger than the time to perform the loop
+serially.
+
+However, after we performed domain decomposition, as described in
+\secref{domaindecomp}, we were able to optimize the performance of our
+simulators by a factor of 6-10 using a \ttt{\#pragma omp parallel for
+collapse(2)} clause as shown in \figref{omp}. The \ttt{run\_block} function
+decomposes a simulator's grid into smaller sub-domains wrapped with a ring of
+ghost cells. The \ttt{\#pragma omp parallel for collapse(2)} clause
+parallelizes the loop and allows multiple threads to perform the simulation at
+the granularity of blocks. This minimizes work imbalance and makes parallel
+overhead marginal.
+
+\begin{figure}[h]
+\centering
+\begin{CPP}[firstnumber=476]
+#pragma omp parallel for collapse(2)
+for (int by = 0; by < BY; ++by) {
+    for (int bx = 0; bx < BX; ++bx) {
+        run_block(io,dt,bx,by);
+    }
+}
+\end{CPP}
+\caption{A parallelized loop from \ttt{central2d\_opt.h}.}
+\label{fig:omp}
+\end{figure}

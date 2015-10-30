@@ -13,18 +13,90 @@
 PLATFORM=icc
 include Makefile.in.$(PLATFORM)
 
+SIMULATORS = \
+	shallow \
+	shallow_block \
+	shallow_block_par\
+	shallow_buggy \
+	shallow_copy \
+	shallow_opt \
+	shallow_vec \
+
+HEADERS = \
+	central2d.h \
+	central2d_block.h \
+	central2d_block_par.h\
+	central2d_buggy.h \
+	central2d_copy.h \
+	central2d_opt.h \
+	central2d_par.h \
+	central2d_vec.h \
+	flat_array.h \
+	meshio.h \
+	minmod.h \
+	minmod_opt.h \
+	shallow2d.h \
+	shallow2d_block.h \
+	shallow2d_vec.h \
+
 # ===
 # Main driver and sample run
+.PHONY: all run run_% big
+
+all: $(SIMULATORS)
 
 shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $<
+	$(CXX) $(CXXFLAGS) -o $@ $< -DVERSION_ref
 
-.PHONY: run big
-run: dam_break.gif
+shallow-timing: driver.cc central2d.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -DTIMING_ENABLED -o shallow $< -DVERSION_ref
+
+shallow_%: driver.cc $(HEADERS)
+	$(CXX) $(CXXFLAGS) -o $@ $< -DVERSION_$*
+
+shallow-timing_%: driver.cc $(HEADERS)
+	$(CXX) $(CXXFLAGS) -DTIMING_ENABLED -o shallow_$* $< -DVERSION_$*
+
+shallow-timing_blocks: driver.cc $(HEADERS)
+	for (( i = 4; i <= 1024; i *= 2 )); do \
+		$(CXX) $(CXXFLAGS) -DTIMING_ENABLED -o shallow_block-$$i $< -DVERSION_block -DBLOCK_SIZE=$$i; \
+	done
+
+run: shallow
+	qsub run.pbs -N shallow -vARG1=shallow
+
+run-ampl: shallow
+	qsub run-ampl.pbs -N shallow-ampl -vARG1=shallow
+
+run_%: shallow_%
+	qsub run.pbs -N $* -vARG1=$<
+
+run-ampl_%: shallow_%
+	qsub run-ampl.pbs -N $*-ampl -vARG1=$<
+
+run-sweep: shallow
+	for (( i = 500; i <= 1500; i += 200 )); do \
+		qsub run-sweep.pbs -N shallow -vARG1=$<,ARG2=$$i; \
+	done
+
+run-sweep_%: shallow_%
+	for (( i = 500; i <= 1500; i += 200 )); do \
+		qsub run-sweep.pbs -N $* -vARG1=$<,ARG2=$$i; \
+	done
+
+time: clean $(shell echo shallow-timing{,_vec,_block,_block_par,_opt}) $(shell echo run{,_vec,_block,_block_par,_opt})
 
 big: shallow
 	./shallow -i wave -o wave.out -n 1000 -F 100
 
+# ===
+# test cases
+TESTS = flat_array_test
+flat_array_test: flat_array_test.cc flat_array.h
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+test: $(TESTS)
+	./flat_array_test
 
 # ===
 # Example analyses
@@ -73,11 +145,16 @@ shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
 	ldoc $^ -o $@
 
 # ===
+# Rules for printing
+
+print-%: ; @echo $*=$($*)
+
+# ===
 # Clean up
 
 .PHONY: clean
 clean:
-	rm -f shallow
+	rm -f $(SIMULATORS)
+	rm -f $(TESTS)
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
-

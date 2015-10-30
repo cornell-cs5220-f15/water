@@ -1,0 +1,40 @@
+\section{Verification}\label{sec:verification}
+Shallow water simulation involves a lot of numerical computation, and
+optimizing the simulation involves modifying and rearranging the code that
+performs these computations in complex and intricate ways. Given the subtlety
+and intricacy of the code, it is very easy to accidentally introduce bugs into
+optimized code. The released code includes a \ttt{solution\_check} function
+which verifies certain invariants of the simulation. For example, it checks
+that the volume of water is conserved and that there are no negative water
+heights. This invariant checking catches \emph{some} but not \emph{all} bugs.
+
+In order to catch all bugs and guarantee the correctness of our code, we
+developed our own simple verification system. In order to verify the
+correctness of a simulator, we check its output against the reference simulator
+provided in the release code. More concretely, assume we want to check the
+correctness of an optimized \ttt{OptSim} simulator. We instantiate both
+\ttt{OptSim} and the reference simulator \ttt{RefSim}.
+
+\begin{CPP}
+typedef Central2D   <Shallow2D,    MinMod   <Shallow2D   ::real>> RefSim;
+typedef Central2DOpt<Shallow2DOpt, MinModOpt<Shallow2DOpt::real>> OptSim;
+RefSim ref_sim;
+OptSim opt_sim;
+\end{CPP}
+
+Then, we simulate \ttt{opt\_sim} and \ttt{ref\_sim} in lockstep and use a
+function \ttt{validate} to check that the two simulators have identical grids
+up to rounding error.
+
+\begin{CPP}
+for (int i = 0; i < frames; ++i) {
+    opt_sim.run(ftime);
+    ref_sim.run(ftime);
+    validate(ref_sim, sim);
+}
+\end{CPP}
+
+To ensure our verification system is itself correct, we developed an
+intentionally buggy \ttt{BuggySim} simulator and a copy of the reference
+simulator \ttt{CopySim}. Our system correctly reports that \ttt{BuggySim} is
+incorrect while \ttt{CopySim} is correct.
