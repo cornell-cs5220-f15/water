@@ -1,6 +1,3 @@
-Intel(R) Advisor can now assist with vectorization and show optimization
-  report messages with your source code.
-See "https://software.intel.com/en-us/intel-advisor-xe" for details.
 
 Begin optimization report for: main(int, char **)
 
@@ -9,7 +6,7 @@ Begin optimization report for: main(int, char **)
 
 LOOP BEGIN at ldriver.c(297,5)
    remark #15382: vectorization support: call to function lua_pushstring(lua_State *, const char *) cannot be vectorized   [ ldriver.c(299,9) ]
-   remark #15382: vectorization support: call to function lua_rawseti(lua_State *, int, int) cannot be vectorized   [ ldriver.c(300,9) ]
+   remark #15382: vectorization support: call to function lua_rawseti(lua_State *, int, lua_Integer) cannot be vectorized   [ ldriver.c(300,9) ]
    remark #15344: loop was not vectorized: vector dependence prevents vectorization
 LOOP END
 ===========================================================================
@@ -23,7 +20,7 @@ LOOP BEGIN at ldriver.c(46,5) inlined into ldriver.c(233,5)
    remark #15542: loop was not vectorized: inner loop was already vectorized
 
    LOOP BEGIN at ldriver.c(48,9) inlined into ldriver.c(233,5)
-   <Peeled loop for vectorization, Distributed chunk1>
+   <Peeled, Distributed chunk1>
    LOOP END
 
    LOOP BEGIN at ldriver.c(48,9) inlined into ldriver.c(233,5)
@@ -31,8 +28,7 @@ LOOP BEGIN at ldriver.c(46,5) inlined into ldriver.c(233,5)
       remark #15389: vectorization support: reference u has unaligned access   [ ldriver.c(52,13) ]
       remark #15389: vectorization support: reference u has unaligned access   [ ldriver.c(53,13) ]
       remark #15381: vectorization support: unaligned access used inside loop body
-      remark #15305: vectorization support: vector length 16
-      remark #15309: vectorization support: normalized vectorization overhead 3.409
+      remark #15399: vectorization support: unroll factor set to 2
       remark #15301: PARTIAL LOOP WAS VECTORIZED
       remark #15442: entire loop may be executed in remainder
       remark #15450: unmasked unaligned unit stride loads: 2 
@@ -40,11 +36,12 @@ LOOP BEGIN at ldriver.c(46,5) inlined into ldriver.c(233,5)
       remark #15476: scalar loop cost: 19 
       remark #15477: vector loop cost: 1.370 
       remark #15478: estimated potential speedup: 8.150 
+      remark #15479: lightweight vector operations: 10 
       remark #15488: --- end vector loop cost summary ---
    LOOP END
 
    LOOP BEGIN at ldriver.c(48,9) inlined into ldriver.c(233,5)
-   <Remainder loop for vectorization, Distributed chunk1>
+   <Remainder, Distributed chunk1>
    LOOP END
 
    LOOP BEGIN at ldriver.c(48,9) inlined into ldriver.c(233,5)
@@ -68,7 +65,7 @@ LOOP BEGIN at ldriver.c(239,5)
       remark #15542: loop was not vectorized: inner loop was already vectorized
 
       LOOP BEGIN at ldriver.c(48,9) inlined into ldriver.c(260,9)
-      <Peeled loop for vectorization, Distributed chunk1>
+      <Peeled, Distributed chunk1>
       LOOP END
 
       LOOP BEGIN at ldriver.c(48,9) inlined into ldriver.c(260,9)
@@ -76,8 +73,7 @@ LOOP BEGIN at ldriver.c(239,5)
          remark #15389: vectorization support: reference u has unaligned access   [ ldriver.c(52,13) ]
          remark #15389: vectorization support: reference u has unaligned access   [ ldriver.c(53,13) ]
          remark #15381: vectorization support: unaligned access used inside loop body
-         remark #15305: vectorization support: vector length 16
-         remark #15309: vectorization support: normalized vectorization overhead 3.409
+         remark #15399: vectorization support: unroll factor set to 2
          remark #15301: PARTIAL LOOP WAS VECTORIZED
          remark #15442: entire loop may be executed in remainder
          remark #15450: unmasked unaligned unit stride loads: 2 
@@ -85,11 +81,12 @@ LOOP BEGIN at ldriver.c(239,5)
          remark #15476: scalar loop cost: 19 
          remark #15477: vector loop cost: 1.370 
          remark #15478: estimated potential speedup: 8.150 
+         remark #15479: lightweight vector operations: 10 
          remark #15488: --- end vector loop cost summary ---
       LOOP END
 
       LOOP BEGIN at ldriver.c(48,9) inlined into ldriver.c(260,9)
-      <Remainder loop for vectorization, Distributed chunk1>
+      <Remainder, Distributed chunk1>
       LOOP END
 
       LOOP BEGIN at ldriver.c(48,9) inlined into ldriver.c(260,9)
@@ -118,7 +115,7 @@ Begin optimization report for: central2d_run(central2d_t *, float, int, float *,
 
 
 LOOP BEGIN at stepper.c(460,5) inlined into stepper.c(492,12)
-   remark #15523: loop was not vectorized: loop control variable done was found, but loop iteration count cannot be computed before executing the loop
+   remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
 
    LOOP BEGIN at stepper.c(149,5) inlined into stepper.c(492,12)
       remark #15344: loop was not vectorized: vector dependence prevents vectorization
@@ -139,7 +136,7 @@ LOOP BEGIN at stepper.c(460,5) inlined into stepper.c(492,12)
    LOOP END
 
    LOOP BEGIN at stepper.c(465,9) inlined into stepper.c(492,12)
-      remark #15520: loop was not vectorized: loop with multiple exits cannot be vectorized unless it meets search loop idiom criteria
+      remark #15520: loop was not vectorized: loop with early exits cannot be vectorized unless it meets search loop idiom criteria
    LOOP END
 
    LOOP BEGIN at stepper.c(412,5) inlined into stepper.c(492,12)
@@ -168,7 +165,7 @@ Begin optimization report for: shallow2d_speed(float *, const float *, int, int)
 
 
 LOOP BEGIN at shallow2d.c(56,5) inlined into shallow2d.c(82,5)
-<Peeled loop for vectorization>
+<Peeled>
 LOOP END
 
 LOOP BEGIN at shallow2d.c(56,5) inlined into shallow2d.c(82,5)
@@ -177,8 +174,6 @@ LOOP BEGIN at shallow2d.c(56,5) inlined into shallow2d.c(82,5)
    remark #15389: vectorization support: reference hu has unaligned access   [ shallow2d.c(61,45) ]
    remark #15389: vectorization support: reference hv has unaligned access   [ shallow2d.c(62,45) ]
    remark #15381: vectorization support: unaligned access used inside loop body
-   remark #15305: vectorization support: vector length 8
-   remark #15309: vectorization support: normalized vectorization overhead 0.716
    remark #15300: LOOP WAS VECTORIZED
    remark #15442: entire loop may be executed in remainder
    remark #15450: unmasked unaligned unit stride loads: 3 
@@ -186,11 +181,12 @@ LOOP BEGIN at shallow2d.c(56,5) inlined into shallow2d.c(82,5)
    remark #15476: scalar loop cost: 117 
    remark #15477: vector loop cost: 12.750 
    remark #15478: estimated potential speedup: 6.810 
+   remark #15479: lightweight vector operations: 40 
    remark #15488: --- end vector loop cost summary ---
 LOOP END
 
 LOOP BEGIN at shallow2d.c(56,5) inlined into shallow2d.c(82,5)
-<Remainder loop for vectorization>
+<Remainder>
 LOOP END
 ===========================================================================
 
@@ -200,7 +196,7 @@ Begin optimization report for: shallow2d_flux(float *, float *, const float *, i
 
 
 LOOP BEGIN at shallow2d.c(35,5) inlined into shallow2d.c(73,5)
-<Peeled loop for vectorization>
+<Peeled>
 LOOP END
 
 LOOP BEGIN at shallow2d.c(35,5) inlined into shallow2d.c(73,5)
@@ -212,8 +208,6 @@ LOOP BEGIN at shallow2d.c(35,5) inlined into shallow2d.c(73,5)
    remark #15389: vectorization support: reference ghu has unaligned access   [ shallow2d.c(41,9) ]
    remark #15389: vectorization support: reference ghv has unaligned access   [ shallow2d.c(42,9) ]
    remark #15381: vectorization support: unaligned access used inside loop body
-   remark #15305: vectorization support: vector length 8
-   remark #15309: vectorization support: normalized vectorization overhead 0.484
    remark #15300: LOOP WAS VECTORIZED
    remark #15442: entire loop may be executed in remainder
    remark #15450: unmasked unaligned unit stride loads: 3 
@@ -222,11 +216,12 @@ LOOP BEGIN at shallow2d.c(35,5) inlined into shallow2d.c(73,5)
    remark #15476: scalar loop cost: 86 
    remark #15477: vector loop cost: 11.620 
    remark #15478: estimated potential speedup: 5.830 
+   remark #15479: lightweight vector operations: 54 
    remark #15488: --- end vector loop cost summary ---
 LOOP END
 
 LOOP BEGIN at shallow2d.c(35,5) inlined into shallow2d.c(73,5)
-<Remainder loop for vectorization>
+<Remainder>
 LOOP END
 ===========================================================================
 
@@ -235,100 +230,14 @@ Begin optimization report for: central2d_step(float *__restrict__, float *__rest
     Report from: Vector optimizations [vec]
 
 
-LOOP BEGIN at stepper.c(275,5) inlined into stepper.c(386,5)
+LOOP BEGIN at stepper.c(277,9) inlined into stepper.c(386,5)
    remark #15542: loop was not vectorized: inner loop was already vectorized
 
-   LOOP BEGIN at stepper.c(277,9) inlined into stepper.c(386,5)
-      remark #15542: loop was not vectorized: inner loop was already vectorized
-
-      LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(386,5)
-      <Peeled loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(386,5)
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
-         remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(214,9) ]
-         remark #15381: vectorization support: unaligned access used inside loop body
-         remark #15305: vectorization support: vector length 8
-         remark #15309: vectorization support: normalized vectorization overhead 0.517
-         remark #15300: LOOP WAS VECTORIZED
-         remark #15442: entire loop may be executed in remainder
-         remark #15450: unmasked unaligned unit stride loads: 3 
-         remark #15451: unmasked unaligned unit stride stores: 1 
-         remark #15475: --- begin vector loop cost summary ---
-         remark #15476: scalar loop cost: 486 
-         remark #15477: vector loop cost: 7.500 
-         remark #15478: estimated potential speedup: 18.170 
-         remark #15488: --- end vector loop cost summary ---
-      LOOP END
-
-      LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(386,5)
-      <Remainder loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(386,5)
-      <Peeled loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(386,5)
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
-         remark #15389: vectorization support: reference gy has unaligned access   [ stepper.c(226,9) ]
-         remark #15389: vectorization support: reference v has unaligned access   [ stepper.c(285,17) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(285,17) ]
-         remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(285,17) ]
-         remark #15389: vectorization support: reference gy has unaligned access   [ stepper.c(285,17) ]
-         remark #15381: vectorization support: unaligned access used inside loop body
-         remark #15305: vectorization support: vector length 8
-         remark #15309: vectorization support: normalized vectorization overhead 0.560
-         remark #15301: FUSED LOOP WAS VECTORIZED
-         remark #15442: entire loop may be executed in remainder
-         remark #15450: unmasked unaligned unit stride loads: 6 
-         remark #15451: unmasked unaligned unit stride stores: 2 
-         remark #15475: --- begin vector loop cost summary ---
-         remark #15476: scalar loop cost: 514 
-         remark #15477: vector loop cost: 9.370 
-         remark #15478: estimated potential speedup: 17.300 
-         remark #15488: --- end vector loop cost summary ---
-      LOOP END
-
-      LOOP BEGIN at stepper.c(282,13) inlined into stepper.c(386,5)
-      LOOP END
-
-      LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(386,5)
-      <Remainder loop for vectorization>
-      LOOP END
-   LOOP END
-LOOP END
-
-LOOP BEGIN at stepper.c(389,5)
-   remark #15382: vectorization support: call to function (indirect call) cannot be vectorized   [ stepper.c(392,9) ]
-   remark #15344: loop was not vectorized: vector dependence prevents vectorization
-LOOP END
-===========================================================================
-
-Begin optimization report for: central2d_correct(float *__restrict__, float *__restrict__, const float *__restrict__, const float *__restrict__, const float *__restrict__, float, float, int, int, int, int, int, int, int)
-
-    Report from: Vector optimizations [vec]
-
-
-LOOP BEGIN at stepper.c(337,5)
-   remark #15542: loop was not vectorized: inner loop was already vectorized
-
-   LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(344,9)
-   <Peeled loop for vectorization>
+   LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(386,5)
+   <Peeled>
    LOOP END
 
-   LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(344,9)
+   LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(386,5)
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
@@ -337,8 +246,6 @@ LOOP BEGIN at stepper.c(337,5)
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
       remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(214,9) ]
       remark #15381: vectorization support: unaligned access used inside loop body
-      remark #15305: vectorization support: vector length 8
-      remark #15309: vectorization support: normalized vectorization overhead 0.517
       remark #15300: LOOP WAS VECTORIZED
       remark #15442: entire loop may be executed in remainder
       remark #15450: unmasked unaligned unit stride loads: 3 
@@ -347,18 +254,202 @@ LOOP BEGIN at stepper.c(337,5)
       remark #15476: scalar loop cost: 486 
       remark #15477: vector loop cost: 7.500 
       remark #15478: estimated potential speedup: 18.170 
+      remark #15479: lightweight vector operations: 57 
       remark #15488: --- end vector loop cost summary ---
    LOOP END
 
-   LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(344,9)
-   <Remainder loop for vectorization>
+   LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(386,5)
+   <Remainder>
    LOOP END
 
-   LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(345,9)
-   <Peeled loop for vectorization>
+   LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(386,5)
+   <Peeled>
    LOOP END
 
-   LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(345,9)
+   LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(386,5)
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
+      remark #15389: vectorization support: reference gy has unaligned access   [ stepper.c(226,9) ]
+      remark #15389: vectorization support: reference v has unaligned access   [ stepper.c(285,17) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(285,17) ]
+      remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(285,17) ]
+      remark #15389: vectorization support: reference gy has unaligned access   [ stepper.c(285,17) ]
+      remark #15381: vectorization support: unaligned access used inside loop body
+      remark #15301: FUSED LOOP WAS VECTORIZED
+      remark #15442: entire loop may be executed in remainder
+      remark #15450: unmasked unaligned unit stride loads: 6 
+      remark #15451: unmasked unaligned unit stride stores: 2 
+      remark #15475: --- begin vector loop cost summary ---
+      remark #15476: scalar loop cost: 514 
+      remark #15477: vector loop cost: 9.370 
+      remark #15478: estimated potential speedup: 17.300 
+      remark #15479: lightweight vector operations: 68 
+      remark #15488: --- end vector loop cost summary ---
+   LOOP END
+
+   LOOP BEGIN at stepper.c(282,13) inlined into stepper.c(386,5)
+   LOOP END
+
+   LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(386,5)
+   <Remainder>
+   LOOP END
+LOOP END
+
+LOOP BEGIN at stepper.c(389,5)
+   remark #15382: vectorization support: call to function (unknown) cannot be vectorized   [ stepper.c(392,9) ]
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+LOOP END
+
+
+Non-optimizable loops:
+
+
+LOOP BEGIN at stepper.c(275,5) inlined into stepper.c(386,5)
+   remark #15341: loop was not vectorized: nonstandard loop is not a vectorization candidate
+LOOP END
+===========================================================================
+
+Begin optimization report for: central2d_correct(float *__restrict__, float *__restrict__, const float *__restrict__, const float *__restrict__, const float *__restrict__, float, float, int, int, int, int, int, int, int)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(344,9)
+<Peeled>
+LOOP END
+
+LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(344,9)
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
+   remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(214,9) ]
+   remark #15381: vectorization support: unaligned access used inside loop body
+   remark #15300: LOOP WAS VECTORIZED
+   remark #15442: entire loop may be executed in remainder
+   remark #15450: unmasked unaligned unit stride loads: 3 
+   remark #15451: unmasked unaligned unit stride stores: 1 
+   remark #15475: --- begin vector loop cost summary ---
+   remark #15476: scalar loop cost: 486 
+   remark #15477: vector loop cost: 7.500 
+   remark #15478: estimated potential speedup: 18.170 
+   remark #15479: lightweight vector operations: 57 
+   remark #15488: --- end vector loop cost summary ---
+LOOP END
+
+LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(344,9)
+<Remainder>
+LOOP END
+
+LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(345,9)
+<Peeled>
+LOOP END
+
+LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(345,9)
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
+   remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(226,9) ]
+   remark #15381: vectorization support: unaligned access used inside loop body
+   remark #15300: LOOP WAS VECTORIZED
+   remark #15442: entire loop may be executed in remainder
+   remark #15450: unmasked unaligned unit stride loads: 3 
+   remark #15451: unmasked unaligned unit stride stores: 1 
+   remark #15475: --- begin vector loop cost summary ---
+   remark #15476: scalar loop cost: 486 
+   remark #15477: vector loop cost: 7.620 
+   remark #15478: estimated potential speedup: 18.090 
+   remark #15479: lightweight vector operations: 57 
+   remark #15488: --- end vector loop cost summary ---
+LOOP END
+
+LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(345,9)
+<Remainder>
+LOOP END
+
+LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(346,9)
+<Peeled>
+LOOP END
+
+LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(346,9)
+   remark #15389: vectorization support: reference s1 has unaligned access   [ stepper.c(305,9) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(305,9) ]
+   remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(305,9) ]
+   remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(305,9) ]
+   remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(305,9) ]
+   remark #15389: vectorization support: reference f has unaligned access   [ stepper.c(305,9) ]
+   remark #15389: vectorization support: reference f has unaligned access   [ stepper.c(305,9) ]
+   remark #15389: vectorization support: reference d1 has unaligned access   [ stepper.c(310,9) ]
+   remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(310,9) ]
+   remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(310,9) ]
+   remark #15389: vectorization support: reference g has unaligned access   [ stepper.c(310,9) ]
+   remark #15389: vectorization support: reference g has unaligned access   [ stepper.c(310,9) ]
+   remark #15381: vectorization support: unaligned access used inside loop body
+   remark #15301: FUSED LOOP WAS VECTORIZED
+   remark #15442: entire loop may be executed in remainder
+   remark #15450: unmasked unaligned unit stride loads: 10 
+   remark #15451: unmasked unaligned unit stride stores: 2 
+   remark #15475: --- begin vector loop cost summary ---
+   remark #15476: scalar loop cost: 60 
+   remark #15477: vector loop cost: 5.500 
+   remark #15478: estimated potential speedup: 7.660 
+   remark #15479: lightweight vector operations: 32 
+   remark #15488: --- end vector loop cost summary ---
+LOOP END
+
+LOOP BEGIN at stepper.c(309,5) inlined into stepper.c(346,9)
+LOOP END
+
+LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(346,9)
+<Remainder>
+LOOP END
+
+LOOP BEGIN at stepper.c(350,9)
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(356,13)
+   <Peeled>
+   LOOP END
+
+   LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(356,13)
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
+      remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(214,9) ]
+      remark #15381: vectorization support: unaligned access used inside loop body
+      remark #15300: LOOP WAS VECTORIZED
+      remark #15442: entire loop may be executed in remainder
+      remark #15450: unmasked unaligned unit stride loads: 3 
+      remark #15451: unmasked unaligned unit stride stores: 1 
+      remark #15475: --- begin vector loop cost summary ---
+      remark #15476: scalar loop cost: 486 
+      remark #15477: vector loop cost: 7.500 
+      remark #15478: estimated potential speedup: 18.170 
+      remark #15479: lightweight vector operations: 57 
+      remark #15488: --- end vector loop cost summary ---
+   LOOP END
+
+   LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(356,13)
+   <Remainder>
+   LOOP END
+
+   LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(357,13)
+   <Peeled>
+   LOOP END
+
+   LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(357,13)
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
@@ -367,8 +458,6 @@ LOOP BEGIN at stepper.c(337,5)
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
       remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(226,9) ]
       remark #15381: vectorization support: unaligned access used inside loop body
-      remark #15305: vectorization support: vector length 8
-      remark #15309: vectorization support: normalized vectorization overhead 0.508
       remark #15300: LOOP WAS VECTORIZED
       remark #15442: entire loop may be executed in remainder
       remark #15450: unmasked unaligned unit stride loads: 3 
@@ -377,18 +466,19 @@ LOOP BEGIN at stepper.c(337,5)
       remark #15476: scalar loop cost: 486 
       remark #15477: vector loop cost: 7.620 
       remark #15478: estimated potential speedup: 18.090 
+      remark #15479: lightweight vector operations: 57 
       remark #15488: --- end vector loop cost summary ---
    LOOP END
 
-   LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(345,9)
-   <Remainder loop for vectorization>
+   LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(357,13)
+   <Remainder>
    LOOP END
 
-   LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(346,9)
-   <Peeled loop for vectorization>
+   LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(358,13)
+   <Peeled>
    LOOP END
 
-   LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(346,9)
+   LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(358,13)
       remark #15389: vectorization support: reference s1 has unaligned access   [ stepper.c(305,9) ]
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(305,9) ]
       remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(305,9) ]
@@ -396,175 +486,79 @@ LOOP BEGIN at stepper.c(337,5)
       remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(305,9) ]
       remark #15389: vectorization support: reference f has unaligned access   [ stepper.c(305,9) ]
       remark #15389: vectorization support: reference f has unaligned access   [ stepper.c(305,9) ]
-      remark #15389: vectorization support: reference d1 has unaligned access   [ stepper.c(310,9) ]
-      remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(310,9) ]
-      remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(310,9) ]
-      remark #15389: vectorization support: reference g has unaligned access   [ stepper.c(310,9) ]
-      remark #15389: vectorization support: reference g has unaligned access   [ stepper.c(310,9) ]
       remark #15381: vectorization support: unaligned access used inside loop body
-      remark #15305: vectorization support: vector length 8
-      remark #15309: vectorization support: normalized vectorization overhead 1.023
-      remark #15301: FUSED LOOP WAS VECTORIZED
+      remark #15399: vectorization support: unroll factor set to 2
+      remark #15300: LOOP WAS VECTORIZED
       remark #15442: entire loop may be executed in remainder
-      remark #15450: unmasked unaligned unit stride loads: 10 
-      remark #15451: unmasked unaligned unit stride stores: 2 
+      remark #15450: unmasked unaligned unit stride loads: 6 
+      remark #15451: unmasked unaligned unit stride stores: 1 
       remark #15475: --- begin vector loop cost summary ---
-      remark #15476: scalar loop cost: 60 
-      remark #15477: vector loop cost: 5.500 
-      remark #15478: estimated potential speedup: 7.660 
+      remark #15476: scalar loop cost: 36 
+      remark #15477: vector loop cost: 3.120 
+      remark #15478: estimated potential speedup: 7.930 
+      remark #15479: lightweight vector operations: 19 
       remark #15488: --- end vector loop cost summary ---
    LOOP END
 
-   LOOP BEGIN at stepper.c(309,5) inlined into stepper.c(346,9)
+   LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(358,13)
+   <Remainder>
+      remark #15389: vectorization support: reference s1 has unaligned access   [ stepper.c(305,9) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(305,9) ]
+      remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(305,9) ]
+      remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(305,9) ]
+      remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(305,9) ]
+      remark #15389: vectorization support: reference f has unaligned access   [ stepper.c(305,9) ]
+      remark #15389: vectorization support: reference f has unaligned access   [ stepper.c(305,9) ]
+      remark #15381: vectorization support: unaligned access used inside loop body
+      remark #15301: REMAINDER LOOP WAS VECTORIZED
    LOOP END
 
-   LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(346,9)
-   <Remainder loop for vectorization>
+   LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(358,13)
+   <Remainder>
    LOOP END
 
-   LOOP BEGIN at stepper.c(350,9)
-      remark #15542: loop was not vectorized: inner loop was already vectorized
-
-      LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(356,13)
-      <Peeled loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(356,13)
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
-         remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(214,9) ]
-         remark #15381: vectorization support: unaligned access used inside loop body
-         remark #15305: vectorization support: vector length 8
-         remark #15309: vectorization support: normalized vectorization overhead 0.517
-         remark #15300: LOOP WAS VECTORIZED
-         remark #15442: entire loop may be executed in remainder
-         remark #15450: unmasked unaligned unit stride loads: 3 
-         remark #15451: unmasked unaligned unit stride stores: 1 
-         remark #15475: --- begin vector loop cost summary ---
-         remark #15476: scalar loop cost: 486 
-         remark #15477: vector loop cost: 7.500 
-         remark #15478: estimated potential speedup: 18.170 
-         remark #15488: --- end vector loop cost summary ---
-      LOOP END
-
-      LOOP BEGIN at stepper.c(213,5) inlined into stepper.c(356,13)
-      <Remainder loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(357,13)
-      <Peeled loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(357,13)
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(200,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(201,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(202,20) ]
-         remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(226,9) ]
-         remark #15381: vectorization support: unaligned access used inside loop body
-         remark #15305: vectorization support: vector length 8
-         remark #15309: vectorization support: normalized vectorization overhead 0.508
-         remark #15300: LOOP WAS VECTORIZED
-         remark #15442: entire loop may be executed in remainder
-         remark #15450: unmasked unaligned unit stride loads: 3 
-         remark #15451: unmasked unaligned unit stride stores: 1 
-         remark #15475: --- begin vector loop cost summary ---
-         remark #15476: scalar loop cost: 486 
-         remark #15477: vector loop cost: 7.620 
-         remark #15478: estimated potential speedup: 18.090 
-         remark #15488: --- end vector loop cost summary ---
-      LOOP END
-
-      LOOP BEGIN at stepper.c(225,5) inlined into stepper.c(357,13)
-      <Remainder loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(358,13)
-      <Peeled loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(358,13)
-         remark #15389: vectorization support: reference s1 has unaligned access   [ stepper.c(305,9) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(305,9) ]
-         remark #15389: vectorization support: reference u has unaligned access   [ stepper.c(305,9) ]
-         remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(305,9) ]
-         remark #15389: vectorization support: reference scratch has unaligned access   [ stepper.c(305,9) ]
-         remark #15389: vectorization support: reference f has unaligned access   [ stepper.c(305,9) ]
-         remark #15389: vectorization support: reference f has unaligned access   [ stepper.c(305,9) ]
-         remark #15389: vectorization support: reference tmp has unaligned access   [ stepper.c(310,9) ]
-         remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(310,9) ]
-         remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(310,9) ]
-         remark #15389: vectorization support: reference g has unaligned access   [ stepper.c(310,9) ]
-         remark #15389: vectorization support: reference g has unaligned access   [ stepper.c(310,9) ]
-         remark #15381: vectorization support: unaligned access used inside loop body
-         remark #15305: vectorization support: vector length 8
-         remark #15309: vectorization support: normalized vectorization overhead 1.023
-         remark #15301: FUSED LOOP WAS VECTORIZED
-         remark #15442: entire loop may be executed in remainder
-         remark #15450: unmasked unaligned unit stride loads: 10 
-         remark #15451: unmasked unaligned unit stride stores: 2 
-         remark #15475: --- begin vector loop cost summary ---
-         remark #15476: scalar loop cost: 60 
-         remark #15477: vector loop cost: 5.500 
-         remark #15478: estimated potential speedup: 7.660 
-         remark #15488: --- end vector loop cost summary ---
-      LOOP END
-
-      LOOP BEGIN at stepper.c(309,5) inlined into stepper.c(358,13)
-      LOOP END
-
-      LOOP BEGIN at stepper.c(304,5) inlined into stepper.c(358,13)
-      <Remainder loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(362,13)
-      <Peeled loop for vectorization>
-      LOOP END
-
-      LOOP BEGIN at stepper.c(362,13)
-         remark #15389: vectorization support: reference vk has unaligned access   [ stepper.c(363,17) ]
-         remark #15389: vectorization support: reference s1 has unaligned access   [ stepper.c(363,17) ]
-         remark #15389: vectorization support: reference s0 has unaligned access   [ stepper.c(363,17) ]
-         remark #15389: vectorization support: reference tmp has unaligned access   [ stepper.c(363,17) ]
-         remark #15389: vectorization support: reference d0 has unaligned access   [ stepper.c(363,17) ]
-         remark #15381: vectorization support: unaligned access used inside loop body
-         remark #15305: vectorization support: vector length 8
-         remark #15399: vectorization support: unroll factor set to 2
-         remark #15309: vectorization support: normalized vectorization overhead 0.846
-         remark #15300: LOOP WAS VECTORIZED
-         remark #15442: entire loop may be executed in remainder
-         remark #15450: unmasked unaligned unit stride loads: 4 
-         remark #15451: unmasked unaligned unit stride stores: 1 
-         remark #15475: --- begin vector loop cost summary ---
-         remark #15476: scalar loop cost: 21 
-         remark #15477: vector loop cost: 1.620 
-         remark #15478: estimated potential speedup: 8.490 
-         remark #15488: --- end vector loop cost summary ---
-      LOOP END
-
-      LOOP BEGIN at stepper.c(362,13)
-      <Remainder loop for vectorization>
-         remark #15389: vectorization support: reference vk has unaligned access   [ stepper.c(363,17) ]
-         remark #15389: vectorization support: reference s1 has unaligned access   [ stepper.c(363,17) ]
-         remark #15389: vectorization support: reference s0 has unaligned access   [ stepper.c(363,17) ]
-         remark #15389: vectorization support: reference tmp has unaligned access   [ stepper.c(363,17) ]
-         remark #15389: vectorization support: reference d0 has unaligned access   [ stepper.c(363,17) ]
-         remark #15381: vectorization support: unaligned access used inside loop body
-         remark #15305: vectorization support: vector length 4
-         remark #15309: vectorization support: normalized vectorization overhead 1.250
-         remark #15301: REMAINDER LOOP WAS VECTORIZED
-      LOOP END
-
-      LOOP BEGIN at stepper.c(362,13)
-      <Remainder loop for vectorization>
-      LOOP END
+   LOOP BEGIN at stepper.c(309,5) inlined into stepper.c(358,13)
+   <Peeled>
    LOOP END
+
+   LOOP BEGIN at stepper.c(309,5) inlined into stepper.c(358,13)
+      remark #15389: vectorization support: reference tmp has unaligned access   [ stepper.c(310,9) ]
+      remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(310,9) ]
+      remark #15389: vectorization support: reference uy has unaligned access   [ stepper.c(310,9) ]
+      remark #15389: vectorization support: reference g has unaligned access   [ stepper.c(310,9) ]
+      remark #15389: vectorization support: reference g has unaligned access   [ stepper.c(310,9) ]
+      remark #15389: vectorization support: reference vk has unaligned access   [ stepper.c(363,17) ]
+      remark #15389: vectorization support: reference s1 has unaligned access   [ stepper.c(363,17) ]
+      remark #15389: vectorization support: reference s0 has unaligned access   [ stepper.c(363,17) ]
+      remark #15389: vectorization support: reference tmp has unaligned access   [ stepper.c(363,17) ]
+      remark #15389: vectorization support: reference d0 has unaligned access   [ stepper.c(363,17) ]
+      remark #15381: vectorization support: unaligned access used inside loop body
+      remark #15301: FUSED LOOP WAS VECTORIZED
+      remark #15442: entire loop may be executed in remainder
+      remark #15450: unmasked unaligned unit stride loads: 8 
+      remark #15451: unmasked unaligned unit stride stores: 2 
+      remark #15475: --- begin vector loop cost summary ---
+      remark #15476: scalar loop cost: 45 
+      remark #15477: vector loop cost: 3.870 
+      remark #15478: estimated potential speedup: 7.980 
+      remark #15479: lightweight vector operations: 22 
+      remark #15488: --- end vector loop cost summary ---
+   LOOP END
+
+   LOOP BEGIN at stepper.c(362,13)
+   LOOP END
+
+   LOOP BEGIN at stepper.c(309,5) inlined into stepper.c(358,13)
+   <Remainder>
+   LOOP END
+LOOP END
+
+
+Non-optimizable loops:
+
+
+LOOP BEGIN at stepper.c(337,5)
+   remark #15341: loop was not vectorized: nonstandard loop is not a vectorization candidate
 LOOP END
 ===========================================================================
 
@@ -577,18 +571,18 @@ LOOP BEGIN at ldriver.c(179,5)
    remark #15382: vectorization support: call to function lua_pushvalue(lua_State *, int) cannot be vectorized   [ ldriver.c(185,13) ]
    remark #15382: vectorization support: call to function lua_pushnumber(lua_State *, lua_Number) cannot be vectorized   [ ldriver.c(186,13) ]
    remark #15382: vectorization support: call to function lua_pushnumber(lua_State *, lua_Number) cannot be vectorized   [ ldriver.c(187,13) ]
-   remark #15382: vectorization support: call to function lua_callk(lua_State *, int, int, int, lua_CFunction) cannot be vectorized   [ ldriver.c(188,13) ]
+   remark #15382: vectorization support: call to function lua_callk(lua_State *, int, int, lua_KContext, lua_KFunction) cannot be vectorized   [ ldriver.c(188,13) ]
    remark #15382: vectorization support: call to function lua_tonumberx(lua_State *, int, int *) cannot be vectorized   [ ldriver.c(190,52) ]
    remark #15382: vectorization support: call to function lua_settop(lua_State *, int) cannot be vectorized   [ ldriver.c(191,13) ]
    remark #15344: loop was not vectorized: vector dependence prevents vectorization
-   remark #15346: vector dependence: assumed OUTPUT dependence between call:lua_pushvalue(lua_State *,  line 185 and call:lua_settop(lua_State *, int line 191
+   remark #15346: vector dependence: assumed OUTPUT dependence between  line 185 and  line 191
    remark #15346: vector dependence: assumed OUTPUT dependence between  line 191 and  line 185
 
    LOOP BEGIN at ldriver.c(182,9)
       remark #15382: vectorization support: call to function lua_pushvalue(lua_State *, int) cannot be vectorized   [ ldriver.c(185,13) ]
       remark #15382: vectorization support: call to function lua_pushnumber(lua_State *, lua_Number) cannot be vectorized   [ ldriver.c(186,13) ]
       remark #15382: vectorization support: call to function lua_pushnumber(lua_State *, lua_Number) cannot be vectorized   [ ldriver.c(187,13) ]
-      remark #15382: vectorization support: call to function lua_callk(lua_State *, int, int, int, lua_CFunction) cannot be vectorized   [ ldriver.c(188,13) ]
+      remark #15382: vectorization support: call to function lua_callk(lua_State *, int, int, lua_KContext, lua_KFunction) cannot be vectorized   [ ldriver.c(188,13) ]
       remark #15382: vectorization support: call to function lua_tonumberx(lua_State *, int, int *) cannot be vectorized   [ ldriver.c(190,52) ]
       remark #15382: vectorization support: call to function lua_settop(lua_State *, int) cannot be vectorized   [ ldriver.c(191,13) ]
       remark #15344: loop was not vectorized: vector dependence prevents vectorization
@@ -598,5 +592,16 @@ LOOP BEGIN at ldriver.c(179,5)
          remark #15344: loop was not vectorized: vector dependence prevents vectorization
       LOOP END
    LOOP END
+LOOP END
+===========================================================================
+
+Begin optimization report for: board2d_init(int, int, int, int, float, float, int, flux_t, speed_t, float)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at stepper.c(82,5)
+   remark #15382: vectorization support: call to function central2d_init(float, float, int, int, int, flux_t, speed_t, float) cannot be vectorized   [ stepper.c(83,32) ]
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
 LOOP END
 ===========================================================================

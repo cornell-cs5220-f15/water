@@ -12,4 +12,4 @@ CFLAGS+=$(OPTFLAGS) $(ANALYSIS)
 PYTHON=python
 
 LUA_CFLAGS=-I/share/apps/utils/include
-LUA_LIBS=-L/usr/lib/ -l lua
+LUA_LIBS=-L/share/apps/utils/lib -llua
