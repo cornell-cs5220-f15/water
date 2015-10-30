@@ -51,9 +51,9 @@ typedef Central2D< Shallow2D, MinMod<Shallow2D::real> > Sim;
 // Circular dam break problem
 void dam_break(Sim::vec& u, double x, double y)
 {
-    x -= 1.0f;
-    y -= 1.0f;
-    u[0] = 1.0f + 0.5f*(x*x + y*y < 0.25f+1.0e-5);
+    x -= 1;
+    y -= 1;
+    u[0] = 1.0 + 0.5*(x*x + y*y < 0.25+1e-5);
     u[1] = 0;
     u[2] = 0;
 }
@@ -61,17 +61,17 @@ void dam_break(Sim::vec& u, double x, double y)
 // Still pond (ideally, nothing should move here!)
 void pond(Sim::vec& u, double x, double y)
 {
-    u[0] = 1.0f;
-    u[1] = 0.0f;
-    u[2] = 0.0f;
+    u[0] = 1.0;
+    u[1] = 0;
+    u[2] = 0;
 }
 
 // River (ideally, the solver shouldn't do much with this, either)
 void river(Sim::vec& u, double x, double y)
 {
-    u[0] = 1.0f;
-    u[1] = 1.0f;
-    u[2] = 0.0f;
+    u[0] = 1.0;
+    u[1] = 1.0;
+    u[2] = 0;
 }
 
 
@@ -79,9 +79,9 @@ void river(Sim::vec& u, double x, double y)
 void wave(Sim::vec& u, double x, double y)
 {
     using namespace std;
-    u[0] = 1.0f + 0.2f * sin(M_PI*x);
-    u[1] = 1.0f;
-    u[2] = 0.0f;
+    u[0] = 1.0 + 0.2 * sin(M_PI*x);
+    u[1] = 1.0;
+    u[2] = 0;
 }
 
 

@@ -161,14 +161,14 @@ private:
 
     typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
 
-    /*std::vector*/ aligned_vector u_;            // Solution values
-    /*std::vector*/ aligned_vector f_;            // Fluxes in x
-    /*std::vector*/ aligned_vector g_;            // Fluxes in y
-    /*std::vector*/ aligned_vector ux_;           // x differences of u
-    /*std::vector*/ aligned_vector uy_;           // y differences of u
-    /*std::vector*/ aligned_vector fx_;           // x differences of f
-    /*std::vector*/ aligned_vector gy_;           // y differences of g
-    /*std::vector*/ aligned_vector v_;            // Solution values at next step
+    aligned_vector u_;            // Solution values
+    aligned_vector f_;            // Fluxes in x
+    aligned_vector g_;            // Fluxes in y
+    aligned_vector ux_;           // x differences of u
+    aligned_vector uy_;           // y differences of u
+    aligned_vector fx_;           // x differences of f
+    aligned_vector gy_;           // y differences of g
+    aligned_vector v_;            // Solution values at next step
 
     // Array accessor functions
 
@@ -285,19 +285,6 @@ void Central2D<Physics, Limiter>::apply_periodic()
             }
         }
     }
-    // // Copy data between right and left boundaries
-    // for (int iy = 0; iy < ny_all; ++iy)
-    //     for (int ix = 0; ix < nghost; ++ix) {
-    //         u(ix,          iy) = uwrap(ix,          iy);
-    //         u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
-    //     }
-
-    // // Copy data between top and bottom boundaries
-    // for (int ix = 0; ix < nx_all; ++ix)
-    //     for (int iy = 0; iy < nghost; ++iy) {
-    //         u(ix,          iy) = uwrap(ix,          iy);
-    //         u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
-    //     }
 }
 
 
@@ -314,19 +301,6 @@ void Central2D<Physics, Limiter>::apply_periodic()
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 {
-    // using namespace std;
-    // real cx = 1.0e-15;
-    // real cy = 1.0e-15;
-    // for (int iy = 0; iy < ny_all; ++iy)
-    //     for (int ix = 0; ix < nx_all; ++ix) {
-    //         real cell_cx, cell_cy;
-    //         Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-    //         Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
-    //         cx = max(cx, cell_cx);
-    //         cy = max(cy, cell_cy);
-    //     }
-    // cx_ = cx;
-    // cy_ = cy;
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
@@ -363,16 +337,6 @@ void Central2D<Physics, Limiter>::limited_derivs()
 {
     for (int iy = 1; iy < ny_all-1; ++iy)
         for (int ix = 1; ix < nx_all-1; ++ix) {
-
-            // // x derivs
-            // limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-            // limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
-
-            // // y derivs
-            // limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            // limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
-
-
             //
             // x derivs
             //
@@ -530,42 +494,6 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
             for(int m = 0; m < Physics::vec_size; ++m) u_ij[m] = v_ij_io[m];
         }
     }
-
-    // // Predictor (flux values of f and g at half step)
-    // for (int iy = 1; iy < ny_all-1; ++iy)
-    //     for (int ix = 1; ix < nx_all-1; ++ix) {
-    //         vec uh = u(ix,iy);
-    //         for (int m = 0; m < uh.size(); ++m) {
-    //             uh[m] -= dtcdx2 * fx(ix,iy)[m];
-    //             uh[m] -= dtcdy2 * gy(ix,iy)[m];
-    //         }
-    //         Physics::flux(f(ix,iy), g(ix,iy), uh);
-    //     }
-
-    // // Corrector (finish the step)
-    // for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-    //     for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-    //         for (int m = 0; m < v(ix,iy).size(); ++m) {
-    //             v(ix,iy)[m] =
-    //                 0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-    //                            u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-    //                 0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-    //                            ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-    //                            uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-    //                            uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-    //                 dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-    //                            f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-    //                 dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-    //                            g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
-    //         }
-    //     }
-
-    // // Copy from v storage back to main grid
-    // for (int j = nghost; j < ny+nghost; ++j){
-    //     for (int i = nghost; i < nx+nghost; ++i){
-    //         u(i,j) = v(i-io,j-io);
-    //     }
-    // }
 }
 
 
