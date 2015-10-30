@@ -69,6 +69,7 @@ struct MinMod {
     static constexpr real theta = 2.0;
 
     // Branch-free computation of minmod of two numbers
+    #pragma omp declare simd
     TARGET_MIC
     static inline real xmin2s(real s, real a, real b) {
         real sa = copysignf(s, a);
@@ -80,6 +81,7 @@ struct MinMod {
     }
 
     // Limited combined slope estimate
+    #pragma omp declare simd
     TARGET_MIC
     static inline real limdiff(real um, real u0, real up) {
         real du1 = u0-um;         // Difference to left

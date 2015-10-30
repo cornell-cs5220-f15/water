@@ -64,44 +64,69 @@
  * to optimize for us).
  */
 
+/* The following allows for minimal SIMD vectorization using GCC,
+ * but at the very least allows local compilation before sending
+ * to the cluster.
+ */
+#ifdef __INTEL_COMPILER
+    #define DEF_ALIGN(x) __declspec(align((x)))
+    #define USE_ALIGN(var, align) __assume_aligned((var), (align));
+#else // GCC
+    #define DEF_ALIGN(x) __attribute__ ((aligned((x))))
+    #define USE_ALIGN(var, align) ((void)0) /* __builtin_assume_align is unreliabale... */
+#endif
+
+#if defined _PARALLEL_DEVICE
+    #define TARGET_MIC __declspec(target(mic))
+#else
+    #define TARGET_MIC /* n/a */
+#endif
 struct Shallow2D {
+
+    // global constants for alignment
+    TARGET_MIC
+    static constexpr int vec_size   = 4;
+    TARGET_MIC
+    static constexpr int VEC_ALIGN  = 16;
+    TARGET_MIC
+    static constexpr int BYTE_ALIGN = 64;
 
     // Type parameters for solver
     typedef float real;
-    typedef std::array<real,3> vec;
+    typedef std::array<real, vec_size> vec;
 
     // Gravitational force (compile time constant)
-    #if defined _PARALLEL_DEVICE
-    __declspec(target(mic))
-    #endif
-    static constexpr real g = 9.8;
+    TARGET_MIC
+    static constexpr real g = 9.8f;
 
     // Compute shallow water fluxes F(U), G(U)
-    #if defined _PARALLEL_DEVICE
-    __declspec(target(mic))
-    #endif
-    static void flux(vec& FU, vec& GU, const vec& U) {
+    TARGET_MIC
+    static inline void flux(real *FU, real *GU, const real *U) {
+        USE_ALIGN(FU, VEC_ALIGN);
+        USE_ALIGN(GU, VEC_ALIGN);
+        USE_ALIGN(U , VEC_ALIGN);
+
         real h = U[0], hu = U[1], hv = U[2];
 
         FU[0] = hu;
-        FU[1] = hu*hu/h + (0.5*g)*h*h;
+        FU[1] = hu*hu/h + (0.5f*g)*h*h;
         FU[2] = hu*hv/h;
 
         GU[0] = hv;
         GU[1] = hu*hv/h;
-        GU[2] = hv*hv/h + (0.5*g)*h*h;
+        GU[2] = hv*hv/h + (0.5f*g)*h*h;
     }
 
     // Compute shallow water wave speed
-    #if defined _PARALLEL_DEVICE
-    __declspec(target(mic))
-    #endif
-    static void wave_speed(real& cx, real& cy, const vec& U) {
+    TARGET_MIC
+    static inline void wave_speed(real& cx, real& cy, const real *U) {
+        USE_ALIGN(U, VEC_ALIGN);
+
         using namespace std;
         real h = U[0], hu = U[1], hv = U[2];
         real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
-        cx = abs(hu/h) + root_gh;
-        cy = abs(hv/h) + root_gh;
+        cx = fabs(hu/h) + root_gh;
+        cy = fabs(hv/h) + root_gh;
     }
 };
 
