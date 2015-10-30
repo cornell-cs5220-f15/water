@@ -1,0 +1,10 @@
+#!/bin/bash
+filename="$1"
+
+echo "threads,time">>$2
+
+while read -r line
+do
+    index=$line
+    ./get_threads $line $2
+done < "$filename"

@@ -1,0 +1,228 @@
+Source Line  Source                                                                            CPU Time  Spin Time  Overhead Time
+-----------  --------------------------------------------------------------------------------  --------  ---------  -------------
+127                                                                                                                              
+128                                                                                                                              
+129          // Branch-free computation of minmod of two numbers times 2s                                                        
+130          static inline                                                                                                       
+131          float xmin2s(float s, float a, float b) {                                                                           
+132              float sa = copysignf(s, a);                                                     1.185s         0s             0s
+133              float sb = copysignf(s, b);                                                     0.869s         0s             0s
+134              float abs_a = fabsf(a);                                                         0.026s         0s             0s
+135              float abs_b = fabsf(b);                                                         0.005s         0s             0s
+136              float min_abs = (abs_a < abs_b ? abs_a : abs_b);                                1.761s         0s             0s
+137              return (sa+sb) * min_abs;                                                       0.911s         0s             0s
+138          }                                                                                                                   
+139                                                                                                                              
+140                                                                                                                              
+141          // Limited combined slope estimate                                                                                  
+142          static inline                                                                                                       
+143          float limdiff(float um, float u0, float up) {                                                                       
+144              const float theta = 2.0;                                                                                        
+145              const float quarter = 0.25;                                                                                     
+146              float du1 = u0-um;   // Difference to left                                      0.862s         0s             0s
+147              float du2 = up-u0;   // Difference to right                                     0.093s         0s             0s
+148              float duc = up-um;   // Twice centered difference                               0.197s         0s             0s
+149              return xmin2s( quarter, xmin2s(theta, du1, du2), duc );                         0.021s         0s             0s
+150          }                                                                                                                   
+151                                                                                                                              
+152                                                                                                                              
+153          // Compute limited derivs                                                                                           
+154          static inline                                                                                                       
+155          void limited_deriv1(float* restrict du,                                             0.008s         0s             0s
+156                              const float* restrict u,                                                                        
+157                              int ncell)                                                                                      
+158          {                                                                                                                   
+159              for (int i = 0; i < ncell; ++i)                                                 0.468s         0s             0s
+160                  du[i] = limdiff(u[i-1], u[i], u[i+1]);                                      2.518s         0s             0s
+161          }                                                                                                                   
+162                                                                                                                              
+163                                                                                                                              
+164          // Compute limited derivs across stride                                                                             
+165          static inline                                                                                                       
+166          void limited_derivk(float* restrict du,                                             0.008s         0s             0s
+167                              const float* restrict u,                                                                        
+168                              int ncell, int stride)                                                                          
+169          {                                                                                                                   
+170              assert(stride > 0);                                                                                             
+171              for (int i = 0; i < ncell; ++i)                                                 0.510s         0s             0s
+172                  du[i] = limdiff(u[i-stride], u[i], u[i+stride]);                            2.095s         0s             0s
+173          }                                                                                                                   
+174                                                                                                                              
+175                                                                                                                              
+176          /**                                                                                                                 
+177           * ### Advancing a time step                                                                                        
+178           *                                                                                                                  
+179           * Take one step of the numerical scheme.  This consists of two pieces:                                             
+180           * a first-order corrector computed at a half time step, which is used                                              
+181           * to obtain new $F$ and $G$ values; and a corrector step that computes                                             
+182           * the solution at the full step.  For full details, we refer to the                                                
+183           * [Jiang and Tadmor paper][jt].                                                                                    
+184           *                                                                                                                  
+185           * The `compute_step` function takes two arguments: the `io` flag                                                   
+186           * which is the time step modulo 2 (0 if even, 1 if odd); and the `dt`                                              
+187           * flag, which actually determines the time step length.  We need                                                   
+188           * to know the even-vs-odd distinction because the Jiang-Tadmor                                                     
+189           * scheme alternates between a primary grid (on even steps) and a                                                   
+190           * staggered grid (on odd steps).  This means that the data at $(i,j)$                                              
+191           * in an even step and the data at $(i,j)$ in an odd step represent                                                 
+192           * values at different locations in space, offset by half a space step                                              
+193           * in each direction.  Every other step, we shift things back by one                                                
+194           * mesh cell in each direction, essentially resetting to the primary                                                
+195           * indexing scheme.                                                                                                 
+196           *                                                                                                                  
+197           * We're slightly tricky in the corrector in that we write                                                          
+198           * $$                                                                                                               
+199           *   v(i,j) = (s(i+1,j) + s(i,j)) - (d(i+1,j)-d(i,j))                                                               
+200           * $$                                                                                                               
+201           * where $s(i,j)$ comprises the $u$ and $x$-derivative terms in the                                                 
+202           * update formula, and $d(i,j)$ the $y$-derivative terms.  This cuts                                                
+203           * the arithmetic cost a little (not that it's that big to start).                                                  
+204           * It also makes it more obvious that we only need four rows worth                                                  
+205           * of scratch space.                                                                                                
+206           */                                                                                                                 
+207                                                                                                                              
+208                                                                                                                              
+209          // Predictor half-step                                                                                              
+210          static                                                                                                              
+211          void central2d_predict(float* restrict v,                                                                           
+212                                 float* restrict scratch,                                                                     
+213                                 const float* restrict u,                                                                     
+214                                 const float* restrict f,                                                                     
+215                                 const float* restrict g,                                                                     
+216                                 float dtcdx2, float dtcdy2,                                                                  
+217                                 int nx, int ny, int nfield)                                                                  
+218          {                                                                                                                   
+219              float* restrict fx = scratch;                                                                                   
+220              float* restrict gy = scratch+nx;                                                                                
+221              for (int k = 0; k < nfield; ++k) {                                                                              
+222                  for (int iy = 1; iy < ny-1; ++iy) {                                         0.006s         0s             0s
+223                      int offset = (k*ny+iy)*nx+1;                                            0.004s         0s             0s
+224                      limited_deriv1(fx+1, f+offset, nx-2);                                                                   
+225                      limited_derivk(gy+1, g+offset, nx-2, nx);                                                               
+226                      for (int ix = 1; ix < nx-1; ++ix) {                                                                     
+227                          int offset = (k*ny+iy)*nx+ix;                                                                       
+228                          v[offset] = u[offset] - dtcdx2 * fx[ix] - dtcdy2 * gy[ix];          2.832s         0s             0s
+229                      }                                                                                                       
+230                  }                                                                                                           
+231              }                                                                                                               
+232          }                                                                                                                   
+233                                                                                                                              
+234                                                                                                                              
+235          // Corrector                                                                                                        
+236          static                                                                                                              
+237          void central2d_correct_sd(float* restrict s,                                                                        
+238                                    float* restrict d,                                                                        
+239                                    const float* restrict ux,                                                                 
+240                                    const float* restrict uy,                                                                 
+241                                    const float* restrict u,                                                                  
+242                                    const float* restrict f,                                                                  
+243                                    const float* restrict g,                                                                  
+244                                    float dtcdx2, float dtcdy2,                                                               
+245                                    int xlo, int xhi)                                                                         
+246          {                                                                                                                   
+247              for (int ix = xlo; ix < xhi; ++ix)                                                                              
+248                  s[ix] =                                                                                                     
+249                      0.2500f * (u [ix] + u [ix+1]) +                                                                         
+250                      0.0625f * (ux[ix] - ux[ix+1]) +                                                                         
+251                      dtcdx2  * (f [ix] - f [ix+1]);                                                                          
+252              for (int ix = xlo; ix < xhi; ++ix)                                                                              
+253                  d[ix] =                                                                                                     
+254                      0.0625f * (uy[ix] + uy[ix+1]) +                                                                         
+255                      dtcdy2  * (g [ix] + g [ix+1]);                                                                          
+256          }                                                                                                                   
+257                                                                                                                              
+258                                                                                                                              
+259          // Corrector                                                                                                        
+260          static                                                                                                              
+261          void central2d_correct(float* restrict v,                                                                           
+262                                 float* restrict scratch,                                                                     
+263                                 const float* restrict u,                                                                     
+264                                 const float* restrict f,                                                                     
+265                                 const float* restrict g,                                                                     
+266                                 float dtcdx2, float dtcdy2,                                                                  
+267                                 int xlo, int xhi, int ylo, int yhi,                                                          
+268                                 int nx, int ny, int nfield)                                                                  
+269          {                                                                                                                   
+270              assert(0 <= xlo && xlo < xhi && xhi <= nx);                                                                     
+271              assert(0 <= ylo && ylo < yhi && yhi <= ny);                                                                     
+272                                                                                                                              
+273              float* restrict ux = scratch;                                                                                   
+274              float* restrict uy = scratch +   nx;                                                                            
+275              float* restrict s0 = scratch + 2*nx;                                                                            
+276              float* restrict d0 = scratch + 3*nx;                                                                            
+277              float* restrict s1 = scratch + 4*nx;                                                                            
+278              float* restrict d1 = scratch + 5*nx;                                                                            
+279                                                                                                                              
+280              for (int k = 0; k < nfield; ++k) {                                                                              
+281                                                                                                                              
+282                  float*       restrict vk = v + k*ny*nx;                                                                     
+283                  const float* restrict uk = u + k*ny*nx;                                                                     
+284                  const float* restrict fk = f + k*ny*nx;                                                                     
+285                  const float* restrict gk = g + k*ny*nx;                                                                     
+286                                                                                                                              
+287                  limited_deriv1(ux+1, uk+ylo*nx+1, nx-2);                                                                    
+288                  limited_derivk(uy+1, uk+ylo*nx+1, nx-2, nx);                                                                
+289                  central2d_correct_sd(s1, d1, ux, uy,                                                                        
+290                                       uk + ylo*nx, fk + ylo*nx, gk + ylo*nx,                                                 
+291                                       dtcdx2, dtcdy2, xlo, xhi);                                                             
+292                                                                                                                              
+293                  for (int iy = ylo; iy < yhi; ++iy) {                                                                        
+294                                                                                                                              
+295                      float* tmp;                                                                                             
+296                      tmp = s0; s0 = s1; s1 = tmp;                                                                            
+297                      tmp = d0; d0 = d1; d1 = tmp;                                                                            
+298                                                                                                                              
+299                      limited_deriv1(ux+1, uk+(iy+1)*nx+1, nx-2);                                                             
+300                      limited_derivk(uy+1, uk+(iy+1)*nx+1, nx-2, nx);                                                         
+301                      central2d_correct_sd(s1, d1, ux, uy,                                                                    
+302                                           uk + (iy+1)*nx, fk + (iy+1)*nx, gk + (iy+1)*nx,                                    
+303                                           dtcdx2, dtcdy2, xlo, xhi);                                                         
+304                                                                                                                              
+305                      for (int ix = xlo; ix < xhi; ++ix)                                                                      
+306                          vk[iy*nx+ix] = (s1[ix]+s0[ix])-(d1[ix]-d0[ix]);                                                     
+307                  }                                                                                                           
+308              }                                                                                                               
+309          }                                                                                                                   
+310                                                                                                                              
+311                                                                                                                              
+312          static                                                                                                              
+313          void central2d_step(float* restrict u, float* restrict v,                                                           
+314                              float* restrict scratch,                                                                        
+315                              float* restrict f,                                                                              
+316                              float* restrict g,                                                                              
+317                              int io, int nx, int ny, int ng,                                                                 
+318                              int nfield, flux_t flux, speed_t speed,                                                         
+319                              float dt, float dx, float dy)                                                                   
+320          {                                                                                                                   
+321              int nx_all = nx + 2*ng;                                                                                         
+322              int ny_all = ny + 2*ng;                                                                                         
+323                                                                                                                              
+324              float dtcdx2 = 0.5 * dt / dx;                                                                                   
+325              float dtcdy2 = 0.5 * dt / dy;                                                                                   
+326                                                                                                                              
+327              flux(f, g, u, nx_all * ny_all, nx_all * ny_all);                                                                
+328                                                                                                                              
+329              central2d_predict(v, scratch, u, f, g, dtcdx2, dtcdy2,                                                          
+330                                nx_all, ny_all, nfield);                                                                      
+331                                                                                                                              
+332              // Flux values of f and g at half step                                                                          
+333              for (int iy = 1; iy < ny_all-1; ++iy) {                                         0.003s         0s             0s
+334                  int jj = iy*nx_all+1;                                                                                       
+335                  flux(f+jj, g+jj, v+jj, nx_all-2, nx_all * ny_all);                          0.018s         0s             0s
+336              }                                                                                                               
+337                                                                                                                              
+338              central2d_correct(v, scratch, u, f, g, dtcdx2, dtcdy2,                          0.001s         0s             0s
+339                                ng-io, nx+ng-io,                                                                              
+340                                ng-io, ny+ng-io,                                                                              
+341                                nx_all, ny_all, nfield);                                                                      
+342                                                                                                                              
+343              // Copy from v storage back to main grid                                                                        
+344              memcpy(u+(ng   )*nx_all+ng,                                                                                     
+345                     v+(ng-io)*nx_all+ng-io,                                                                                  
+346                     (nfield*ny_all-ng) * nx_all * sizeof(float));                                                            
+347          }                                                                                                                   
+348                                                                                                                              
+349                                                                                                                              
+350          /**                                                                                                                 
+351           * ### Advance a fixed time                                                                                         
+352           *                                                                                                                  

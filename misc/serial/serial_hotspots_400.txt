@@ -1,0 +1,23 @@
+      Module        CPU Time  Spin Time  Overhead Time
+--------------------------  ------------  --------  ---------  -------------
+central2d_step              lshallow        0.746s         0s             0s
+shallow2d_flux              lshallow        0.551s         0s             0s
+central2d_correct           lshallow        0.378s         0s             0s
+__intel_ssse3_rep_memcpy    lshallow        0.374s         0s             0s
+limited_deriv1              lshallow        0.199s         0s             0s
+xmin2s                      lshallow        0.191s         0s             0s
+limited_derivk              lshallow        0.093s         0s             0s
+central2d_correct_sd        lshallow        0.081s         0s             0s
+xmin2s                      lshallow        0.066s         0s             0s
+shallow2d_speed             lshallow        0.062s         0s             0s
+xmin2s                      lshallow        0.058s         0s             0s
+limdiff                     lshallow        0.047s         0s             0s
+[Outside any known module]  [Unknown]       0.043s         0s             0s
+run_sim                     lshallow        0.020s         0s             0s
+central2d_correct_sd        lshallow        0.016s         0s             0s
+limdiff                     lshallow        0.016s         0s             0s
+fminf                       lshallow        0.015s         0s             0s
+luaV_execute                lshallow        0.013s         0s             0s
+fminf                       lshallow        0.007s         0s             0s
+copy_subgrid                lshallow        0.006s         0s             0s
+fmaxf                       lshallow        0.006s         0s             0s

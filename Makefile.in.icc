@@ -1,9 +1,16 @@
-CXX=icpc
-CXXFLAGS=-std=c++14 -g -openmp
+CC=icc
+CFLAGS=-std=c99 -g
 
 # If you're using icc, these are good flags to try
-OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo \
-	-qopt-report=5 -qopt-report-phase=vec
+OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo -openmp
+# -offload-target-attribute=mic
 
-CXXFLAGS+=$(OPTFLAGS)
+# Add this for the vectorization reports
+ANALYSIS=-qopt-report=1 -qopt-report-phase=vec 
+
+CFLAGS+=$(OPTFLAGS) $(ANALYSIS)
+
 PYTHON=python
+
+LUA_CFLAGS=-I/share/apps/utils/include
+LUA_LIBS=-L/share/apps/utils/lib -llua

@@ -1,0 +1,69 @@
+Source Line  Source                                                       CPU Time  Spin Time  Overhead Time
+-----------  -----------------------------------------------------------  --------  ---------  -------------
+17                                                                                                          
+18           static const float g = 9.8;                                                                    
+19                                                                                                          
+20                                                                                                          
+21           static                                                                                         
+22           void shallow2dv_flux(float* restrict fh,                       0.013s         0s             0s
+23                                float* restrict fhu,                                                      
+24                                float* restrict fhv,                                                      
+25                                float* restrict gh,                                                       
+26                                float* restrict ghu,                                                      
+27                                float* restrict ghv,                                                      
+28                                const float* restrict h,                                                  
+29                                const float* restrict hu,                                                 
+30                                const float* restrict hv,                                                 
+31                                float g,                                                                  
+32                                int ncell)                                                                
+33           {                                                                                              
+34               memcpy(fh, hu, ncell * sizeof(float));                     0.015s         0s             0s
+35               memcpy(gh, hv, ncell * sizeof(float));                     0.006s         0s             0s
+36               for (int i = 0; i < ncell; ++i) {                          0.688s         0s             0s
+37                   float hi = h[i], hui = hu[i], hvi = hv[i];             2.193s         0s             0s
+38                   float inv_h = 1/hi;                                    1.494s         0s             0s
+39                   fhu[i] = hui*hui*inv_h + (0.5f*g)*hi*hi;               5.778s         0s             0s
+40                   fhv[i] = hui*hvi*inv_h;                                0.357s         0s             0s
+41                   ghu[i] = hui*hvi*inv_h;                                2.630s         0s             0s
+42                   ghv[i] = hvi*hvi*inv_h + (0.5f*g)*hi*hi;               2.154s         0s             0s
+43               }                                                                                          
+44           }                                                                                              
+45                                                                                                          
+46                                                                                                          
+47           static                                                                                         
+48           void shallow2dv_speed(float* restrict cxy,                                                     
+49                                 const float* restrict h,                                                 
+50                                 const float* restrict hu,                                                
+51                                 const float* restrict hv,                                                
+52                                 float g,                                                                 
+53                                 int ncell)                                                               
+54           {                                                                                              
+55               float cx = cxy[0];                                                                         
+56               float cy = cxy[1];                                                                         
+57               for (int i = 0; i < ncell; ++i) {                                                          
+58                   float hi = h[i];                                                                       
+59                   float inv_hi = 1.0f/h[i];                                                              
+60                   float root_gh = sqrtf(g * hi);                                                         
+61                   float cxi = fabsf(hu[i] * inv_hi) + root_gh;                                           
+62                   float cyi = fabsf(hv[i] * inv_hi) + root_gh;                                           
+63                   if (cx < cxi) cx = cxi;                                                                
+64                   if (cy < cyi) cy = cyi;                                                                
+65               }                                                                                          
+66               cxy[0] = cx;                                                                               
+67               cxy[1] = cy;                                                                               
+68           }                                                                                              
+69                                                                                                          
+70                                                                                                          
+71           void shallow2d_flux(float* FU, float* GU, const float* U,                                      
+72                               int ncell, int field_stride)                                               
+73           {                                                              0.060s         0s             0s
+74               shallow2dv_flux(FU, FU+field_stride, FU+2*field_stride,                                    
+75                               GU, GU+field_stride, GU+2*field_stride,                                    
+76                               U,  U +field_stride, U +2*field_stride,    0.019s         0s             0s
+77                               g, ncell);                                                                 
+78           }                                                              0.008s         0s             0s
+79                                                                                                          
+80                                                                                                          
+81           void shallow2d_speed(float* cxy, const float* U,                                               
+82                                int ncell, int field_stride)                                              
+83           {                                                                                              
