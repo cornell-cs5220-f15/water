@@ -92,14 +92,15 @@ int main(int argc, char** argv)
 {
     std::string fname = "waves.out";
     std::string ic = "dam_break";
-    int    nx = 200;
+    int    nx = 300;
     double width = 2.0;
     double ftime = 0.05;
     int    frames = 20;
+	int    threads = 1;
     
     int c;
     extern char* optarg;
-    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
+    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:p:")) != -1) {
         switch (c) {
         case 'h':
             fprintf(stderr,
@@ -110,9 +111,10 @@ int main(int argc, char** argv)
                     "\t-n: number of cells per side (%d)\n"
                     "\t-w: domain width in cells (%g)\n"
                     "\t-f: time between frames (%g)\n"
-                    "\t-F: number of frames (%d)\n",
+                    "\t-F: number of frames (%d)\n"
+					"\t-p: number of OMP threads to use (%d)\n",
                     argv[0], ic.c_str(), fname.c_str(), 
-                    nx, width, ftime, frames);
+                    nx, width, ftime, frames, threads);
             return -1;
         case 'i':  ic     = optarg;          break;
         case 'o':  fname  = optarg;          break;
@@ -120,6 +122,7 @@ int main(int argc, char** argv)
         case 'w':  width  = atof(optarg);    break;
         case 'f':  ftime  = atof(optarg);    break;
         case 'F':  frames = atoi(optarg);    break;
+		case 'p':  threads= atoi(optarg);	 break;
         default:
             fprintf(stderr, "Unknown option (-%c)\n", c);
             return -1;
@@ -148,6 +151,7 @@ int main(int argc, char** argv)
 	double timesum = 0;
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
+		omp_set_num_threads(threads);
         double t0 = omp_get_wtime();
         sim.run(ftime);
         double t1 = omp_get_wtime();

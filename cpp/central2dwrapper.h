@@ -195,7 +195,7 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 	std::vector<real>* local_dts_curr = new std::vector<real>();
 	std::vector<real>* local_dts_next = new std::vector<real>();
 	//DEBUG
-	//omp_set_num_threads(1);
+//	omp_set_num_threads(1);
 	#pragma omp parallel firstprivate(tfinal, large_u, large_v, local_dts_curr,local_dts_next) default(none) 
 	{
 		const int nthreads = omp_get_num_threads();
@@ -231,7 +231,7 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 			printf("blockspp = %d\n", blockspp);
 			printf("one_extra = %d\n", one_extra);
 		}
-                #endif
+        #endif
 		for(int b = 0; b < my_numblocks; b++) {
 			//Blocks are counted in row-major order across the grid
 			const int blocknum = b;
@@ -262,7 +262,7 @@ void Central2DWrapper<Physics, Limiter>::run(const real tfinal)
 		{
 			printf("Thread %d has %d blocks of size %d x %d \n", omp_get_thread_num(), my_numblocks, bwidth, bheight);
 		}
-                #endif
+		#endif
 		real curtime = 0;
 		real dt;
 		bool done = false;
