@@ -141,9 +141,9 @@ public:
     // can't return &vec anymore because vr is now a local object
     const vec operator()(int i, int j) const {
         vec vr;
-        vr[0] = u_[offset(0,i+nghost,j+nghost)];
-        vr[1] = u_[offset(1,i+nghost,j+nghost)];
-        vr[2] = u_[offset(2,i+nghost,j+nghost)];
+        vr[0] = u_[offset(i+nghost,j+nghost,0)];
+        vr[1] = u_[offset(i+nghost,j+nghost,1)];
+        vr[2] = u_[offset(i+nghost,j+nghost,2)];
         return vr;
     }
         
@@ -168,7 +168,7 @@ private:
     // offset in Professor Bindel's stepper.c (not central2d_offset, see line 228).
     // We used d instead of k to represent dimension (one can think of the state as a 
     // 3-dimensional vector)
-    inline int offset(int d, int ix, int iy) const { return ((d*ny_all)+iy)*nx_all+ix; }
+    inline int offset(int ix, int iy, short d) const { return ((d*ny_all)+iy)*nx_all+ix; }
 
     // Array accessor functions
     // We access d first (i.e. 'd' represents the first dimension along the array)
@@ -176,22 +176,22 @@ private:
     // computations of each component can be blocked together more easily.
     // This is also in line with the way offset is implemented (the first third
     // of the array is where d = 0, the second is d = 1, and the last is d = 2)
-    inline float& u(int d, int ix, int iy)    { return u_[offset(d,ix,iy)]; }
-    inline float& v(int d, int ix, int iy)    { return v_[offset(d,ix,iy)]; }
-    inline float& f(int d, int ix, int iy)    { return f_[offset(d,ix,iy)]; }
-    inline float& g(int d, int ix, int iy)    { return g_[offset(d,ix,iy)]; }
-    inline float& ux(int d, int ix, int iy)    { return ux_[offset(d,ix,iy)]; }
-    inline float& uy(int d, int ix, int iy)    { return uy_[offset(d,ix,iy)]; }
-    inline float& fx(int d, int ix, int iy)    { return fx_[offset(d,ix,iy)]; }
-    inline float& gy(int d, int ix, int iy)    { return gy_[offset(d,ix,iy)]; }
+    inline float& u(int ix, int iy, short d)    { return u_[offset(ix,iy,d)]; }
+    inline float& v(int ix, int iy, short d)    { return v_[offset(ix,iy,d)]; }
+    inline float& f(int ix, int iy, short d)    { return f_[offset(ix,iy,d)]; }
+    inline float& g(int ix, int iy, short d)    { return g_[offset(ix,iy,d)]; }
+    inline float& ux(int ix, int iy, short d)    { return ux_[offset(ix,iy,d)]; }
+    inline float& uy(int ix, int iy, short d)    { return uy_[offset(ix,iy,d)]; }
+    inline float& fx(int ix, int iy, short d)    { return fx_[offset(ix,iy,d)]; }
+    inline float& gy(int ix, int iy, short d)    { return gy_[offset(ix,iy,d)]; }
 
     // Wrapped accessor (periodic BC)
-    int ioffset(int d, int ix, int iy) {
-        return offset(d, (ix+nx-nghost) % nx + nghost,
-                         (iy+ny-nghost) % ny + nghost );
+    int ioffset(int ix, int iy, short d) {
+        return offset( (ix+nx-nghost) % nx + nghost,
+                       (iy+ny-nghost) % ny + nghost, d );
     }
 
-    inline float& uwrap(int k, int ix, int iy)  { return u_[ioffset(k, ix,iy)]; }
+    inline float& uwrap(int ix, int iy, short d)  { return u_[ioffset(ix,iy,d)]; }
 
     // Apply limiter to a single float component
     // Not dealing with vectors anymore - no loop here necessary
@@ -227,13 +227,13 @@ void Central2D<Physics, Limiter>::init(F f)
     for (int iy = 0; iy < b; ++iy) {
         for (int ix = 0; ix < a; ++ix) {
             vec vr; // Function f requires a vec, not a single float
-            vr[0] = u(0,nghost+ix,nghost+iy);
-            vr[1] = u(1,nghost+ix,nghost+iy);
-            vr[2] = u(2,nghost+ix,nghost+iy);
+            vr[0] = u(nghost+ix,nghost+iy,0);
+            vr[1] = u(nghost+ix,nghost+iy,1);
+            vr[2] = u(nghost+ix,nghost+iy,2);
             f(vr, (ix+0.5)*dx, (iy+0.5)*dy);
-            u(0,nghost+ix,nghost+iy) = vr[0];
-            u(1,nghost+ix,nghost+iy) = vr[1];
-            u(2,nghost+ix,nghost+iy) = vr[2]; // write out result to array
+            u(nghost+ix,nghost+iy,0) = vr[0];
+            u(nghost+ix,nghost+iy,1) = vr[1];
+            u(nghost+ix,nghost+iy,2) = vr[2]; // write out result to array
         }
     }
 }
@@ -258,19 +258,19 @@ void Central2D<Physics, Limiter>::init(F f)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
 {
-    for (int d = 0; d < 3; d++) {
+    for (short d = 0; d < 3; d++) {
         for (int ix = 0; ix < nghost; ++ix) {
 	    #pragma ivdep // vectorize this loop (ignore "dependencies")
             for (int iy = 0; iy < ny_all; ++iy) {
-                u(d, ix,          iy) = uwrap(d, ix,          iy);
-                u(d, nx+nghost+ix,iy) = uwrap(d, nx+nghost+ix,iy);
+                u(ix,          iy,d) = uwrap(ix,          iy,d);
+                u(nx+nghost+ix,iy,d) = uwrap(nx+nghost+ix,iy,d);
             }
         }
         for (int iy = 0; iy < nghost; ++iy) {
             #pragma ivdep
             for (int ix = 0; ix < nx_all; ++ix) {
-                u(d, ix,          iy) = uwrap(d, ix,          iy);
-                u(d, ix,ny+nghost+iy) = uwrap(d, ix,ny+nghost+iy);
+                u(ix,          iy,d) = uwrap(ix,          iy,d);
+                u(ix,ny+nghost+iy,d) = uwrap(ix,ny+nghost+iy,d);
             }
         }
     }
@@ -297,11 +297,11 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
         #pragma ivdep // vectorize this loop
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(0,ix,iy), f(1,ix,iy), f(2,ix,iy),
-                          g(0,ix,iy), g(1,ix,iy), g(2,ix,iy),
-                          u(0,ix,iy), u(1,ix,iy), u(2,ix,iy));
-            Physics::wave_speed(cell_cx, cell_cy, u(0,ix,iy),
-                                u(1,ix,iy), u(2,ix,iy));
+            Physics::flux(f(ix,iy,0), f(ix,iy,1), f(ix,iy,2),
+                          g(ix,iy,0), g(ix,iy,1), g(ix,iy,2),
+                          u(ix,iy,0), u(ix,iy,1), u(ix,iy,2));
+            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy,0),
+                                u(ix,iy,1), u(ix,iy,2));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
@@ -321,22 +321,22 @@ template <class Physics, class Limiter>
 #pragma omp declare simd
 void Central2D<Physics, Limiter>::limited_derivs()
 {
-    for (int d = 0; d < 3; d++) {
+    for (short d = 0; d < 3; d++) {
         for (int iy = 1; iy < ny_all-1; ++iy ) {
             #pragma ivdep
             //#pragma vector always
             for (int ix = 1; ix < nx_all-1; ++ix) {
                 // x derivs
-                limdiff( ux(d,ix,iy), u(d,ix-1,iy), u(d,ix,iy), u(d,ix+1,iy) );
-                limdiff( fx(d,ix,iy), f(d,ix-1,iy), f(d,ix,iy), f(d,ix+1,iy) );
+                limdiff( ux(ix,iy,d), u(ix-1,iy,d), u(ix,iy,d), u(ix+1,iy,d) );
+                limdiff( fx(ix,iy,d), f(ix-1,iy,d), f(ix,iy,d), f(ix+1,iy,d) );
             }
         }
         for (int iy = 1; iy < ny_all-1; ++iy ) {
             #pragma ivdep
             //#pragma vector always
             for (int ix = 1; ix < nx_all-1; ++ix) {
-                limdiff( uy(d,ix,iy), u(d,ix,iy-1), u(d,ix,iy), u(d,ix,iy+1) );
-                limdiff( gy(d,ix,iy), g(d,ix,iy-1), g(d,ix,iy), g(d,ix,iy+1) );
+                limdiff( uy(ix,iy,d), u(ix,iy-1,d), u(ix,iy,d), u(ix,iy+1,d) );
+                limdiff( gy(ix,iy,d), g(ix,iy-1,d), g(ix,iy,d), g(ix,iy+1,d) );
             }
         }
     }
@@ -376,45 +376,45 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
     for (int iy = 1; iy < ny_all-1; ++iy) {
         #pragma ivdep
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            float u0 = u(0,ix,iy), u1 = u(1,ix,iy), u2 = u(2,ix,iy);
-            u0 -= dtcdx2 * fx(0,ix,iy); // unrolled loops for this
-            u0 -= dtcdy2 * gy(0,ix,iy);
-            u1 -= dtcdx2 * fx(1,ix,iy);
-            u1 -= dtcdy2 * gy(1,ix,iy);
-            u2 -= dtcdx2 * fx(2,ix,iy);
-            u2 -= dtcdy2 * gy(2,ix,iy);
-            Physics::flux(f(0,ix,iy), f(1,ix,iy), f(2,ix,iy),
-                          g(0,ix,iy), g(1,ix,iy), g(2,ix,iy),
+            float u0 = u(ix,iy,0), u1 = u(ix,iy,1), u2 = u(ix,iy,2);
+            u0 -= dtcdx2 * fx(ix,iy,0); // unrolled loops for this
+            u0 -= dtcdy2 * gy(ix,iy,0);
+            u1 -= dtcdx2 * fx(ix,iy,1);
+            u1 -= dtcdy2 * gy(ix,iy,1);
+            u2 -= dtcdx2 * fx(ix,iy,2);
+            u2 -= dtcdy2 * gy(ix,iy,2);
+            Physics::flux(f(ix,iy,0), f(ix,iy,1), f(ix,iy,2),
+                          g(ix,iy,0), g(ix,iy,1), g(ix,iy,2),
                           u0, u1, u2);
         }
     }
 
     // Corrector (finish the step)
-    for (int d = 0; d < 3; d++) {
+    for (short d = 0; d < 3; d++) {
         for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
             #pragma ivdep
             for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-                    v(d,ix,iy) =
-                        0.2500 * ( u(d, ix,  iy)   + u( d, ix+1,iy) +
-                                   u(d, ix,  iy+1) + u( d, ix+1,iy+1)) -
-                        0.0625 * ( ux(d,ix+1,iy  ) - ux(d, ix,  iy) +
-                                   ux(d,ix+1,iy+1) - ux(d, ix,  iy+1) +
-                                   uy(d,ix,  iy+1) - uy(d, ix,  iy) +
-                                   uy(d,ix+1,iy+1) - uy(d, ix+1,iy) ) -
-                        dtcdx2 * ( f(d, ix+1,iy  ) -  f(d, ix,  iy) +
-                                   f(d, ix+1,iy+1) -  f(d, ix,  iy+1)) -
-                        dtcdy2 * ( g(d, ix,  iy+1) -  g(d, ix,  iy) +
-                                   g(d, ix+1,iy+1) -  g(d, ix+1,iy) );
+                    v(ix,iy,d) =
+                        0.2500 * ( u( ix,  iy, d)   + u( ix+1,iy, d) +
+                                   u( ix,  iy+1, d) + u( ix+1,iy+1, d)) -
+                        0.0625 * ( ux(ix+1,iy,d  ) - ux(ix,  iy, d) +
+                                   ux(ix+1,iy+1,d) - ux(ix,  iy+1, d) +
+                                   uy(ix,  iy+1, d) - uy(ix,  iy, d) +
+                                   uy(ix+1,iy+1,d) - uy(ix+1,iy, d) ) -
+                        dtcdx2 * ( f(ix+1,iy, d  ) -  f(ix,  iy, d) +
+                                   f(ix+1,iy+1, d) -  f(ix,  iy+1, d)) -
+                        dtcdy2 * ( g(ix,  iy+1, d) -  g(ix,  iy, d) +
+                                   g(ix+1,iy+1, d) -  g(ix+1,iy, d) );
                 }
             }
     }
 
     // Copy from v storage back to main grid
-    for (int d = 0; d < 3; d++) {
+    for (short d = 0; d < 3; d++) {
         for (int j = nghost; j < ny+nghost; ++j){
             //#pragma ivdep
             for (int i = nghost; i < nx+nghost; ++i){
-                u(d,i,j) = v(d,i-io,j-io);
+                u(i,j,d) = v(i-io,j-io,d);
             }
         }
     }
@@ -468,7 +468,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
  * errors) the total volume of water in the domain and the total
  * momentum.  Ideally, we should also not see negative water heights,
  * since that will cause the system of equations to blow up.  For
- * debugging convenience, we'll plan to periodically print diagnostic
+ * debugging convenience, we'll plan to periodically prshort diagnostic
  * information about these conserved quantities (and about the range
  * of water heights).
  */
@@ -478,14 +478,14 @@ void Central2D<Physics, Limiter>::solution_check()
 {
     using namespace std;
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
-    real hmin = u(0, nghost,nghost);
+    real hmin = u(nghost,nghost,0);
     real hmax = hmin;
     for (int j = nghost; j < ny+nghost; ++j)
         for (int i = nghost; i < nx+nghost; ++i) {
-            real h = u(0, i, j); // change these in order to typecheck
+            real h = u(i, j, 0); // change these in order to typecheck
             h_sum += h;
-            hu_sum += u(1, i, j);
-            hv_sum += u(2, i, j);
+            hu_sum += u(i, j, 1);
+            hv_sum += u(i, j, 2);
             hmax = max(h, hmax);
             hmin = min(h, hmin);
             assert (h > 0) ;
