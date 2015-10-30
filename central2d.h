@@ -267,9 +267,10 @@ template <typename F>
     #endif
     //std::cout<<"nodomains: "<<nodomains<<"\n";
 
-    for (int ix = 0; ix < nx; ++ix){
-        for (int iy = 0; iy < ny; ++iy){
-        
+    
+    for (int iy = 0; iy < ny; ++iy){
+        for (int ix = 0; ix < nx; ++ix){
+
             int d_ny = iy % domain_ny;
             int d_nx = ix % domain_nx;
 
@@ -279,13 +280,16 @@ template <typename F>
         }
     }
 
-    for (int tno=0; tno<nodomains*nodomains; tno++)
-        for (int ix=0; ix<domain_nx; ix++)
-            for (int iy=0; iy<domain_ny; iy++) {
+    for (int tno=0; tno<nodomains*nodomains; tno++){
+        for (int iy=0; iy<domain_ny; iy++) {
+            for (int ix=0; ix<domain_nx; ix++){
+
                 int res_iy = (tno/nodomains)*domain_ny + iy;
                 int res_ix = (tno%nodomains)*domain_nx + ix;
                 ures(res_ix, res_iy) = u(ix, iy, tno);
             }
+        }
+    }
     #ifdef DEBUG
     std::cout<<"Exiting init\n";
     #endif
@@ -321,19 +325,24 @@ template <class Physics, class Limiter>
     #ifdef DEBUG
     std::cout<<"Inside apply periodic function\n";
     #endif
-    for (int i=0; i<nodomains; i++)
-        for (int j=0; j<ny_all; j++)
+
+    for (int i=0; i<nodomains; i++){
+        for (int j=0; j<ny_all; j++){
             for (int k=0; k<nghost; k++) {
                 uf(k+i*domain_nx_inc_ghost, j) = uf(k+i*domain_nx_inc_ghost-2*nghost, j);
                 uf(k+i*domain_nx_inc_ghost+nghost+domain_nx, j) = uf(k+i*domain_nx_inc_ghost+3*nghost+domain_nx, j);
             }
-
-            for (int i=0; i<nodomains; i++)
-                for (int j=0; j<nx_all; j++)
-                    for (int k=0; k<nghost; k++) {
-                        uf(j, k+i*domain_ny_inc_ghost) = uf(j, k+i*domain_ny_inc_ghost -2*nghost);
-                        uf(j, k+i*domain_ny_inc_ghost+nghost+domain_ny) = uf(j, k+i*domain_ny_inc_ghost+3*nghost+domain_ny);
-                    }
+        }
+    }
+    for (int i=0; i<nodomains; i++){
+        for (int k=0; k<nghost; k++) {
+            for (int j=0; j<nx_all; j++){
+                uf(j, k+i*domain_ny_inc_ghost) = uf(j, k+i*domain_ny_inc_ghost -2*nghost);
+                uf(j, k+i*domain_ny_inc_ghost+nghost+domain_ny) = uf(j, k+i*domain_ny_inc_ghost+3*nghost+domain_ny);
+            }
+        }
+    }
+}
 // Copy data between right and left boundaries
 //     /*for (int iy = 0; iy < ny_all; ++iy)
 //         for (int ix = 0; ix < nghost; ++ix) {
@@ -373,7 +382,7 @@ template <class Physics, class Limiter>
 //             u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
 //         }
 //     }
-                }
+}
 /**
  * ### Initial flux and speed computations
  * 
@@ -393,18 +402,20 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_, int tn
     #endif
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int ix = 0; ix < domain_nx_inc_ghost; ++ix)
-        for (int iy = 0; iy < domain_ny_inc_ghost; ++iy){
-       
+    
+    for (int iy = 0; iy < domain_ny_inc_ghost; ++iy){
+        for (int ix = 0; ix < domain_nx_inc_ghost; ++ix){
+
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy, tno), g(ix,iy, tno), ug(ix,iy, tno));
             Physics::wave_speed(cell_cx, cell_cy, ug(ix,iy, tno));
             cx = cx > cell_cx ? cx : cell_cx;
             cy = cy > cell_cy ? cy : cell_cy;
         }
-        cx_ = cx;
-        cy_ = cy;
     }
+    cx_ = cx;
+    cy_ = cy;
+}
 
 /**
  * ### Derivatives with limiters
@@ -421,15 +432,14 @@ template <class Physics, class Limiter>
     std::cout<<"Inside limited_derivs function\n";
     #endif
     int iy, ix;
-    for (ix = 1; ix < domain_nx_inc_ghost-1; ++ix) {
-        for (iy = 1; iy < domain_ny_inc_ghost-1; ++iy) {
-        
+    for (iy = 1; iy < domain_ny_inc_ghost-1; ++iy) {
+        for (ix = 1; ix < domain_nx_inc_ghost-1; ++ix) {
 
-        // x derivs
+            // x derivs
             limdiff( ux(ix,iy,tno), ug(ix-1,iy,tno), ug(ix,iy,tno), ug(ix+1,iy,tno) );
             limdiff( fx(ix,iy,tno), f(ix-1,iy,tno), f(ix,iy,tno), f(ix+1,iy,tno) );
 
-        // y derivs
+            // y derivs
             limdiff( uy(ix,iy,tno), ug(ix,iy-1,tno), ug(ix,iy,tno), ug(ix,iy+1,tno) );
             limdiff( gy(ix,iy,tno), g(ix,iy-1,tno), g(ix,iy,tno), g(ix,iy+1,tno) );
         }
@@ -470,9 +480,10 @@ template <class Physics, class Limiter>
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    for (int ix = 1; ix < domain_nx_inc_ghost-1; ++ix)
-        for (int iy = 1; iy < domain_ny_inc_ghost-1; ++iy){
-        
+
+    for (int iy = 1; iy < domain_ny_inc_ghost-1; ++iy){
+        for (int ix = 1; ix < domain_nx_inc_ghost-1; ++ix){
+
             vec uh = ug(ix,iy,tno);
             for (int m = 0; m < uh.size(); ++m) {
                 uh[m] -= dtcdx2 * fx(ix,iy,tno)[m];
@@ -480,11 +491,12 @@ template <class Physics, class Limiter>
             }
             Physics::flux(f(ix,iy,tno), g(ix,iy,tno), uh);
         }
-
+    }
     // Corrector (finish the step)
-    for (int ix = nghost-io; ix < domain_nx+nghost-io; ++ix)
-        for (int iy = nghost-io; iy < domain_ny+nghost-io; ++iy){
-        
+
+    for (int iy = nghost-io; iy < domain_ny+nghost-io; ++iy){
+        for (int ix = nghost-io; ix < domain_nx+nghost-io; ++ix){
+
             for (int m = 0; m < v(ix,iy,tno).size(); ++m) {
                 v(ix,iy,tno)[m] =
                 0.2500 * ( ug(ix,iy,tno)[m] + ug(ix+1,iy,tno)[m] +
@@ -497,12 +509,13 @@ template <class Physics, class Limiter>
                  f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
                 dtcdy2 * ( g(ix,  iy+1,tno)[m] - g(ix,  iy,tno)[m] +
                  g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
-                }
             }
-
+        }
+    }
     // Copy from v storage back to main grid
-    for (int i = nghost; i < domain_nx+nghost; ++i){
-        for (int j = nghost; j < domain_ny+nghost; ++j){
+
+    for (int j = nghost; j < domain_ny+nghost; ++j){
+        for (int i = nghost; i < domain_nx+nghost; ++i){
             ug(i,j,tno) = v(i-io,j-io,tno);
         }
     }
@@ -594,15 +607,16 @@ template <class Physics, class Limiter>
 //             compute_step(io, dt, tno);
 //             t += dt;
 //         }
-    for (int tno=0; tno<nodomains*nodomains; tno++)
-        for (int ix=0; ix<domain_nx; ix++)
-            for (int iy=0; iy<domain_ny; iy++) {
+    for (int tno=0; tno<nodomains*nodomains; tno++){
+        for (int iy=0; iy<domain_ny; iy++) {
+            for (int ix=0; ix<domain_nx; ix++){
                 int res_iy = (tno/nodomains)*domain_ny + iy;
                 int res_ix = (tno%nodomains)*domain_nx + ix;
                 ures(res_ix, res_iy) = u(ix, iy, tno);
             }
-
         }
+    }
+}
 
 /**
  * ### Diagnostics
@@ -628,9 +642,10 @@ void Central2D<Physics, Limiter>::solution_check()
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
     real hmin = u(0, 0, 0)[0];
     real hmax = hmin;
-    for (int i = 0; i < nx; ++i) 
-        for (int j = 0; j < ny; ++j){
-        
+    
+    for (int j = 0; j < ny; ++j){
+        for (int i = 0; i < nx; ++i){ 
+
             int d_ny = j % domain_ny; 
             int d_nx = i % domain_nx;
 
@@ -645,13 +660,14 @@ void Central2D<Physics, Limiter>::solution_check()
             hmin = min(h, hmin);
             assert( h > 0) ;
         }
-        real cell_area = dx*dy;
-        h_sum *= cell_area;
-        hu_sum *= cell_area;
-        hv_sum *= cell_area;
-        printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-         h_sum, hu_sum, hv_sum, hmin, hmax);
     }
+    real cell_area = dx*dy;
+    h_sum *= cell_area;
+    hu_sum *= cell_area;
+    hv_sum *= cell_area;
+    printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
+     h_sum, hu_sum, hv_sum, hmin, hmax);
+}
 
 //ldoc off
 #endif /* CENTRAL2D_H*/
