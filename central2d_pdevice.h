@@ -8,6 +8,9 @@
 #include <vector>
 #include <memory>
 #include <omp.h>
+
+#include "aligned_allocator.h"
+#include "local_state.h"
 #pragma offload_attribute(pop)
 
 //ldoc on
@@ -96,6 +99,24 @@
  * of the domain has index (0,0).
  */
 
+/* The following allows for minimal SIMD vectorization using GCC,
+ * but at the very least allows local compilation before sending
+ * to the cluster.
+ */
+#ifdef __INTEL_COMPILER
+    #define DEF_ALIGN(x) __declspec(align((x)))
+    #define USE_ALIGN(var, align) __assume_aligned((var), (align));
+#else // GCC
+    #define DEF_ALIGN(x) __attribute__ ((aligned((x))))
+    #define USE_ALIGN(var, align) ((void)0) /* __builtin_assume_align is unreliabale... */
+#endif
+
+#if defined _PARALLEL_DEVICE
+    #define TARGET_MIC __declspec(target(mic))
+#else
+    #define TARGET_MIC /* n/a */
+#endif
+
 template <class Physics, class Limiter>
 class Central2D {
 public:
@@ -107,7 +128,7 @@ public:
               int nxblocks = 1,   // Number of blocks in x for batching
               int nyblocks = 1,   // Number of blocks in y for batching
               int nbatch = 1,     // Number of timesteps to batch per block
-              real cfl = 0.45) :  // Max allowed CFL number
+              real cfl = 0.45f) :  // Max allowed CFL number
         nx(nx), ny(ny), nxblocks(nxblocks), nyblocks(nyblocks),
         nbatch(nbatch), nghost(1+nbatch*2), // Number of ghost cells depend on batch size
         nx_all(nx + 2*nghost),
@@ -132,11 +153,11 @@ public:
     int ysize() const { return ny; }
 
     // Read / write elements of simulation state
-    vec&       operator()(int i, int j) {
+    inline vec&       operator()(int i, int j) {
         return u_[(j+nghost)*nx_all+(i+nghost)];
     }
 
-    const vec& operator()(int i, int j) const {
+    inline const vec& operator()(int i, int j) const {
         return u_[(j+nghost)*nx_all+(i+nghost)];
     }
 
@@ -144,64 +165,15 @@ private:
 
     // Simulator parameters to offload to device
     typedef struct {
-      int nghost;
-      int nx, ny;
-      int nxblocks, nyblocks;
-      int nbatch;
-      int nthreads;
-      int nx_all, ny_all;
-      real dx, dy;
-      real cfl;
+        int nghost;
+        int nx, ny;
+        int nxblocks, nyblocks;
+        int nbatch;
+        int nthreads;
+        int nx_all, ny_all;
+        real dx, dy;
+        real cfl;
     } Parameters;
-
-    // Class for encapsulating per-thread local state
-    class LocalState {
-     public:
-      __declspec(target(mic))
-      LocalState(int nx, int ny) :
-        nx(nx), ny(ny),
-        u_ (nx * ny),
-        v_ (nx * ny),
-        f_ (nx * ny),
-        g_ (nx * ny),
-        ux_(nx * ny),
-        uy_(nx * ny),
-        fx_(nx * ny),
-        gy_(nx * ny) {}
-
-      __declspec(target(mic))
-      ~LocalState() {}
-
-      // Array accessor functions
-      __declspec(target(mic)) vec& u(int ix, int iy)  { return u_[offset(ix,iy)]; }
-      __declspec(target(mic)) vec& v(int ix, int iy)  { return v_[offset(ix,iy)]; }
-      __declspec(target(mic)) vec& f(int ix, int iy)  { return f_[offset(ix,iy)]; }
-      __declspec(target(mic)) vec& g(int ix, int iy)  { return g_[offset(ix,iy)]; }
-      __declspec(target(mic)) vec& ux(int ix, int iy) { return ux_[offset(ix,iy)]; }
-      __declspec(target(mic)) vec& uy(int ix, int iy) { return uy_[offset(ix,iy)]; }
-      __declspec(target(mic)) vec& fx(int ix, int iy) { return fx_[offset(ix,iy)]; }
-      __declspec(target(mic)) vec& gy(int ix, int iy) { return gy_[offset(ix,iy)]; }
-
-      // Miscellaneous accessors
-      __declspec(target(mic)) int get_nx() { return nx; }
-      __declspec(target(mic)) int get_ny() { return ny; }
-
-     private:
-      // Helper to calculate 1D offset from 2D coordinates
-      __declspec(target(mic))
-      int offset(int ix, int iy) const { return iy*nx+ix; }
-
-      const int nx, ny;
-
-      std::vector<vec> u_;  // Solution values
-      std::vector<vec> v_;  // Solution values at next step
-      std::vector<vec> f_;  // Fluxes in x
-      std::vector<vec> g_;  // Fluxes in y
-      std::vector<vec> ux_; // x differences of u
-      std::vector<vec> uy_; // y differences of u
-      std::vector<vec> fx_; // x differences of f
-      std::vector<vec> gy_; // y differences of g
-    };
 
     const int nghost;             // Number of ghost cells
     const int nx, ny;             // Number of (non-ghost) cells in x/y
@@ -213,20 +185,20 @@ private:
     const real cfl;               // Allowed CFL number
 
     // Global solution values
-    std::vector<vec> u_;
+    typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+    aligned_vector u_;
 
     // Array accessor function
-
-    __declspec(target(mic))
-    int offset(Parameters params, int ix, int iy) const {
+    TARGET_MIC
+    inline int offset(Parameters &params, int ix, int iy) const {
         return iy*params.nx_all+ix;
     }
 
-    vec& u(int ix, int iy) { return u_[iy*nx_all+ix]; }
+    inline vec& u(int ix, int iy) { return u_[iy*nx_all+ix]; }
 
     // Wrapped accessor (periodic BC)
-    __declspec(target(mic))
-    int ioffset(Parameters params, int ix, int iy) {
+    TARGET_MIC
+    inline int ioffset(Parameters &params, int ix, int iy) {
         return offset( params,
                        (ix+params.nx-params.nghost) % params.nx + params.nghost,
                        (iy+params.ny-params.nghost) % params.ny + params.nghost );
@@ -235,26 +207,35 @@ private:
 //    vec& uwrap(int ix, int iy) { return u_[ioffset(ix,iy)]; }
 
     // Initialize per-thread local state inside of offloaded kernel
-    __declspec(target(mic)) void init_locals(
-        Parameters params, std::vector<LocalState*>& locals);
+    TARGET_MIC
+    void init_locals(Parameters params, std::vector<LocalState*> &locals);
 
     // Apply limiter to all components in a vector
-    __declspec(target(mic))
-    static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
-        for (int m = 0; m < du.size(); ++m)
+    #pragma omp declare simd
+    TARGET_MIC
+    static void limdiff(real *du, const real *um, const real *u0, const real *up) {
+        // for (int m = 0; m < du.size(); ++m)
+        //     du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
+        USE_ALIGN(du, Physics::VEC_ALIGN);
+        USE_ALIGN(um, Physics::VEC_ALIGN);
+        USE_ALIGN(u0, Physics::VEC_ALIGN);
+        USE_ALIGN(up, Physics::VEC_ALIGN);
+
+        #pragma ivdep
+        for (int m = 0; m < Physics::vec_size; ++m)
             du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
     }
 
     // Stages of the main algorithm
-    __declspec(target(mic)) void apply_periodic(Parameters params, real* u);
-    __declspec(target(mic)) void compute_wave_speeds(Parameters params, real& cx, real& cy, real* u);
-    __declspec(target(mic)) void compute_flux(Parameters params, LocalState* local);
-    __declspec(target(mic)) void limited_derivs(Parameters params, LocalState* local);
-    __declspec(target(mic)) void compute_step(Parameters params, LocalState* local, int io, real dt);
+    TARGET_MIC void apply_periodic(Parameters &params, real* u);
+    TARGET_MIC void compute_wave_speeds(Parameters &params, real& cx, real& cy, real *u);
+    TARGET_MIC void compute_flux(Parameters &params, LocalState *local);
+    TARGET_MIC void limited_derivs(Parameters &params, LocalState *local);
+    TARGET_MIC void compute_step(Parameters &params, LocalState *local, int io, real dt);
 
     // Copy data to and from local buffers
-    __declspec(target(mic)) void copy_to_local(Parameters params, LocalState* local, int tid, real* u);
-    __declspec(target(mic)) void copy_from_local(Parameters params, LocalState* local, int tid, real* u);
+    TARGET_MIC void copy_to_local(Parameters &params, LocalState *local, int tid, real *u);
+    TARGET_MIC void copy_from_local(Parameters &params, LocalState *local, int tid, real *u);
 
 };
 
@@ -276,12 +257,11 @@ void Central2D<Physics, Limiter>::init(F f)
 {
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
-            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            f(u(nghost+ix,nghost+iy), (ix+0.5f)*dx, (iy+0.5f)*dy);
 }
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::init_locals(
-    Parameters params, std::vector<LocalState*>& locals)
+void Central2D<Physics, Limiter>::init_locals(Parameters &params, std::vector<LocalState*> &locals)
 {
     // Dimensions of block assigned to each thread
     int nx_per_block = ceil(params.nx / (real)params.nxblocks);
@@ -332,38 +312,54 @@ void Central2D<Physics, Limiter>::init_locals(
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::apply_periodic(Parameters params, real* u)
+void Central2D<Physics, Limiter>::apply_periodic(Parameters &params, real* u)
 {
+    // USE_ALIGN(u, Physics::VEC_ALIGN);
+    USE_ALIGN(u, Physics::BYTE_ALIGN);
     // Copy data between right and left boundaries
     for (int iy = 0; iy < params.ny_all; ++iy)
         for (int ix = 0; ix < params.nghost; ++ix) {
-            int iu      = offset(params, ix, iy) * 3;
-            int iu_wrap = ioffset(params, ix, iy) * 3;
-            u[iu+0] = u[iu_wrap+0];
-            u[iu+1] = u[iu_wrap+1];
-            u[iu+2] = u[iu_wrap+2];
+            int iu      = offset(params, ix, iy) * Physics::vec_size;
+            int iu_wrap = ioffset(params, ix, iy) * Physics::vec_size;
+            
+            #pragma unroll
+            for(int m = 0; m < Physics::vec_size; ++m) u[iu+m] = u[iu_wrap+m];
+            // u[iu+0] = u[iu_wrap+0];
+            // u[iu+1] = u[iu_wrap+1];
+            // u[iu+2] = u[iu_wrap+2];
 
-            iu      = offset(params, params.nx+params.nghost+ix, iy) * 3;
-            iu_wrap = ioffset(params, params.nx+params.nghost+ix, iy) * 3;
-            u[iu+0] = u[iu_wrap+0];
-            u[iu+1] = u[iu_wrap+1];
-            u[iu+2] = u[iu_wrap+2];
+            iu      = offset(params, params.nx+params.nghost+ix, iy) * Physics::vec_size;
+            iu_wrap = ioffset(params, params.nx+params.nghost+ix, iy) * Physics::vec_size;
+
+            #pragma unroll
+            for(int m = 0; m < Physics::vec_size; ++m) u[iu+m] = u[iu_wrap+m];
+            // u[iu+0] = u[iu_wrap+0];
+            // u[iu+1] = u[iu_wrap+1];
+            // u[iu+2] = u[iu_wrap+2];
         }
 
     // Copy data between top and bottom boundaries
     for (int ix = 0; ix < params.nx_all; ++ix)
         for (int iy = 0; iy < params.nghost; ++iy) {
-            int iu      = offset(params, ix, iy) * 3;
-            int iu_wrap = ioffset(params, ix, iy) * 3;
-            u[iu+0] = u[iu_wrap+0];
-            u[iu+1] = u[iu_wrap+1];
-            u[iu+2] = u[iu_wrap+2];
+            int iu      = offset(params, ix, iy) * Physics::vec_size;
+            int iu_wrap = ioffset(params, ix, iy) * Physics::vec_size;
+            
+            #pragma unroll
+            for(int m = 0; m < Physics::vec_size; ++m) u[iu+m] = u[iu_wrap+m];
 
-            iu      = offset(params, ix, params.ny+params.nghost+iy) * 3;
-            iu_wrap = ioffset(params, ix, params.ny+params.nghost+iy) * 3;
-            u[iu+0] = u[iu_wrap+0];
-            u[iu+1] = u[iu_wrap+1];
-            u[iu+2] = u[iu_wrap+2];
+            // u[iu+0] = u[iu_wrap+0];
+            // u[iu+1] = u[iu_wrap+1];
+            // u[iu+2] = u[iu_wrap+2];
+
+            iu      = offset(params, ix, params.ny+params.nghost+iy) * Physics::vec_size;
+            iu_wrap = ioffset(params, ix, params.ny+params.nghost+iy) * Physics::vec_size;
+
+            #pragma unroll
+            for(int m = 0; m < Physics::vec_size; ++m) u[iu+m] = u[iu_wrap+m];
+
+            // u[iu+0] = u[iu_wrap+0];
+            // u[iu+1] = u[iu_wrap+1];
+            // u[iu+2] = u[iu_wrap+2];
         }
 }
 
