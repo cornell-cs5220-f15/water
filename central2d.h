@@ -231,7 +231,7 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
-	#pragma omp parallel for collapse(2)
+    #pragma omp parallel for collapse(2)
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix) {
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
@@ -332,7 +332,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(std::vector<vec>* U,
     
     // was previously looping through everything including ghost cells?
     // if broken, change loop bounds to include ghost cells
-	#pragma omp parallel for collapse(2)
+    #pragma omp parallel for collapse(2)
     #pragma simd
     for (int iy = 0; iy < SIZE_WITH_GHOST; ++iy)
         for (int ix = 0; ix < SIZE_WITH_GHOST; ++ix) {
@@ -360,8 +360,8 @@ void Central2D<Physics, Limiter>::limited_derivs(std::vector<vec>* U,
     std::vector<vec>* UY, std::vector<vec>* FX, std::vector<vec>* GY) {
         
     // if broken, change loop bounds to 1 to SIZE_WITH_GHOST - 1
-	// this is slow
-	#pragma omp parallel for collapse(2)
+    // this is slow
+    #pragma omp parallel for collapse(2)
     for (int y = 0; y < SIZE_WITH_GHOST - 2; ++y) {
         for (int x = 0; x < SIZE_WITH_GHOST - 2; ++x) {
             int iy = (y - nghost + 1 + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
@@ -412,7 +412,7 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
 
     // if broken, revisit loop bounds 1 to (ny/x_all-1)
     // Predictor (flux values of f and g at half step)
-	#pragma omp parallel for collapse(2)
+    #pragma omp parallel for collapse(2)
     #pragma simd
     for (int y = 0; y < SIZE_WITH_GHOST - 2; ++y) {
         for (int x = 0; x < SIZE_WITH_GHOST - 2; ++x) {
@@ -431,7 +431,7 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
 
     // if broken, revisit loop bounds (nghost-io) to (ny+nghost-io)
     // Corrector (finish the step)
-	#pragma omp parallel for collapse(2)
+    #pragma omp parallel for collapse(2)
     #pragma simd
     for (int y = 0; y < SUBDOMAIN_SIZE; ++y) {
         for (int x = 0; x < SUBDOMAIN_SIZE; ++x) {
@@ -459,12 +459,12 @@ void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
     
     // if broken, loop bounds were nghost to (nx/y + nghost)
     // Copy from v storage back to main grid
-	#pragma omp parallel for collapse(2)
+    #pragma omp parallel for collapse(2)
     #pragma simd
     for (int iy = 0; iy < SUBDOMAIN_SIZE; ++iy){
         for (int ix = 0; ix < SUBDOMAIN_SIZE; ++ix){
             int y = (iy-io+SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
-			int x = (ix-io+SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
+            int x = (ix-io+SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
 
             (*U)[iy*SIZE_WITH_GHOST + ix] = (*V)[y*SIZE_WITH_GHOST + x];
         }
@@ -511,7 +511,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
             
             //printf("Block (%i,%i)\n",i,j);
             
-			const int index =  j * NUM_BLOCKS_X + i;
+            const int index =  j * NUM_BLOCKS_X + i;
             subDomainPointers_u[index] = new std::vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
             
             // copy initial values at locations (0,0) to (SUBDOMAIN_SIZE, SUBDOMAIN_SIZE)
@@ -524,13 +524,13 @@ void Central2D<Physics, Limiter>::run(real tfinal)
                     
                     // if outside domain, copy zero
                     if(xCoord < nx && yCoord < ny) {
-						(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x] = u(nghost+xCoord, nghost+yCoord);
+                        (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x] = u(nghost+xCoord, nghost+yCoord);
                         
                     } else {
                         // should never get in here
-						(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][0] = 0;
-						(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][1] = 0;
-						(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][2] = 0;
+                        (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][0] = 0;
+                        (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][1] = 0;
+                        (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][2] = 0;
                     }
                     //printf("Initial (%i,%i): %f, %f, %f\n", xCoord, yCoord, (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][0],(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][1],(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][2]);
                 }
@@ -727,7 +727,7 @@ void Central2D<Physics, Limiter>::solution_check()
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
     real hmin = u(nghost,nghost)[0];
     real hmax = hmin;
-	#pragma omp parallel for collapse(2)
+    #pragma omp parallel for collapse(2)
     for (int j = nghost; j < ny+nghost; ++j)
         for (int i = nghost; i < nx+nghost; ++i) {
             vec& uij = u(i,j);
