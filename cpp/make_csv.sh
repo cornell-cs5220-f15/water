@@ -2,7 +2,7 @@
 
 if [ -z $1 ]; then
 	echo "Error: No directory provided"
-	return
+	exit	
 fi
 
 cd $1
