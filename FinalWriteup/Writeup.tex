@@ -9,6 +9,7 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage[margin=0.8in]{geometry}
+\usepackage{epstopdf}
 
 \definecolor{dkgreen}{rgb}{0,0.6,0}
 \definecolor{gray}{rgb}{0.5,0.5,0.5}
@@ -56,7 +57,7 @@ One method of speeding up the code is to use vectorization, applying operations 
 To vectorize our code, we drew ideas from the vectorized C code produced by Prof. Bindel. We additionally targeted sections of our code that had to be vectorized by use of the ipo out.optreport file output after compilation, which shows the sections that have not been vectorized fully yet. Our vectorization method uses pointers to reduce overheads in manipulating the data structure. 
 
 \section{OpenMP Parallelization}
-We parallelized the code using openMP pragmas (\#pragma omp parallel) in the time advancement loop, as well as the -fopenmp flag in the compilation. Some sections, such as the new timestep computation, only needed to be performed by a single processor and so \#pargma omp single was used inside of the parallel call. At the end of each timestep, a barrier was used to allow synchronization of the processors (particularly necessary for the later domain decomposition). As all for loops were encapsulated within the timestep loop (except for the domain initialization), no additional parallel calls were needed. This parallelization was found to immensely improve the time to run the code. \\
+We parallelized the code using openMP pragmas (\#pragma omp parallel) in the time advancement loop, as well as the -fopenmp flag in the compilation. Some sections, such as the new timestep computation, only needed to be performed by a single processor and so \#pragma omp single was used inside of the parallel call. At the end of each timestep, a barrier was used to allow synchronization of the processors (particularly necessary for the later domain decomposition). As all for loops were encapsulated within the timestep loop (except for the domain initialization), no additional parallel calls were needed. This parallelization was found to immensely improve the time to run the code. \\
 
 The periodic boundary conditions were maintained from the original code, but the number of ghost cells around the domain were varied based on the number of iterations performed within a timestep. \\
 
@@ -86,20 +87,41 @@ The results, for a 800x800 cell domain with varied thread numbers are shown in F
 
 \begin{table}[here]
  \centering
- \includegraphics[width=0.4\linewidth]{SS_newC.png}
+ \begin{tabular}{ | c | c | c | c | }
+ \hline
+ Threads & Time & Strong Scaling & Scaling Efficiency \\ \hline
+1 &	0.534 &	1 &	1 \\
+2 &	0.54  &	0.988888889 &	0.494444444 \\
+4 &	0.558 &	0.956989247 &	0.239247312 \\
+8 &	0.571 &	0.935201401 &	0.116900175 \\ \hline
+\end{tabular}
  \caption{Strong Scaling - New Code}
  \label{table:ss_n}
 \end{table}
 \begin{table}[here]
  \centering
- \includegraphics[width=0.4\linewidth]{SS_XP.png}
+  \begin{tabular}{ | c | c | c | c | }
+ \hline
+ Threads & Time & Strong Scaling & Scaling Efficiency \\ \hline
+1 &	1.017 &	1 &	1 \\
+2 &	0.953  &	1.067156348	& 0.533578174 \\
+4 &	0.913 &	1.113910186	& 0.278477547 \\
+8 &	1.014 &	1.00295858	& 0.125369822 \\ \hline
+\end{tabular}
  \caption{Strong Scaling - New Code, Xeon Phis}
  \label{table:ss_xp}
 \end{table}
 \clearpage
 \begin{table}[here]
  \centering
- \includegraphics[width=0.4\linewidth]{SS_oldC.png}
+  \begin{tabular}{ | c | c | c | c | }
+ \hline
+ Threads & Time & Strong Scaling & Scaling Efficiency \\ \hline
+1	& 29.6	& 1	& 1 \\
+2	& 38.3 & 0.772845953 &	0.386422977 \\
+4	& 45.1 & 0.65631929	 & 0.164079823 \\
+8	& 34.2 & 0.865497076 &	0.108187135 \\ \hline
+\end{tabular}
  \caption{Strong Scaling - Original Code}
  \label{table:ss_oc}
 \end{table}
@@ -121,20 +143,32 @@ Except that for weak scaling, all processors are designated to have the same wor
 
 \begin{table}[here]
  \centering
- \includegraphics[width=0.4\linewidth]{ws_old.png}
+  \begin{tabular}{ | c | c | c | c | }
+ \hline
+ Threads & nx & Total Time & Weak Scaling \\ \hline
+1 &	200 &	0.366 &	1 \\
+4 &	400 &	2.71 &	0.135055351 \\
+16 &	800 &	29.7 &	0.012323232 \\ \hline
+\end{tabular}
  \caption{Weak Scaling - Old Code}
  \label{ws_old}
 \end{table}
 \begin{table}[here]
  \centering
- \includegraphics[width=0.4\linewidth]{ws_new.png}
+  \begin{tabular}{ | c | c | c | c | }
+ \hline
+ Threads & nx & Total Time & Weak Scaling \\ \hline
+1 &	200 &	0.0203 &	1 \\
+4 &	400 &	0.0907 &	0.223814774 \\
+16 &	800 &	0.734 &	0.027656676 \\ \hline
+\end{tabular}
  \caption{Weak Scaling - New Code}
  \label{ws_new}
 \end{table}
 \clearpage
 
 \subsection{Number of Iterations}
-A final graph showing the timings based on the number of iterations run per step is shown in Figure~\ref{niter}. All of these timings were performed using the new code on the compute nodes, on a 800x800 domain, with 16 processors. There is clearly a decrease in simulation time for additional iterations beyond 1, however for higher number of iterations, the simulation run time increases. This could be due to several factors, such as increased communications for each subdomain and larger subdomain array sizes to copy. Furthermore, larger subdomains for computations may extend beyond given cache sizes. 
+A final graph showing the timings based on the number of iterations run per step is shown in Figure~\ref{fig:niter}. All of these timings were performed using the new code on the compute nodes, on a 800x800 domain, with 16 processors. There is clearly a decrease in simulation time for additional iterations beyond 1, however for higher number of iterations, the simulation run time increases. This could be due to several factors, such as increased communications for each subdomain and larger subdomain array sizes to copy. Furthermore, larger subdomains for computations may extend beyond given cache sizes. 
 
 \begin{figure}[here]
  \centering

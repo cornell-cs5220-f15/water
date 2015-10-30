@@ -1,14 +1,21 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2013.5.30)  28 OCT 2015 23:58
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (MiKTeX 2.9 64-bit) (preloaded format=pdflatex 2015.3.16)  30 OCT 2015 00:05
 entering extended mode
- restricted \write18 enabled.
- %&-line parsing enabled.
-**Writeup.tex
-(./Writeup.tex
+**D:/CS*5220*-*Parallel*Computing/water-saul2/FinalWriteup/Writeup.tex
+("D:/CS 5220 - Parallel Computing/water-saul2/FinalWriteup/Writeup.tex"
 LaTeX2e <2011/06/27>
-Babel <3.9f> and hyphenation patterns for 78 languages loaded.
-(/usr/local/texlive/2013/texmf-dist/tex/latex/base/article.cls
+Babel <v3.8m> and hyphenation patterns for english, afrikaans, ancientgreek, ar
+abic, armenian, assamese, basque, bengali, bokmal, bulgarian, catalan, coptic, 
+croatian, czech, danish, dutch, esperanto, estonian, farsi, finnish, french, ga
+lician, german, german-x-2013-05-26, greek, gujarati, hindi, hungarian, iceland
+ic, indonesian, interlingua, irish, italian, kannada, kurmanji, latin, latvian,
+ lithuanian, malayalam, marathi, mongolian, mongolianlmc, monogreek, ngerman, n
+german-x-2013-05-26, nynorsk, oriya, panjabi, pinyin, polish, portuguese, roman
+ian, russian, sanskrit, serbian, slovak, slovenian, spanish, swedish, swissgerm
+an, tamil, telugu, turkish, turkmen, ukenglish, ukrainian, uppersorbian, usengl
+ishmax, welsh, loaded.
+(C:\tex\tex\latex\base\article.cls
 Document Class: article 2007/10/19 v1.4h Standard LaTeX document class
-(/usr/local/texlive/2013/texmf-dist/tex/latex/base/size10.clo
+(C:\tex\tex\latex\base\size10.clo
 File: size10.clo 2007/10/19 v1.4h Standard LaTeX file (size option)
 )
 \c@part=\count79
@@ -22,25 +29,22 @@ File: size10.clo 2007/10/19 v1.4h Standard LaTeX file (size option)
 \abovecaptionskip=\skip41
 \belowcaptionskip=\skip42
 \bibindent=\dimen102
-)
-(/usr/local/texlive/2013/texmf-dist/tex/latex/amsmath/amsmath.sty
+) (C:\tex\tex\latex\amsmath\amsmath.sty
 Package: amsmath 2013/01/14 v2.14 AMS math features
 \@mathmargin=\skip43
 
 For additional information on amsmath, use the `?' option.
-(/usr/local/texlive/2013/texmf-dist/tex/latex/amsmath/amstext.sty
+(C:\tex\tex\latex\amsmath\amstext.sty
 Package: amstext 2000/06/29 v2.01
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/amsmath/amsgen.sty
+ (C:\tex\tex\latex\amsmath\amsgen.sty
 File: amsgen.sty 1999/11/30 v2.0
 \@emptytoks=\toks14
 \ex@=\dimen103
 ))
-(/usr/local/texlive/2013/texmf-dist/tex/latex/amsmath/amsbsy.sty
+(C:\tex\tex\latex\amsmath\amsbsy.sty
 Package: amsbsy 1999/11/29 v1.2d
 \pmbraise@=\dimen104
-)
-(/usr/local/texlive/2013/texmf-dist/tex/latex/amsmath/amsopn.sty
+) (C:\tex\tex\latex\amsmath\amsopn.sty
 Package: amsopn 1999/12/14 v2.01 operator names
 )
 \inf@bad=\count87
@@ -81,31 +85,29 @@ LaTeX Font Info:    Redeclaring font encoding OMS on input line 567.
 LaTeX Info: Redefining \[ on input line 2665.
 LaTeX Info: Redefining \] on input line 2666.
 )
-(/usr/local/texlive/2013/texmf-dist/tex/latex/graphics/graphicx.sty
+(C:\tex\tex\latex\graphics\graphicx.sty
 Package: graphicx 1999/02/16 v1.0f Enhanced LaTeX Graphics (DPC,SPQR)
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/graphics/keyval.sty
+ (C:\tex\tex\latex\graphics\keyval.sty
 Package: keyval 1999/03/16 v1.13 key=value parser (DPC)
 \KV@toks@=\toks19
 )
-(/usr/local/texlive/2013/texmf-dist/tex/latex/graphics/graphics.sty
+(C:\tex\tex\latex\graphics\graphics.sty
 Package: graphics 2009/02/05 v1.0o Standard LaTeX Graphics (DPC,SPQR)
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/graphics/trig.sty
+ (C:\tex\tex\latex\graphics\trig.sty
 Package: trig 1999/03/16 v1.09 sin cos tan (DPC)
 )
-(/usr/local/texlive/2013/texmf-dist/tex/latex/latexconfig/graphics.cfg
-File: graphics.cfg 2010/04/23 v1.9 graphics configuration of TeX Live
+(C:\tex\tex\latex\00miktex\graphics.cfg
+File: graphics.cfg 2007/01/18 v1.5 graphics configuration of teTeX/TeXLive
 )
 Package graphics Info: Driver file: pdftex.def on input line 91.
 
-(/usr/local/texlive/2013/texmf-dist/tex/latex/pdftex-def/pdftex.def
+(C:\tex\tex\latex\pdftex-def\pdftex.def
 File: pdftex.def 2011/05/27 v0.06d Graphics/color for pdfTeX
 
-(/usr/local/texlive/2013/texmf-dist/tex/generic/oberdiek/infwarerr.sty
+(C:\tex\tex\generic\oberdiek\infwarerr.sty
 Package: infwarerr 2010/04/08 v1.3 Providing info/warning/error messages (HO)
 )
-(/usr/local/texlive/2013/texmf-dist/tex/generic/oberdiek/ltxcmds.sty
+(C:\tex\tex\generic\oberdiek\ltxcmds.sty
 Package: ltxcmds 2011/11/09 v1.22 LaTeX kernel commands for general use (HO)
 )
 \Gread@gobject=\count99
@@ -113,17 +115,15 @@ Package: ltxcmds 2011/11/09 v1.22 LaTeX kernel commands for general use (HO)
 \Gin@req@height=\dimen112
 \Gin@req@width=\dimen113
 )
-(/usr/local/texlive/2013/texmf-dist/tex/latex/amsfonts/amssymb.sty
+(C:\tex\tex\latex\amsfonts\amssymb.sty
 Package: amssymb 2013/01/14 v3.01 AMS font symbols
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/amsfonts/amsfonts.sty
+ (C:\tex\tex\latex\amsfonts\amsfonts.sty
 Package: amsfonts 2013/01/14 v3.01 Basic AMSFonts support
 \symAMSa=\mathgroup4
 \symAMSb=\mathgroup5
 LaTeX Font Info:    Overwriting math alphabet `\mathfrak' in version `bold'
 (Font)                  U/euf/m/n --> U/euf/b/n on input line 106.
-))
-(/usr/local/texlive/2013/texmf-dist/tex/latex/booktabs/booktabs.sty
+)) (C:\tex\tex\latex\booktabs\booktabs.sty
 Package: booktabs 2005/04/14 v1.61803 publication quality tables
 \heavyrulewidth=\dimen114
 \lightrulewidth=\dimen115
@@ -143,7 +143,7 @@ Package: booktabs 2005/04/14 v1.61803 publication quality tables
 \@lastruleclass=\count103
 \@thisrulewidth=\dimen126
 )
-(/usr/local/texlive/2013/texmf-dist/tex/latex/listings/listings.sty
+(C:\tex\tex\latex\listings\listings.sty
 \lst@mode=\count104
 \lst@gtempboxa=\box28
 \lst@token=\toks20
@@ -156,30 +156,25 @@ Package: booktabs 2005/04/14 v1.61803 publication quality tables
 \lst@newlines=\count108
 \lst@lineno=\count109
 \lst@maxwidth=\dimen130
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/listings/lstmisc.sty
-File: lstmisc.sty 2007/02/22 1.4 (Carsten Heinz)
+ (C:\tex\tex\latex\listings\lstmisc.sty
+File: lstmisc.sty 2014/09/06 1.5e (Carsten Heinz)
 \c@lstnumber=\count110
 \lst@skipnumbers=\count111
 \lst@framebox=\box29
-)
-(/usr/local/texlive/2013/texmf-dist/tex/latex/listings/listings.cfg
-File: listings.cfg 2007/02/22 1.4 listings configuration
+) (C:\tex\tex\latex\listings\listings.cfg
+File: listings.cfg 2014/09/06 1.5e listings configuration
 ))
-Package: listings 2007/02/22 1.4 (Carsten Heinz)
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/graphics/color.sty
+Package: listings 2014/09/06 1.5e (Carsten Heinz)
+ (C:\tex\tex\latex\graphics\color.sty
 Package: color 2005/11/14 v1.0j Standard LaTeX Color (DPC)
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/latexconfig/color.cfg
+(C:\tex\tex\latex\00miktex\color.cfg
 File: color.cfg 2007/01/18 v1.5 color configuration of teTeX/TeXLive
 )
 Package color Info: Driver file: pdftex.def on input line 130.
-)
-(/usr/local/texlive/2013/texmf-dist/tex/latex/caption/caption.sty
+) (C:\tex\tex\latex\caption\caption.sty
 Package: caption 2013/05/02 v3.3-89 Customizing captions (AR)
 
-(/usr/local/texlive/2013/texmf-dist/tex/latex/caption/caption3.sty
+(C:\tex\tex\latex\caption\caption3.sty
 Package: caption3 2013/05/02 v1.6-88 caption3 kernel (AR)
 Package caption3 Info: TeX engine: e-TeX on input line 57.
 \captionmargin=\dimen131
@@ -193,23 +188,21 @@ Package caption3 Info: TeX engine: e-TeX on input line 57.
 \c@ContinuedFloat=\count112
 Package caption Info: listings package is loaded.
 )
-(/usr/local/texlive/2013/texmf-dist/tex/latex/caption/subcaption.sty
+(C:\tex\tex\latex\caption\subcaption.sty
 Package: subcaption 2013/02/03 v1.1-62 Sub-captions (AR)
 \c@subfigure=\count113
 \c@subtable=\count114
 )
-(/usr/local/texlive/2013/texmf-dist/tex/latex/geometry/geometry.sty
+(C:\tex\tex\latex\geometry\geometry.sty
 Package: geometry 2010/09/12 v5.6 Page Geometry
-
-(/usr/local/texlive/2013/texmf-dist/tex/generic/oberdiek/ifpdf.sty
+ (C:\tex\tex\generic\oberdiek\ifpdf.sty
 Package: ifpdf 2011/01/30 v2.3 Provides the ifpdf switch (HO)
 Package ifpdf Info: pdfTeX in PDF mode is detected.
-)
-(/usr/local/texlive/2013/texmf-dist/tex/generic/oberdiek/ifvtex.sty
+) (C:\tex\tex\generic\oberdiek\ifvtex.sty
 Package: ifvtex 2010/03/01 v1.5 Detect VTeX and its facilities (HO)
 Package ifvtex Info: VTeX not detected.
 )
-(/usr/local/texlive/2013/texmf-dist/tex/generic/ifxetex/ifxetex.sty
+(C:\tex\tex\generic\ifxetex\ifxetex.sty
 Package: ifxetex 2010/09/12 v0.6 Provides ifxetex conditional
 )
 \Gm@cnth=\count115
@@ -224,24 +217,66 @@ Package: ifxetex 2010/09/12 v0.6 Provides ifxetex conditional
 \Gm@layouthoffset=\dimen144
 \Gm@layoutvoffset=\dimen145
 \Gm@dimlist=\toks21
+
+(C:\tex\tex\latex\geometry\geometry.cfg))
+(C:\tex\tex\latex\oberdiek\epstopdf.sty
+Package: epstopdf 2010/02/09 v2.5 Conversion with epstopdf on the fly (HO)
+
+(C:\tex\tex\latex\oberdiek\epstopdf-base.sty
+Package: epstopdf-base 2010/02/09 v2.5 Base part for package epstopdf
+
+(C:\tex\tex\latex\oberdiek\grfext.sty
+Package: grfext 2010/08/19 v1.1 Manage graphics extensions (HO)
+
+(C:\tex\tex\generic\oberdiek\kvdefinekeys.sty
+Package: kvdefinekeys 2011/04/07 v1.3 Define keys (HO)
+))
+(C:\tex\tex\latex\oberdiek\kvoptions.sty
+Package: kvoptions 2011/06/30 v3.11 Key value format for package options (HO)
+
+(C:\tex\tex\generic\oberdiek\kvsetkeys.sty
+Package: kvsetkeys 2012/04/25 v1.16 Key value parser (HO)
+
+(C:\tex\tex\generic\oberdiek\etexcmds.sty
+Package: etexcmds 2011/02/16 v1.5 Avoid name clashes with e-TeX commands (HO)
+
+(C:\tex\tex\generic\oberdiek\ifluatex.sty
+Package: ifluatex 2010/03/01 v1.3 Provides the ifluatex switch (HO)
+Package ifluatex Info: LuaTeX not detected.
 )
-(./Writeup.aux)
-\openout1 = `Writeup.aux'.
+Package etexcmds Info: Could not find \expanded.
+(etexcmds)             That can mean that you are not using pdfTeX 1.50 or
+(etexcmds)             that some package has redefined \expanded.
+(etexcmds)             In the latter case, load this package earlier.
+)))
+(C:\tex\tex\generic\oberdiek\pdftexcmds.sty
+Package: pdftexcmds 2011/11/29 v0.20 Utility functions of pdfTeX for LuaTeX (HO
+)
+Package pdftexcmds Info: LuaTeX not detected.
+Package pdftexcmds Info: \pdf@primitive is available.
+Package pdftexcmds Info: \pdf@ifprimitive is available.
+Package pdftexcmds Info: \pdfdraftmode found.
+)
+Package grfext Info: Graphics extension search list:
+(grfext)             [.png,.pdf,.jpg,.mps,.jpeg,.jbig2,.jb2,.PNG,.PDF,.JPG,.JPE
+G,.JBIG2,.JB2,.eps]
+(grfext)             \AppendGraphicsExtensions on input line 452.
+))
+("D:\CS 5220 - Parallel Computing\water-saul2\FinalWriteup\Writeup.aux")
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 18.
+LaTeX Font Info:    ... okay on input line 18.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 17.
-LaTeX Font Info:    ... okay on input line 17.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 17.
-LaTeX Font Info:    ... okay on input line 17.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 17.
-LaTeX Font Info:    ... okay on input line 17.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 17.
-LaTeX Font Info:    ... okay on input line 17.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 17.
-LaTeX Font Info:    ... okay on input line 17.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 17.
-LaTeX Font Info:    ... okay on input line 17.
-
-(/usr/local/texlive/2013/texmf-dist/tex/context/base/supp-pdf.mkii
+(C:\tex\tex\context\base\supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
 \scratchcounter=\count118
 \scratchdimen=\dimen146
@@ -254,50 +289,7 @@ LaTeX Font Info:    ... okay on input line 17.
 \MPnumerator=\count122
 \makeMPintoPDFobject=\count123
 \everyMPtoPDFconversion=\toks23
-) (/usr/local/texlive/2013/texmf-dist/tex/generic/oberdiek/pdftexcmds.sty
-Package: pdftexcmds 2011/11/29 v0.20 Utility functions of pdfTeX for LuaTeX (HO
 )
-
-(/usr/local/texlive/2013/texmf-dist/tex/generic/oberdiek/ifluatex.sty
-Package: ifluatex 2010/03/01 v1.3 Provides the ifluatex switch (HO)
-Package ifluatex Info: LuaTeX not detected.
-)
-Package pdftexcmds Info: LuaTeX not detected.
-Package pdftexcmds Info: \pdf@primitive is available.
-Package pdftexcmds Info: \pdf@ifprimitive is available.
-Package pdftexcmds Info: \pdfdraftmode found.
-)
-(/usr/local/texlive/2013/texmf-dist/tex/latex/oberdiek/epstopdf-base.sty
-Package: epstopdf-base 2010/02/09 v2.5 Base part for package epstopdf
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/oberdiek/grfext.sty
-Package: grfext 2010/08/19 v1.1 Manage graphics extensions (HO)
-
-(/usr/local/texlive/2013/texmf-dist/tex/generic/oberdiek/kvdefinekeys.sty
-Package: kvdefinekeys 2011/04/07 v1.3 Define keys (HO)
-))
-(/usr/local/texlive/2013/texmf-dist/tex/latex/oberdiek/kvoptions.sty
-Package: kvoptions 2011/06/30 v3.11 Key value format for package options (HO)
-
-(/usr/local/texlive/2013/texmf-dist/tex/generic/oberdiek/kvsetkeys.sty
-Package: kvsetkeys 2012/04/25 v1.16 Key value parser (HO)
-
-(/usr/local/texlive/2013/texmf-dist/tex/generic/oberdiek/etexcmds.sty
-Package: etexcmds 2011/02/16 v1.5 Avoid name clashes with e-TeX commands (HO)
-Package etexcmds Info: Could not find \expanded.
-(etexcmds)             That can mean that you are not using pdfTeX 1.50 or
-(etexcmds)             that some package has redefined \expanded.
-(etexcmds)             In the latter case, load this package earlier.
-)))
-Package grfext Info: Graphics extension search list:
-(grfext)             [.png,.pdf,.jpg,.mps,.jpeg,.jbig2,.jb2,.PNG,.PDF,.JPG,.JPE
-G,.JBIG2,.JB2,.eps]
-(grfext)             \AppendGraphicsExtensions on input line 452.
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
-File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
-e
-))
 \c@lstlisting=\count124
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: End \AtBeginDocument code.
@@ -336,21 +328,20 @@ Package caption Info: End \AtBeginDocument code.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-LaTeX Font Info:    Try loading font information for U+msa on input line 21.
-(/usr/local/texlive/2013/texmf-dist/tex/latex/amsfonts/umsa.fd
+LaTeX Font Info:    Try loading font information for U+msa on input line 22.
+(C:\tex\tex\latex\amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Try loading font information for U+msb on input line 21.
-
-(/usr/local/texlive/2013/texmf-dist/tex/latex/amsfonts/umsb.fd
+LaTeX Font Info:    Try loading font information for U+msb on input line 22.
+ (C:\tex\tex\latex\amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-Underfull \hbox (badness 10000) in paragraph at lines 26--27
+Underfull \hbox (badness 10000) in paragraph at lines 27--28
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 28--29
+Underfull \hbox (badness 10000) in paragraph at lines 29--30
 
  []
 
@@ -358,166 +349,132 @@ Underfull \hbox (badness 10000) in paragraph at lines 28--29
 File: shallow_wave_screenshot.png Graphic file (type png)
 
 <use shallow_wave_screenshot.png>
-Package pdftex.def Info: shallow_wave_screenshot.png used on input line 34.
+Package pdftex.def Info: shallow_wave_screenshot.png used on input line 35.
 (pdftex.def)             Requested size: 299.20059pt x 300.4342pt.
  [1
 
-{/usr/local/texlive/2013/texmf-var/fonts/map/pdftex/updmap/pdftex.map} <./shall
-ow_wave_screenshot.png>]
-<VTUNE_OrigC.png, id=13, 362.35374pt x 262.9825pt>
+{C:/Users/Xiang/AppData/Local/MiKTeX/2.9/pdftex/config/pdftex.map} <D:/CS 5220 
+- Parallel Computing/water-saul2/FinalWriteup/shallow_wave_screenshot.png>]
+<VTUNE_OrigC.png, id=12, 362.35374pt x 262.9825pt>
 File: VTUNE_OrigC.png Graphic file (type png)
  <use VTUNE_OrigC.png>
-Package pdftex.def Info: VTUNE_OrigC.png used on input line 46.
+Package pdftex.def Info: VTUNE_OrigC.png used on input line 47.
 (pdftex.def)             Requested size: 199.46198pt x 144.7652pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 54--55
+Underfull \hbox (badness 10000) in paragraph at lines 55--56
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 59--60
+Underfull \hbox (badness 10000) in paragraph at lines 60--61
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 61--62
+Underfull \hbox (badness 10000) in paragraph at lines 62--63
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 65--66
+Underfull \hbox (badness 10000) in paragraph at lines 66--67
 
  []
 
 [2
 
- <./VTUNE_OrigC.png>]
-Underfull \hbox (badness 10000) in paragraph at lines 68--69
+ <D:/CS 5220 - Parallel Computing/water-saul2/FinalWriteup/VTUNE_OrigC.png>]
+Underfull \hbox (badness 10000) in paragraph at lines 69--70
 
  []
 
 [3]
-Underfull \hbox (badness 10000) in paragraph at lines 74--75
+Underfull \hbox (badness 10000) in paragraph at lines 75--76
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 85--86
+Underfull \hbox (badness 10000) in paragraph at lines 86--87
 
  []
 
-<SS_newC.png, id=21, 400.8576pt x 79.9788pt>
-File: SS_newC.png Graphic file (type png)
- <use SS_newC.png>
-Package pdftex.def Info: SS_newC.png used on input line 89.
-(pdftex.def)             Requested size: 199.46198pt x 39.7977pt.
+[4
 
-<SS_XP.png, id=22, 400.8576pt x 79.9788pt>
-File: SS_XP.png Graphic file (type png)
- <use SS_XP.png>
-Package pdftex.def Info: SS_XP.png used on input line 95.
-(pdftex.def)             Requested size: 199.46198pt x 39.7977pt.
- [4
-
- <./SS_newC.png> <./SS_XP.png>] <SS_oldC.png, id=30, 400.8576pt x 79.9788pt>
-File: SS_oldC.png Graphic file (type png)
- <use SS_oldC.png>
-Package pdftex.def Info: SS_oldC.png used on input line 102.
-(pdftex.def)             Requested size: 199.46198pt x 39.7977pt.
+]
 Package epstopdf Info: Source file: <scaleff.eps>
-(epstopdf)                    date: 2015-10-27 14:17:22
-(epstopdf)                    size: 9658 bytes
+(epstopdf)                    date: 2015-10-29 23:32:42
+(epstopdf)                    size: 10027 bytes
 (epstopdf)             Output file: <scaleff-eps-converted-to.pdf>
-(epstopdf)                    date: 2015-10-28 23:14:21
+(epstopdf)                    date: 2015-10-29 23:32:42
 (epstopdf)                    size: 7764 bytes
-(epstopdf)             Command: <repstopdf --outfile=scaleff-eps-converted-to.p
-df scaleff.eps>
-(epstopdf)             \includegraphics on input line 110.
+(epstopdf)             Command: <epstopdf --outfile=scaleff-eps-converted-to.pd
+f scaleff.eps>
+(epstopdf)             \includegraphics on input line 132.
 Package epstopdf Info: Output file is already uptodate.
-
-<scaleff-eps-converted-to.pdf, id=31, 1356.06625pt x 572.1375pt>
+ <scaleff-eps-converted-to.pdf, id=25, 1356.06625pt x 572.1375pt>
 File: scaleff-eps-converted-to.pdf Graphic file (type pdf)
 
 <use scaleff-eps-converted-to.pdf>
-Package pdftex.def Info: scaleff-eps-converted-to.pdf used on input line 110.
+Package pdftex.def Info: scaleff-eps-converted-to.pdf used on input line 132.
 (pdftex.def)             Requested size: 448.79327pt x 189.34721pt.
  [5
 
- <./SS_oldC.png> <./scaleff-eps-converted-to.pdf>]
-Underfull \hbox (badness 10000) in paragraph at lines 115--116
+ <D:/CS 5220 - Parallel Computing/water-saul2/FinalWriteup/scaleff-eps-converte
+d-to.pdf>]
+Underfull \hbox (badness 10000) in paragraph at lines 137--138
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 120--121
+Underfull \hbox (badness 10000) in paragraph at lines 142--143
 
  []
 
-<ws_old.png, id=41, 398.9304pt x 64.5612pt>
-File: ws_old.png Graphic file (type png)
- <use ws_old.png>
-Package pdftex.def Info: ws_old.png used on input line 124.
-(pdftex.def)             Requested size: 199.46198pt x 32.28052pt.
+[6
 
-<ws_new.png, id=42, 398.9304pt x 67.9338pt>
-File: ws_new.png Graphic file (type png)
- <use ws_new.png>
-Package pdftex.def Info: ws_new.png used on input line 130.
-(pdftex.def)             Requested size: 199.46198pt x 33.96681pt.
- [6
-
- <./ws_old.png> <./ws_new.png>]
-
-LaTeX Warning: Reference `niter' on page 7 undefined on input line 137.
-
+]
 Package epstopdf Info: Source file: <t_iter.eps>
-(epstopdf)                    date: 2015-10-27 11:41:22
-(epstopdf)                    size: 8646 bytes
+(epstopdf)                    date: 2015-10-29 23:32:42
+(epstopdf)                    size: 8956 bytes
 (epstopdf)             Output file: <t_iter-eps-converted-to.pdf>
-(epstopdf)                    date: 2015-10-28 23:28:28
+(epstopdf)                    date: 2015-10-29 23:32:42
 (epstopdf)                    size: 6875 bytes
-(epstopdf)             Command: <repstopdf --outfile=t_iter-eps-converted-to.pd
-f t_iter.eps>
-(epstopdf)             \includegraphics on input line 141.
+(epstopdf)             Command: <epstopdf --outfile=t_iter-eps-converted-to.pdf
+ t_iter.eps>
+(epstopdf)             \includegraphics on input line 175.
 Package epstopdf Info: Output file is already uptodate.
-<t_iter-eps-converted-to.pdf, id=48, 940.51375pt x 591.20876pt>
+ <t_iter-eps-converted-to.pdf, id=37, 940.51375pt x 591.20876pt>
 File: t_iter-eps-converted-to.pdf Graphic file (type pdf)
 
 <use t_iter-eps-converted-to.pdf>
-Package pdftex.def Info: t_iter-eps-converted-to.pdf used on input line 141.
+Package pdftex.def Info: t_iter-eps-converted-to.pdf used on input line 175.
 (pdftex.def)             Requested size: 448.79327pt x 282.10806pt.
 
-Underfull \hbox (badness 2376) in paragraph at lines 149--150
+Underfull \hbox (badness 2376) in paragraph at lines 183--184
 []\OT1/cmr/m/n/10 Kevin Davis. Ac-cessed 25 Oct, 2015. https://software.intel.c
 om/en-us/articles/effective-use-of-the-intel-
  []
 
 [7
 
- <./t_iter-eps-converted-to.pdf>] (./Writeup.aux)
-
-LaTeX Warning: There were undefined references.
-
- ) 
+ <D:/CS 5220 - Parallel Computing/water-saul2/FinalWriteup/t_iter-eps-converted
+-to.pdf>]
+("D:\CS 5220 - Parallel Computing\water-saul2\FinalWriteup\Writeup.aux") ) 
 Here is how much of TeX's memory you used:
- 5286 strings out of 493315
- 78187 string characters out of 6137904
- 147126 words of memory out of 5000000
- 8663 multiletter control sequences out of 15000+600000
- 11503 words of font info for 45 fonts, out of 8000000 for 9000
- 957 hyphenation exceptions out of 8191
- 38i,7n,38p,1169b,281s stack positions out of 5000i,500n,10000p,200000b,80000s
-</usr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb
-></usr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb>
-</usr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><
-/usr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></u
-sr/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr
-/local/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/l
-ocal/texlive/2013/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb>
-Output written on Writeup.pdf (7 pages, 367663 bytes).
+ 5262 strings out of 493921
+ 75509 string characters out of 3155703
+ 143239 words of memory out of 3000000
+ 8484 multiletter control sequences out of 15000+200000
+ 11195 words of font info for 44 fonts, out of 3000000 for 9000
+ 841 hyphenation exceptions out of 8191
+ 42i,8n,38p,1227b,281s stack positions out of 5000i,500n,10000p,200000b,50000s
+<C:/t
+ex/fonts/type1/public/amsfonts/cm/cmbx12.pfb><C:/tex/fonts/type1/public/amsfont
+s/cm/cmmi10.pfb><C:/tex/fonts/type1/public/amsfonts/cm/cmr10.pfb><C:/tex/fonts/
+type1/public/amsfonts/cm/cmr12.pfb><C:/tex/fonts/type1/public/amsfonts/cm/cmr17
+.pfb><C:/tex/fonts/type1/public/amsfonts/cm/cmr7.pfb>
+Output written on Writeup.pdf (7 pages, 269176 bytes).
 PDF statistics:
- 83 PDF objects out of 1000 (max. 8388607)
- 48 compressed objects within 1 object stream
+ 67 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
- 46 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 21 words of extra memory for PDF output out of 10000 (max. 10000000)
 
