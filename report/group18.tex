@@ -63,7 +63,7 @@
         We have several versions of \texttt{central2d.h}.
         \begin{itemize}
             \item \texttt{central2dBasic.h}: This is the original code.
-            \item \texttt{central2d\_handvectorized\_serial.h}: This is the hand vectorized version of the corrector part of the \texttt{compute\_step} function. 
+            \item \texttt{central2d\_handvectorized\_serial.h}: This is the hand vectorized version of the corrector part of the \texttt{compute\_step} function. This code is run serially.
             \item \texttt{central2dParallel.h}: This is the parallelized version with domain decomposition with no vectorization.
             \item \texttt{central2dParallelAligned.h}: This is the parallelized version with \texttt{ivdep}.
             \item \texttt{central2d.h}: This is our fastest version. It is the same as \texttt{central2dParallelAligned.h}.
@@ -95,7 +95,7 @@
             \caption{DomainDecomposition()}
             \begin{algorithmic}
                 \STATE{Use pragma omp parallel by setting u\_ as the shared variable}
-                \STATE{Use omp\_set\_num\_threads(NUM) where NUM is the number of domains}
+                \STATE{Use omp\_set\_num\_threads(NUM) where NUM is the number of domains. There were 3 ghost cells per domain.}
                 \STATE{Initialize vectors in each thread's domain.}
                 \STATE{Assign domain index for each thread using omp\_get\_thread\_num().}
                 \STATE{Copy the center of domain vectors from u\_ for each thread.}
@@ -104,7 +104,7 @@
                     \STATE{Serial computation of time step}
                     \STATE{\texttt{barrier}}
                      \STATE{Copy the domain boundary vectors from u\_ for each thread.}
-                      \FOR{ i=0; i $<$ Nsteps; i++}
+                      \FOR{ i=0; i $<$ 2*Nsteps; i++}
                       \STATE{Here Nsteps is the number of steps by which domain evolves.}
                       \STATE{Flux computation}
                       \STATE{x and y derivatives}
@@ -157,11 +157,13 @@
     \subsection{3.3 Vectorization using ivdep}
         To perform vectorization on this code, we have used pragma ivdep. As mentioned in intel website, ivdep provides the instruction to the compiler to ignore vector dependecies and performs the auto vectorization.  In the profiling section, we show that the limited\_derivs is the computationally expensive step. So we decided to put \#pragma omp ivdep in limdiff function in central2d.h. The modified function looks like
 
-        \texttt{static void limdiff(vec$\&$ du, const vec$\&$ um, const vec$\&$ u0, const vec$\&$ up) { \\      
-        \#pragma ivdep \\
-        for (int m = 0; m $<$ du.size(); ++m) \\
-            du[m] = Limiter::limdiff(um[m], u0[m], up[m]);\\
-        } }\\
+        \begin{lstlisting}
+static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
+    #pragma ivdep
+    for (int m = 0; m < du.size(); ++m)
+        du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
+}
+        \end{lstlisting}
         On adding ivdep, we were able to get a significant gain. The parallelized code run for section 2.2 now takes a total time of 0.43 seconds. 
    
     \section{4 Scaling}
