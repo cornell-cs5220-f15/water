@@ -1,0 +1,4 @@
+#!/bin/bash
+SIZE=$(cat lshallow.o$1 | head -n 1 | cut -d ' ' -f 3)
+RUNTIME=$(cat lshallow.o$1 | grep 'Total compute time: ' | cut -d ' ' -f 4)
+echo $SIZE,$RUNTIME >> $2
