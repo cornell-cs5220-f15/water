@@ -14,8 +14,8 @@
 #include <assert.h>
 #include <stdio.h>
 
-#define SEP_X 6
-#define SEP_Y 6
+#define SEP_X 1
+#define SEP_Y 1
 
 //ldoc on
 /**

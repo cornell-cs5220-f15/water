@@ -470,7 +470,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                 done = true;
             }
        
-            central2d_step(u, v, scratch, f, g, 0, nx+2*ng-i*6-8, ny+2*ng-i*6-8, i*3+2, nfield, flux, speed, dt, dx, dy);
+            central2d_step(u, v, scratch, f, g, 0, nx+2*ng-i*6-4, ny+2*ng-i*6-4, i*3+2, nfield, flux, speed, dt, dx, dy);
 
             central2d_step(v, u, scratch, f, g, 1, nx+2*ng-i*6-8, ny+2*ng-i*6-8, i*3+4, nfield, flux, speed, dt, dx, dy);
             

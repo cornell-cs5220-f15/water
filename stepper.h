@@ -1,6 +1,6 @@
 #ifndef STEPPER_H
 #define STEPPER_H
-#define NGHOST 4 
+#define NGHOST 16 
 
 #include <math.h>
 
