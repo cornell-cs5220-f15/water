@@ -1,0 +1,369 @@
+
+Begin optimization report for: main(int, char **)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(748,7) inlined into driver.cc(142,29)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between __first line 750 and __first line 750
+   remark #15346: vector dependence: assumed ANTI dependence between __first line 750 and __first line 750
+LOOP END
+
+LOOP BEGIN at central2d.h(255,9) inlined into driver.cc(144,9)
+   remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+LOOP END
+
+LOOP BEGIN at central2d.h(271,9) inlined into driver.cc(145,9)
+   remark #15520: loop was not vectorized: loop with early exits cannot be vectorized unless it meets search loop idiom criteria
+LOOP END
+
+LOOP BEGIN at meshio.h(59,37) inlined into driver.cc(146,9)
+   remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+
+   LOOP BEGIN at meshio.h(60,41) inlined into driver.cc(146,9)
+      remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+   LOOP END
+LOOP END
+
+LOOP BEGIN at central2d.h(271,9) inlined into driver.cc(153,13)
+   remark #15520: loop was not vectorized: loop with early exits cannot be vectorized unless it meets search loop idiom criteria
+LOOP END
+
+LOOP BEGIN at meshio.h(59,37) inlined into driver.cc(154,13)
+   remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+
+   LOOP BEGIN at meshio.h(60,41) inlined into driver.cc(154,13)
+      remark #15523: loop was not vectorized: cannot compute loop iteration count before executing the loop.
+   LOOP END
+LOOP END
+
+
+Non-optimizable loops:
+
+
+LOOP BEGIN at driver.cc(101,5)
+   remark #15341: loop was not vectorized: nonstandard loop is not a vectorization candidate
+LOOP END
+
+LOOP BEGIN at central2d.h(254,4) inlined into driver.cc(144,9)
+   remark #15341: loop was not vectorized: nonstandard loop is not a vectorization candidate
+LOOP END
+
+LOOP BEGIN at central2d.h(270,5) inlined into driver.cc(145,9)
+   remark #15341: loop was not vectorized: nonstandard loop is not a vectorization candidate
+LOOP END
+
+LOOP BEGIN at driver.cc(147,5)
+   remark #15536: loop was not vectorized: inner loop throttling prevents vectorization of this outer loop. Refer to inner loop message for more details.
+
+   LOOP BEGIN at central2d.h(270,5) inlined into driver.cc(153,13)
+      remark #15341: loop was not vectorized: nonstandard loop is not a vectorization candidate
+   LOOP END
+LOOP END
+===========================================================================
+
+Begin optimization report for: Central2D<Shallow2D, MinMod<Shallow2D::real>>::run(Central2D<Shallow2D, MinMod<Shallow2D::real>> *, Central2D<Shallow2D, MinMod<Shallow2D::real>>::real)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(748,7) inlined into central2d.h(103,34)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between __first line 750 and __first line 750
+   remark #15346: vector dependence: assumed ANTI dependence between __first line 750 and __first line 750
+LOOP END
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(748,7) inlined into central2d.h(104,34)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between __first line 750 and __first line 750
+   remark #15346: vector dependence: assumed ANTI dependence between __first line 750 and __first line 750
+LOOP END
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(748,7) inlined into central2d.h(105,34)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between __first line 750 and __first line 750
+   remark #15346: vector dependence: assumed ANTI dependence between __first line 750 and __first line 750
+LOOP END
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(748,7) inlined into central2d.h(106,35)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between __first line 750 and __first line 750
+   remark #15346: vector dependence: assumed ANTI dependence between __first line 750 and __first line 750
+LOOP END
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(748,7) inlined into central2d.h(107,35)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between __first line 750 and __first line 750
+   remark #15346: vector dependence: assumed ANTI dependence between __first line 750 and __first line 750
+LOOP END
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(748,7) inlined into central2d.h(108,35)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between __first line 750 and __first line 750
+   remark #15346: vector dependence: assumed ANTI dependence between __first line 750 and __first line 750
+LOOP END
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(748,7) inlined into central2d.h(109,35)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between __first line 750 and __first line 750
+   remark #15346: vector dependence: assumed ANTI dependence between __first line 750 and __first line 750
+LOOP END
+
+LOOP BEGIN at /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/bits/stl_algobase.h(748,7) inlined into central2d.h(110,34)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed FLOW dependence between __first line 750 and __first line 750
+   remark #15346: vector dependence: assumed ANTI dependence between __first line 750 and __first line 750
+LOOP END
+
+LOOP BEGIN at central2d.h(120,5)
+   remark #15344: loop was not vectorized: vector dependence prevents vectorization
+   remark #15346: vector dependence: assumed ANTI dependence between this line 122 and _M_elems line 122
+   remark #15346: vector dependence: assumed FLOW dependence between _M_elems line 122 and this line 122
+
+   LOOP BEGIN at central2d.h(121,7)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between this line 122 and _M_elems line 122
+      remark #15346: vector dependence: assumed FLOW dependence between _M_elems line 122 and this line 122
+   LOOP END
+
+   LOOP BEGIN at central2d.h(121,7)
+   <Remainder>
+   LOOP END
+LOOP END
+
+LOOP BEGIN at central2d.h(125,5)
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at central2d.h(132,2)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at central2d.h(133,4)
+         remark #15415: vectorization support: gather was generated for the variable U:  strided by 3   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(53,33) ]
+         remark #15415: vectorization support: gather was generated for the variable U:  strided by 3   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(53,33) ]
+         remark #15415: vectorization support: gather was generated for the variable U:  strided by 3   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(53,33) ]
+         remark #15300: LOOP WAS VECTORIZED
+         remark #15460: masked strided loads: 3 
+         remark #15475: --- begin vector loop cost summary ---
+         remark #15476: scalar loop cost: 146 
+         remark #15477: vector loop cost: 26.000 
+         remark #15478: estimated potential speedup: 5.250 
+         remark #15479: lightweight vector operations: 47 
+         remark #15488: --- end vector loop cost summary ---
+      LOOP END
+
+      LOOP BEGIN at central2d.h(133,4)
+      <Remainder>
+      LOOP END
+   LOOP END
+
+   LOOP BEGIN at central2d.h(150,5)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_elems line 154 and _M_elems line 157
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_elems line 157 and _M_elems line 154
+
+      LOOP BEGIN at central2d.h(151,7)
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+         remark #15346: vector dependence: assumed OUTPUT dependence between _M_elems line 154 and _M_elems line 157
+         remark #15346: vector dependence: assumed OUTPUT dependence between _M_elems line 157 and _M_elems line 154
+      LOOP END
+   LOOP END
+
+   LOOP BEGIN at central2d.h(161,5)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_elems line 165 and _M_elems line 167
+      remark #15346: vector dependence: assumed OUTPUT dependence between _M_elems line 167 and _M_elems line 165
+
+      LOOP BEGIN at central2d.h(162,7)
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+         remark #15346: vector dependence: assumed OUTPUT dependence between _M_elems line 165 and _M_elems line 167
+         remark #15346: vector dependence: assumed OUTPUT dependence between _M_elems line 167 and _M_elems line 165
+      LOOP END
+   LOOP END
+
+   LOOP BEGIN at central2d.h(176,7)
+      remark #15382: vectorization support: call to function Shallow2D::flux(Shallow2D::vec &, Shallow2D::vec &, const Shallow2D::vec &) cannot be vectorized   [ central2d.h(178,8) ]
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed OUTPUT dependence between  line 178 and  line 178
+      remark #15346: vector dependence: assumed OUTPUT dependence between  line 178 and  line 178
+
+      LOOP BEGIN at central2d.h(177,9)
+         remark #15382: vectorization support: call to function Shallow2D::flux(Shallow2D::vec &, Shallow2D::vec &, const Shallow2D::vec &) cannot be vectorized   [ central2d.h(178,8) ]
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      LOOP END
+   LOOP END
+
+   LOOP BEGIN at central2d.h(182,5)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at central2d.h(186,7)
+         remark #15542: loop was not vectorized: inner loop was already vectorized
+
+         LOOP BEGIN at central2d.h(187,9)
+            remark #15542: loop was not vectorized: inner loop was already vectorized
+
+            LOOP BEGIN at central2d.h(70,9) inlined into central2d.h(191,8)
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(77,23) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(77,23) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(78,23) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ central2d.h(71,15) ]
+               remark #15381: vectorization support: unaligned access used inside loop body
+               remark #15300: LOOP WAS VECTORIZED
+               remark #15450: unmasked unaligned unit stride loads: 6 
+               remark #15451: unmasked unaligned unit stride stores: 1 
+               remark #15475: --- begin vector loop cost summary ---
+               remark #15476: scalar loop cost: 130 
+               remark #15477: vector loop cost: 74.500 
+               remark #15478: estimated potential speedup: 1.190 
+               remark #15479: lightweight vector operations: 108 
+               remark #15480: medium-overhead vector operations: 2 
+               remark #15488: --- end vector loop cost summary ---
+            LOOP END
+
+            LOOP BEGIN at central2d.h(70,9) inlined into central2d.h(192,8)
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(77,23) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(77,23) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(78,23) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ central2d.h(71,15) ]
+               remark #15381: vectorization support: unaligned access used inside loop body
+               remark #15300: LOOP WAS VECTORIZED
+               remark #15450: unmasked unaligned unit stride loads: 6 
+               remark #15451: unmasked unaligned unit stride stores: 1 
+               remark #15475: --- begin vector loop cost summary ---
+               remark #15476: scalar loop cost: 130 
+               remark #15477: vector loop cost: 74.500 
+               remark #15478: estimated potential speedup: 1.190 
+               remark #15479: lightweight vector operations: 108 
+               remark #15480: medium-overhead vector operations: 2 
+               remark #15488: --- end vector loop cost summary ---
+            LOOP END
+
+            LOOP BEGIN at central2d.h(70,9) inlined into central2d.h(195,8)
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(77,23) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(77,23) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(78,23) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ central2d.h(71,15) ]
+               remark #15381: vectorization support: unaligned access used inside loop body
+               remark #15300: LOOP WAS VECTORIZED
+               remark #15450: unmasked unaligned unit stride loads: 6 
+               remark #15451: unmasked unaligned unit stride stores: 1 
+               remark #15475: --- begin vector loop cost summary ---
+               remark #15476: scalar loop cost: 130 
+               remark #15477: vector loop cost: 74.500 
+               remark #15478: estimated potential speedup: 1.190 
+               remark #15479: lightweight vector operations: 108 
+               remark #15480: medium-overhead vector operations: 2 
+               remark #15488: --- end vector loop cost summary ---
+            LOOP END
+
+            LOOP BEGIN at central2d.h(70,9) inlined into central2d.h(196,8)
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ /opt/rh/devtoolset-3/root/usr/include/c++/4.9.2/array(177,16) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(77,23) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(77,23) ]
+               remark #15389: vectorization support: reference F32 has unaligned access   [ minmod.h(78,23) ]
+               remark #15389: vectorization support: reference _M_elems has unaligned access   [ central2d.h(71,15) ]
+               remark #15381: vectorization support: unaligned access used inside loop body
+               remark #15300: LOOP WAS VECTORIZED
+               remark #15450: unmasked unaligned unit stride loads: 6 
+               remark #15451: unmasked unaligned unit stride stores: 1 
+               remark #15475: --- begin vector loop cost summary ---
+               remark #15476: scalar loop cost: 130 
+               remark #15477: vector loop cost: 74.500 
+               remark #15478: estimated potential speedup: 1.190 
+               remark #15479: lightweight vector operations: 108 
+               remark #15480: medium-overhead vector operations: 2 
+               remark #15488: --- end vector loop cost summary ---
+            LOOP END
+
+            LOOP BEGIN at central2d.h(70,9) inlined into central2d.h(191,8)
+            <Remainder>
+            LOOP END
+
+            LOOP BEGIN at central2d.h(70,9) inlined into central2d.h(192,8)
+            <Remainder>
+            LOOP END
+
+            LOOP BEGIN at central2d.h(70,9) inlined into central2d.h(195,8)
+            <Remainder>
+            LOOP END
+
+            LOOP BEGIN at central2d.h(70,9) inlined into central2d.h(196,8)
+            <Remainder>
+            LOOP END
+         LOOP END
+      LOOP END
+
+      LOOP BEGIN at central2d.h(200,7)
+         remark #15382: vectorization support: call to function Shallow2D::flux(Shallow2D::vec &, Shallow2D::vec &, const Shallow2D::vec &) cannot be vectorized   [ central2d.h(208,8) ]
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+         remark #15346: vector dependence: assumed FLOW dependence between uh.12261 line 202 and uh line 208
+         remark #15346: vector dependence: assumed ANTI dependence between uh line 208 and uh.12261 line 202
+
+         LOOP BEGIN at central2d.h(201,9)
+            remark #15382: vectorization support: call to function Shallow2D::flux(Shallow2D::vec &, Shallow2D::vec &, const Shallow2D::vec &) cannot be vectorized   [ central2d.h(208,8) ]
+            remark #15344: loop was not vectorized: vector dependence prevents vectorization
+            remark #15346: vector dependence: assumed FLOW dependence between uh.12261 line 202 and uh line 208
+            remark #15346: vector dependence: assumed ANTI dependence between uh line 208 and uh.12261 line 202
+
+            LOOP BEGIN at central2d.h(204,8)
+               remark #15344: loop was not vectorized: vector dependence prevents vectorization
+               remark #15346: vector dependence: assumed FLOW dependence between gyt_.12146 line 205 and gyt_.12146 line 206
+               remark #15346: vector dependence: assumed ANTI dependence between uh.12261 line 206 and uh.12261 line 205
+            LOOP END
+         LOOP END
+      LOOP END
+
+      LOOP BEGIN at central2d.h(212,7)
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+
+         LOOP BEGIN at central2d.h(213,9)
+            remark #15344: loop was not vectorized: vector dependence prevents vectorization
+            remark #15346: vector dependence: assumed FLOW dependence between vt_.12146 line 216 and vt_.12146 line 216
+            remark #15346: vector dependence: assumed ANTI dependence between vt_.12146 line 216 and vt_.12146 line 216
+
+            LOOP BEGIN at central2d.h(215,39)
+            LOOP END
+         LOOP END
+      LOOP END
+
+      LOOP BEGIN at central2d.h(231,7)
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+         remark #15346: vector dependence: assumed FLOW dependence between _M_elems line 233 and _M_elems line 233
+         remark #15346: vector dependence: assumed ANTI dependence between _M_elems line 233 and _M_elems line 233
+
+         LOOP BEGIN at central2d.h(232,9)
+            remark #15344: loop was not vectorized: vector dependence prevents vectorization
+            remark #15346: vector dependence: assumed FLOW dependence between _M_elems line 233 and _M_elems line 233
+            remark #15346: vector dependence: assumed ANTI dependence between _M_elems line 233 and _M_elems line 233
+         LOOP END
+      LOOP END
+   LOOP END
+
+   LOOP BEGIN at central2d.h(239,5)
+      remark #15344: loop was not vectorized: vector dependence prevents vectorization
+      remark #15346: vector dependence: assumed ANTI dependence between this line 241 and _M_elems line 241
+      remark #15346: vector dependence: assumed FLOW dependence between _M_elems line 241 and this line 241
+
+      LOOP BEGIN at central2d.h(240,7)
+         remark #15344: loop was not vectorized: vector dependence prevents vectorization
+         remark #15346: vector dependence: assumed ANTI dependence between this line 241 and _M_elems line 241
+         remark #15346: vector dependence: assumed FLOW dependence between _M_elems line 241 and this line 241
+      LOOP END
+
+      LOOP BEGIN at central2d.h(240,7)
+      <Remainder>
+      LOOP END
+   LOOP END
+LOOP END
+===========================================================================

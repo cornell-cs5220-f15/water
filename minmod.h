@@ -1,6 +1,5 @@
 #ifndef MINMOD_H
 #define MINMOD_H
-
 #include <cmath>
 
 //ldoc on
@@ -64,8 +63,12 @@ struct MinMod {
     // Branch-free computation of minmod of two numbers
     static real xmin(real a, real b) {
         using namespace std;
-        return ((copysign((real) 0.5, a) +
-                 copysign((real) 0.5, b)) *
+	real m1 = -0.5;
+	real m2 = -0.5;
+	if ( a > 0) m1 = 0.5;
+	if (b > 0) m2 = 0.5;
+        return ((m1 +
+                 m2) *
                 min( abs(a), abs(b) ));
     }
 

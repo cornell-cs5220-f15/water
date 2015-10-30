@@ -1,0 +1,8 @@
+Function             Module        CPU Time  Spin Time  Overhead Time
+-------------------  ------------  --------  ---------  -------------
+limited_derivs       shallow         1.174s         0s             0s
+compute_step         shallow         0.562s         0s             0s
+compute_fg_speeds    shallow         0.199s         0s             0s
+write_frame          shallow         0.005s         0s             0s
+run                  shallow         0.003s         0s             0s
+solution_check       shallow         0.001s         0s             0s

@@ -173,14 +173,20 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     real dtcdy2 = 0.5 * dt / dy;
 
       // Flux computation
-      for ( iy = 0; iy < nyt_all; ++iy)
-        for ( ix = 0; ix < nxt_all; ++ix) {
-    	  Physics::flux(ft_[ix+iy*nxt_all], gt_[ix+iy*nxt_all], ut_[ix+iy*nxt_all]);
-        }
+      //for ( iy = 0; iy < nyt_all; ++iy)
+      //  for ( ix = 0; ix < nxt_all; ++ix) {
+    	//  Physics::flux(ft_[ix+iy*nxt_all], gt_[ix+iy*nxt_all], ut_[ix+iy*nxt_all]);
+       // }
 
 
     for (iom2 = 0; iom2 < 2*Nsteps; iom2 ++) {
       io = iom2%2;
+
+            // Flux computation
+                   for ( iy = 0; iy < nyt_all; ++iy)
+                           for ( ix = 0; ix < nxt_all; ++ix) {
+                                     Physics::flux(ft_[ix+iy*nxt_all], gt_[ix+iy*nxt_all], ut_[ix+iy*nxt_all]);
+                                             }
       
       // x and y Derivative
       for ( iy = 1; iy < nyt_all-1; ++iy) {
