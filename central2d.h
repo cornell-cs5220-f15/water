@@ -267,8 +267,9 @@ template <typename F>
     #endif
     //std::cout<<"nodomains: "<<nodomains<<"\n";
 
-    for (int iy = 0; iy < ny; ++iy){
-        for (int ix = 0; ix < nx; ++ix){
+    for (int ix = 0; ix < nx; ++ix){
+        for (int iy = 0; iy < ny; ++iy){
+        
             int d_ny = iy % domain_ny;
             int d_nx = ix % domain_nx;
 
@@ -392,8 +393,9 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_, int tn
     #endif
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < domain_ny_inc_ghost; ++iy)
-        for (int ix = 0; ix < domain_nx_inc_ghost; ++ix) {
+    for (int ix = 0; ix < domain_nx_inc_ghost; ++ix)
+        for (int iy = 0; iy < domain_ny_inc_ghost; ++iy){
+       
             real cell_cx, cell_cy;
             Physics::flux(f(ix,iy, tno), g(ix,iy, tno), ug(ix,iy, tno));
             Physics::wave_speed(cell_cx, cell_cy, ug(ix,iy, tno));
@@ -419,8 +421,9 @@ template <class Physics, class Limiter>
     std::cout<<"Inside limited_derivs function\n";
     #endif
     int iy, ix;
-    for (iy = 1; iy < domain_ny_inc_ghost-1; ++iy) {
-        for (ix = 1; ix < domain_nx_inc_ghost-1; ++ix) {
+    for (ix = 1; ix < domain_nx_inc_ghost-1; ++ix) {
+        for (iy = 1; iy < domain_ny_inc_ghost-1; ++iy) {
+        
 
         // x derivs
             limdiff( ux(ix,iy,tno), ug(ix-1,iy,tno), ug(ix,iy,tno), ug(ix+1,iy,tno) );
@@ -467,8 +470,9 @@ template <class Physics, class Limiter>
     real dtcdy2 = 0.5 * dt / dy;
 
     // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < domain_ny_inc_ghost-1; ++iy)
-        for (int ix = 1; ix < domain_nx_inc_ghost-1; ++ix) {
+    for (int ix = 1; ix < domain_nx_inc_ghost-1; ++ix)
+        for (int iy = 1; iy < domain_ny_inc_ghost-1; ++iy){
+        
             vec uh = ug(ix,iy,tno);
             for (int m = 0; m < uh.size(); ++m) {
                 uh[m] -= dtcdx2 * fx(ix,iy,tno)[m];
@@ -478,30 +482,31 @@ template <class Physics, class Limiter>
         }
 
     // Corrector (finish the step)
-        for (int iy = nghost-io; iy < domain_ny+nghost-io; ++iy)
-            for (int ix = nghost-io; ix < domain_nx+nghost-io; ++ix) {
-                for (int m = 0; m < v(ix,iy,tno).size(); ++m) {
-                    v(ix,iy,tno)[m] =
-                    0.2500 * ( ug(ix,iy,tno)[m] + ug(ix+1,iy,tno)[m] +
-                     ug(ix,iy+1,tno)[m] + ug(ix+1,iy+1,tno)[m] ) -
-                    0.0625 * ( ux(ix+1,iy,tno)[m] - ux(ix,iy,tno)[m] +
-                     ux(ix+1,iy+1,tno)[m] - ux(ix,iy+1,tno)[m] +
-                     uy(ix,  iy+1,tno)[m] - uy(ix,  iy,tno)[m] +
-                     uy(ix+1,iy+1,tno)[m] - uy(ix+1,iy,tno)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy,tno)[m] - f(ix,iy,tno)[m] +
-                     f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1,tno)[m] - g(ix,  iy,tno)[m] +
-                     g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
+    for (int ix = nghost-io; ix < domain_nx+nghost-io; ++ix)
+        for (int iy = nghost-io; iy < domain_ny+nghost-io; ++iy){
+        
+            for (int m = 0; m < v(ix,iy,tno).size(); ++m) {
+                v(ix,iy,tno)[m] =
+                0.2500 * ( ug(ix,iy,tno)[m] + ug(ix+1,iy,tno)[m] +
+                 ug(ix,iy+1,tno)[m] + ug(ix+1,iy+1,tno)[m] ) -
+                0.0625 * ( ux(ix+1,iy,tno)[m] - ux(ix,iy,tno)[m] +
+                 ux(ix+1,iy+1,tno)[m] - ux(ix,iy+1,tno)[m] +
+                 uy(ix,  iy+1,tno)[m] - uy(ix,  iy,tno)[m] +
+                 uy(ix+1,iy+1,tno)[m] - uy(ix+1,iy,tno)[m] ) -
+                dtcdx2 * ( f(ix+1,iy,tno)[m] - f(ix,iy,tno)[m] +
+                 f(ix+1,iy+1,tno)[m] - f(ix,iy+1,tno)[m] ) -
+                dtcdy2 * ( g(ix,  iy+1,tno)[m] - g(ix,  iy,tno)[m] +
+                 g(ix+1,iy+1,tno)[m] - g(ix+1,iy,tno)[m] );
                 }
             }
 
     // Copy from v storage back to main grid
-            for (int j = nghost; j < domain_ny+nghost; ++j){
-                for (int i = nghost; i < domain_nx+nghost; ++i){
-                    ug(i,j,tno) = v(i-io,j-io,tno);
-                }
-            }
+    for (int i = nghost; i < domain_nx+nghost; ++i){
+        for (int j = nghost; j < domain_ny+nghost; ++j){
+            ug(i,j,tno) = v(i-io,j-io,tno);
         }
+    }
+}
 
 
 /**
@@ -623,8 +628,9 @@ void Central2D<Physics, Limiter>::solution_check()
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
     real hmin = u(0, 0, 0)[0];
     real hmax = hmin;
-    for (int j = 0; j < ny; ++j)
-        for (int i = 0; i < nx; ++i) {
+    for (int i = 0; i < nx; ++i) 
+        for (int j = 0; j < ny; ++j){
+        
             int d_ny = j % domain_ny; 
             int d_nx = i % domain_nx;
 
