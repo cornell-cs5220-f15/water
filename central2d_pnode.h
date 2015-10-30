@@ -159,8 +159,6 @@ public:
                 locals_.push_back(
                             std::make_unique< LocalState<Physics> >(nx_local, ny_local) // waddup c++14
                         );
-                    //     std::unique_ptr<LocalState<Physics>>(
-                    // new LocalState<Physics>(nx_local, ny_local)));
             }
         }
     }
@@ -201,7 +199,6 @@ private:
 
     // Global solution values
     typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
-    // std::vector<vec> u_;
     aligned_vector u_;
 
     // Local state (per-thread)
@@ -287,19 +284,6 @@ void Central2D<Physics, Limiter>::init(F f)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
 {
-    // // Copy data between right and left boundaries
-    // for (int iy = 0; iy < ny_all; ++iy)
-    //     for (int ix = 0; ix < nghost; ++ix) {
-    //         u(ix,          iy) = uwrap(ix,          iy);
-    //         u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
-    //     }
-
-    // // Copy data between top and bottom boundaries
-    // for (int ix = 0; ix < nx_all; ++ix)
-    //     for (int iy = 0; iy < nghost; ++iy) {
-    //         u(ix,          iy) = uwrap(ix,          iy);
-    //         u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
-    //     }
     // Copy data between right and left boundaries
     for (int iy = 0; iy < ny_all; ++iy) {
         for (int ix = 0; ix < nghost; ++ix) {
@@ -347,18 +331,6 @@ void Central2D<Physics, Limiter>::apply_periodic()
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_wave_speeds(real& cx_, real& cy_)
 {
-    // real cx = 1.0e-15;
-    // real cy = 1.0e-15;
-    // for (int iy = 0; iy < ny_all; ++iy)
-    //     for (int ix = 0; ix < nx_all; ++ix) {
-    //         real cell_cx, cell_cy;
-    //         Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
-    //         cx = std::max(cx, cell_cx);
-    //         cy = std::max(cy, cell_cy);
-    //     }
-    // cx_ = cx;
-    // cy_ = cy;
-
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
@@ -392,10 +364,6 @@ void Central2D<Physics, Limiter>::compute_flux(int tid)
             Physics::flux(f_xy, g_xy, u_xy);
         }
     }
-
-            // Physics::flux(locals_[tid]->f(ix,iy),
-            //               locals_[tid]->g(ix,iy),
-            //               locals_[tid]->u(ix,iy));
 }
 
 /**
@@ -443,18 +411,6 @@ void Central2D<Physics, Limiter>::limited_derivs(int tid)
             limdiff( fx_x0_y0, f_xM1_y0, f_x0_y0, f_xP1_y0 );
             limdiff( uy_x0_y0, u_x0_yM1, u_x0_y0, u_x0_yP1 );
             limdiff( gy_x0_y0, g_x0_yM1, g_x0_y0, g_x0_yP1 );
-
-            // // x derivs
-            // limdiff( locals_[tid]->ux(ix,iy), locals_[tid]->u(ix-1,iy),
-            //          locals_[tid]->u(ix,iy),  locals_[tid]->u(ix+1,iy) );
-            // limdiff( locals_[tid]->fx(ix,iy), locals_[tid]->f(ix-1,iy),
-            //          locals_[tid]->f(ix,iy),  locals_[tid]->f(ix+1,iy) );
-
-            // // y derivs
-            // limdiff( locals_[tid]->uy(ix,iy), locals_[tid]->u(ix,iy-1),
-            //          locals_[tid]->u(ix,iy),  locals_[tid]->u(ix,iy+1) );
-            // limdiff( locals_[tid]->gy(ix,iy), locals_[tid]->g(ix,iy-1),
-            //          locals_[tid]->g(ix,iy),  locals_[tid]->g(ix,iy+1) );
         }
     }
 }
@@ -497,12 +453,6 @@ void Central2D<Physics, Limiter>::compute_step(int tid, int io, real dt)
     for (int iy = 1; iy < ny_per_block-1; ++iy) {
         #pragma simd
         for (int ix = 1; ix < nx_per_block-1; ++ix) {
-    //         vec uh = locals_[tid]->u(ix,iy);
-    //         for (int m = 0; m < uh.size(); ++m) {
-    //             uh[m] -= dtcdx2 * locals_[tid]->fx(ix,iy)[m];
-    //             uh[m] -= dtcdy2 * locals_[tid]->gy(ix,iy)[m];
-    //         }
-    //         Physics::flux(locals_[tid]->f(ix,iy), locals_[tid]->g(ix,iy), uh);
             // gather the necessary information
             real *uh    = locals_[tid]->u(ix,iy).data();   USE_ALIGN(uh,    Physics::VEC_ALIGN);
             real *fx_xy = locals_[tid]->fx(ix, iy).data(); USE_ALIGN(fx_xy, Physics::VEC_ALIGN);
@@ -526,37 +476,6 @@ void Central2D<Physics, Limiter>::compute_step(int tid, int io, real dt)
     // Corrector (finish the step)
     for (int iy = nghost-io; iy < ny_per_block-nghost-io; ++iy) {
         for (int ix = nghost-io; ix < nx_per_block-nghost-io; ++ix) {
-    //         for (int m = 0; m < locals_[tid]->v(ix,iy).size(); ++m) {
-
-    //             real u_sum = locals_[tid]->u(ix,iy)[m]
-    //                        + locals_[tid]->u(ix+1,iy)[m]
-    //                        + locals_[tid]->u(ix,iy+1)[m]
-    //                        + locals_[tid]->u(ix+1,iy+1)[m];
-
-    //             real uxy_sum = locals_[tid]->ux(ix+1,iy)[m]
-    //                          - locals_[tid]->ux(ix,iy)[m]
-    //                          + locals_[tid]->ux(ix+1,iy+1)[m]
-    //                          - locals_[tid]->ux(ix,iy+1)[m]
-    //                          + locals_[tid]->uy(ix,iy+1)[m]
-    //                          - locals_[tid]->uy(ix,iy)[m]
-    //                          + locals_[tid]->uy(ix+1,iy+1)[m]
-    //                          - locals_[tid]->uy(ix+1,iy)[m];
-
-    //             real f_sum = locals_[tid]->f(ix+1,iy)[m]
-    //                        - locals_[tid]->f(ix,iy)[m]
-    //                        + locals_[tid]->f(ix+1,iy+1)[m]
-    //                        - locals_[tid]->f(ix,iy+1)[m];
-
-    //             real g_sum = locals_[tid]->g(ix,iy+1)[m]
-    //                        - locals_[tid]->g(ix,iy)[m]
-    //                        + locals_[tid]->g(ix+1,iy+1)[m]
-    //                        - locals_[tid]->g(ix+1,iy)[m];
-
-    //             locals_[tid]->v(ix,iy)[m] = 0.2500 * u_sum
-    //                                       - 0.0625 * uxy_sum
-    //                                       - dtcdx2 * f_sum
-    //                                       - dtcdy2 * g_sum;
-    //         }
             /* Nomenclature:
              *     u_x0_y0 <- u(ix  , iy  )
              *     u_x1_y0 <- u(ix+1, iy  )
@@ -616,7 +535,6 @@ void Central2D<Physics, Limiter>::compute_step(int tid, int io, real dt)
     // Copy from v storage back to main grid
     for (int j = nghost; j < ny_per_block-nghost; ++j) {
         for (int i = nghost; i < nx_per_block-nghost; ++i) {
-    //         locals_[tid]->u(i,j) = locals_[tid]->v(i-io,j-io);
             real *u_ij    = locals_[tid]->u(i, j).data();       USE_ALIGN(u_ij,     Physics::VEC_ALIGN );
             real *v_ij_io = locals_[tid]->v(i-io, j-io).data(); USE_ALIGN(v_ij_io,  Physics::VEC_ALIGN );
 
@@ -651,7 +569,6 @@ void Central2D<Physics, Limiter>::copy_to_local(int tid)
 
     for (int iy = 0; iy < ny_per_block; ++iy) {
         for (int ix = 0; ix < nx_per_block; ++ix) {
-            // locals_[tid]->u(ix, iy) = u(bix_off+ix, biy_off+iy);
             real *locals_u_xy = locals_[tid]->u(ix, iy).data();   USE_ALIGN(locals_u_xy, Physics::VEC_ALIGN);
             real *global_u_xy = u(bix_off+ix, biy_off+iy).data(); USE_ALIGN(global_u_xy, Physics::VEC_ALIGN);
 
@@ -674,7 +591,6 @@ void Central2D<Physics, Limiter>::copy_from_local(int tid)
 
     for (int iy = nghost; iy < ny_per_block - nghost; ++iy) {
         for (int ix = nghost; ix < nx_per_block - nghost; ++ix) {
-            // u(bix_off+ix, biy_off+iy) = locals_[tid]->u(ix, iy);
             real *locals_u_xy = locals_[tid]->u(ix, iy).data();   USE_ALIGN(locals_u_xy, Physics::VEC_ALIGN);
             real *global_u_xy = u(bix_off+ix, biy_off+iy).data(); USE_ALIGN(global_u_xy, Physics::VEC_ALIGN);
 
