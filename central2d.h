@@ -140,8 +140,8 @@ public:
     const vec& operator()(int i, int j) const {
         return u_[offset(i+nghost,j+nghost)];
     }
-    void init2(Central2D< Shallow2D, MinMod<Shallow2D::real> > big,int rankx,int ranky, int nprocx, int nprocy);
-    void copyfrom(Central2D< Shallow2D, MinMod<Shallow2D::real> > big,int rankx,int ranky, int nprocx, int nprocy);
+    void init2(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky, int nprocx, int nprocy);
+    void copyfrom(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky, int nprocx, int nprocy);
     void copyto(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky);
     
     void apply_periodic();
@@ -374,7 +374,7 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::init2(Central2D< Shallow2D, MinMod<Shallow2D::real> > big,int rankx,int ranky, int nprocx, int nprocy)
+void Central2D<Physics, Limiter>::init2(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky, int nprocx, int nprocy)
 {
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
@@ -383,20 +383,20 @@ void Central2D<Physics, Limiter>::init2(Central2D< Shallow2D, MinMod<Shallow2D::
 
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::copyfrom(Central2D< Shallow2D, MinMod<Shallow2D::real> > big,int rankx,int ranky, int nprocx, int nprocy)
+void Central2D<Physics, Limiter>::copyfrom(Central2D< Shallow2D, MinMod<Shallow2D::real> >& big,int rankx,int ranky, int nprocx, int nprocy)
 {
         for (int iy = 0; iy < ny_all; ++iy)
             for (int ix = 0; ix < nghost; ++ix)
               { 
-                u(ix,iy) = big.u(nx*rankx+ix,ny*ranky+iy);
-                u(ix+nx+nghost,iy) = big.u(nx*rankx+ix+nx+nghost,ny*ranky+iy);
+                u(ix,iy) = big.uwrap(nx*rankx+ix,ny*ranky+iy);
+                u(ix+nx+nghost,iy) = big.uwrap(nx*rankx+ix+nx+nghost,ny*ranky+iy);
               }
 
         for (int ix = 0; ix < nx_all; ++ix)
             for (int iy = 0; iy < nghost; ++iy) 
               {
-                u(ix,iy) = big.u(nx*rankx+ix,ny*ranky+iy);
-                u(ix,iy+ny+nghost) = big.u(nx*rankx+ix,ny*ranky+iy+ny+nghost);
+                u(ix,iy) = big.uwrap(nx*rankx+ix,ny*ranky+iy);
+                u(ix,iy+ny+nghost) = big.uwrap(nx*rankx+ix,ny*ranky+iy+ny+nghost);
               }
 
 
