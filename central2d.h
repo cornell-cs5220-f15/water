@@ -382,7 +382,7 @@ template <class Physics, class Limiter>
 //             u(x, y, tno) = board((domain_nx * (tno % nodomains) - nghost + nx + x) % nx, (domain_ny * (tno / nodomains) - nghost + ny + y) % ny);
 //         }
 //     }
-}
+
 /**
  * ### Initial flux and speed computations
  * 
@@ -642,7 +642,7 @@ void Central2D<Physics, Limiter>::solution_check()
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
     real hmin = u(0, 0, 0)[0];
     real hmax = hmin;
-    
+
     for (int j = 0; j < ny; ++j){
         for (int i = 0; i < nx; ++i){ 
 
