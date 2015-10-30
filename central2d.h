@@ -3,8 +3,18 @@
 
 #include <cstdio>
 #include <cmath>
+#include <omp.h>
 #include <cassert>
 #include <vector>
+#include <iostream>
+
+using namespace std;
+
+// (nx / SUBDOMAIN_SIZE)
+const int num_thread = 4;
+// needs to divide nx evenly (nx / sqrt(num_thread))
+const int SUBDOMAIN_SIZE = 100;
+
 
 //ldoc on
 /**
@@ -92,8 +102,9 @@
  * of the domain has index (0,0).
  */
 
+
 template <class Physics, class Limiter>
-class Central2D {
+class  Central2D {
 public:
     typedef typename Physics::real real;
     typedef typename Physics::vec  vec;
@@ -140,6 +151,7 @@ public:
     
 private:
     static constexpr int nghost = 3;   // Number of ghost cells
+    static const int SIZE_WITH_GHOST = SUBDOMAIN_SIZE + 2*nghost;
 
     const int nx, ny;          // Number of (non-ghost) cells in x/y
     const int nx_all, ny_all;  // Total cells in x/y (including ghost)
@@ -176,6 +188,10 @@ private:
     }
 
     vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
+    
+    vec& castIndex(std::vector<vec>* vecArg, int ix, int iy) {
+        return (vec&) (*vecArg)[iy*SIZE_WITH_GHOST + ix];
+    }
 
     // Apply limiter to all components in a vector
     static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
@@ -184,13 +200,21 @@ private:
     }
 
     // Stages of the main algorithm
-    void apply_periodic();
-    void compute_fg_speeds(real& cx, real& cy);
-    void limited_derivs();
-    void compute_step(int io, real dt);
+    void apply_periodic(std::vector<vec>* U, std::vector<vec>* upperL_u,
+        std::vector<vec>* upper_u, std::vector<vec>* upperR_u,
+        std::vector<vec>* left_u, std::vector<vec>* right_u,
+        std::vector<vec>* lowerL_u, std::vector<vec>* lower_u,
+        std::vector<vec>* lowerR_u);
+    void compute_fg_speeds(std::vector<vec>* U, std::vector<vec>* fluxX,
+        std::vector<vec>* fluxY, real& cx, real& cy);
+    void limited_derivs(std::vector<vec>* U, std::vector<vec>* fluxX,
+        std::vector<vec>* fluxY, std::vector<vec>* UX, std::vector<vec>* UY,
+        std::vector<vec>* FX, std::vector<vec>* GY);
+    void compute_step(std::vector<vec>* U, std::vector<vec>* fluxX,
+        std::vector<vec>* fluxY, std::vector<vec>* UX, std::vector<vec>* UY,
+        std::vector<vec>* FX, std::vector<vec>* GY, int io, real dt);
 
 };
-
 
 /**
  * ## Initialization
@@ -207,9 +231,14 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
-    for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
+    #pragma omp parallel for collapse(2)
+    for (int iy = 0; iy < ny; ++iy) {
+        for (int ix = 0; ix < nx; ++ix) {
             f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            vec& v = u(nghost+ix,nghost+iy);
+            //printf("(%i,%i) holds %f, %f, %f\n",nghost+ix, nghost+iy, v[0],v[1],v[2]);
+        }
+    }
 }
 
 /**
@@ -230,21 +259,56 @@ void Central2D<Physics, Limiter>::init(F f)
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::apply_periodic()
-{
-    // Copy data between right and left boundaries
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nghost; ++ix) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
+void Central2D<Physics, Limiter>::apply_periodic(std::vector<vec>* U,
+    std::vector<vec>* upperL_u, std::vector<vec>* upper_u,
+    std::vector<vec>* upperR_u, std::vector<vec>* left_u,
+    std::vector<vec>* right_u, std::vector<vec>* lowerL_u,
+    std::vector<vec>* lower_u, std::vector<vec>* lowerR_u) {
+    
+    // strongly believe this is functioning correctly
+    
+    // indices 0 to SUBDOMAIN_SIZE are regular cells
+    // indices SUBDOMAIN_SIZE to (SUBDOMAIN_SIZE + 2 * nghost = SIZE_WITH_GHOST) are ghost cells
+    // this is different from the starter code
+
+    #pragma omp parallel
+    {
+        // Copy data between right and left boundaries
+        #pragma omp for collapse(2)
+        for (int iy = 0; iy < SUBDOMAIN_SIZE; ++iy) {
+            for (int ix = 0; ix < nghost; ++ix) {
+                int yOffset = iy * SIZE_WITH_GHOST;
+                int xOffset = ix + SUBDOMAIN_SIZE;
+                
+                (*U)[yOffset + xOffset] = (*right_u)[yOffset + ix];
+                (*U)[yOffset + xOffset + nghost] = (*left_u)[yOffset + xOffset - nghost];
+            }
         }
 
-    // Copy data between top and bottom boundaries
-    for (int ix = 0; ix < nx_all; ++ix)
-        for (int iy = 0; iy < nghost; ++iy) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
+        #pragma omp for collapse(2)
+        // Copy data between top and bottom boundaries
+        for (int ix = 0; ix < SUBDOMAIN_SIZE; ++ix)
+            for (int iy = 0; iy < nghost; ++iy) {
+                int yOffset = (iy + SUBDOMAIN_SIZE) * SIZE_WITH_GHOST;
+                
+                (*U)[yOffset + ix] = (*lower_u)[iy * SIZE_WITH_GHOST + ix];
+                (*U)[yOffset + ix + nghost*SIZE_WITH_GHOST] = (*upper_u)[ix + yOffset - nghost*SIZE_WITH_GHOST];
+            }
+        
+        // copy data from corners
+        #pragma omp for collapse(2)
+        for( int ix = 0; ix < nghost; ++ix ) {
+            for( int iy = 0; iy < nghost; ++iy ) {
+                int xOffset = SUBDOMAIN_SIZE + ix;
+                int yOffset = (SUBDOMAIN_SIZE + iy) * SIZE_WITH_GHOST;
+                
+                (*U)[yOffset + xOffset] = (*lowerR_u)[iy*SIZE_WITH_GHOST + ix];
+                (*U)[yOffset + xOffset + nghost] = (*lowerL_u)[iy*SIZE_WITH_GHOST + xOffset - nghost];
+                (*U)[yOffset + nghost*SIZE_WITH_GHOST + xOffset] = (*upperR_u)[(SUBDOMAIN_SIZE + iy - nghost)*SIZE_WITH_GHOST + ix];
+                (*U)[yOffset + nghost*SIZE_WITH_GHOST + xOffset + nghost] = (*upperL_u)[(SUBDOMAIN_SIZE + iy - nghost)*SIZE_WITH_GHOST + xOffset - nghost];
+            }
         }
+    }
 }
 
 
@@ -259,16 +323,22 @@ void Central2D<Physics, Limiter>::apply_periodic()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
-{
+void Central2D<Physics, Limiter>::compute_fg_speeds(std::vector<vec>* U,
+    std::vector<vec>* fluxX, std::vector<vec>* fluxY, real& cx_, real& cy_) {
+        
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < ny_all; ++iy)
-        for (int ix = 0; ix < nx_all; ++ix) {
+    
+    // was previously looping through everything including ghost cells?
+    // if broken, change loop bounds to include ghost cells
+    #pragma omp parallel for collapse(2)
+    #pragma simd
+    for (int iy = 0; iy < SIZE_WITH_GHOST; ++iy)
+        for (int ix = 0; ix < SIZE_WITH_GHOST; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+            Physics::flux(castIndex(fluxX, ix, iy), castIndex(fluxY, ix, iy), castIndex(U, ix, iy));
+            Physics::wave_speed(cell_cx, cell_cy, castIndex(U, ix, iy));
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
@@ -285,19 +355,27 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::limited_derivs()
-{
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-
+void Central2D<Physics, Limiter>::limited_derivs(std::vector<vec>* U,
+    std::vector<vec>* fluxX, std::vector<vec>* fluxY, std::vector<vec>* UX,
+    std::vector<vec>* UY, std::vector<vec>* FX, std::vector<vec>* GY) {
+        
+    // if broken, change loop bounds to 1 to SIZE_WITH_GHOST - 1
+    // this is slow
+    #pragma omp parallel for collapse(2)
+    for (int y = 0; y < SIZE_WITH_GHOST - 2; ++y) {
+        for (int x = 0; x < SIZE_WITH_GHOST - 2; ++x) {
+            int iy = (y - nghost + 1 + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
+            int ix = (x - nghost + 1 + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
+            
             // x derivs
-            limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-            limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
+            limdiff( castIndex(UX, ix, iy), castIndex(U, (ix-1+SIZE_WITH_GHOST) % SIZE_WITH_GHOST, iy), castIndex(U, ix, iy), castIndex(U, (ix+1)% SIZE_WITH_GHOST, iy) );
+            limdiff( castIndex(FX, ix, iy), castIndex(fluxX, (ix-1+SIZE_WITH_GHOST)% SIZE_WITH_GHOST, iy), castIndex(fluxX, ix, iy), castIndex(fluxX, (ix+1)% SIZE_WITH_GHOST, iy) );
 
             // y derivs
-            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
+            limdiff( castIndex(UY, ix, iy), castIndex(U, ix, (iy-1+SIZE_WITH_GHOST)% SIZE_WITH_GHOST), castIndex(U, ix, iy), castIndex(U, ix, (iy+1)% SIZE_WITH_GHOST) );
+            limdiff( castIndex(GY, ix, iy), castIndex(fluxY, ix, (iy-1+SIZE_WITH_GHOST)% SIZE_WITH_GHOST), castIndex(fluxY, ix, iy), castIndex(fluxY, ix, (iy+1)% SIZE_WITH_GHOST) );
         }
+    }
 }
 
 
@@ -324,48 +402,78 @@ void Central2D<Physics, Limiter>::limited_derivs()
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::compute_step(int io, real dt)
-{
+void Central2D<Physics, Limiter>::compute_step(std::vector<vec>* U,
+    std::vector<vec>* fluxX, std::vector<vec>* fluxY, std::vector<vec>* UX,
+    std::vector<vec>* UY, std::vector<vec>* FX, std::vector<vec>* GY,
+    int io, real dt) {
+        
     real dtcdx2 = 0.5 * dt / dx;
     real dtcdy2 = 0.5 * dt / dy;
 
+    // if broken, revisit loop bounds 1 to (ny/x_all-1)
     // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
-        for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec uh = u(ix,iy);
+    #pragma omp parallel for collapse(2)
+    #pragma simd
+    for (int y = 0; y < SIZE_WITH_GHOST - 2; ++y) {
+        for (int x = 0; x < SIZE_WITH_GHOST - 2; ++x) {
+            int iy = (y - nghost + 1 + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
+            int ix = (x - nghost + 1 + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
+            vec uh = castIndex(U, ix, iy);
             for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * fx(ix,iy)[m];
-                uh[m] -= dtcdy2 * gy(ix,iy)[m];
+                uh[m] -= dtcdx2 * castIndex(FX, ix, iy)[m];
+                uh[m] -= dtcdy2 * castIndex(GY, ix, iy)[m];
             }
-            Physics::flux(f(ix,iy), g(ix,iy), uh);
+            Physics::flux(castIndex(fluxX, ix, iy), castIndex(fluxY, ix, iy), uh);
         }
+    }
+    
+    std::vector<vec>* V = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
 
+    // if broken, revisit loop bounds (nghost-io) to (ny+nghost-io)
     // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
-        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+    #pragma omp parallel for collapse(2)
+    #pragma simd
+    for (int y = 0; y < SUBDOMAIN_SIZE; ++y) {
+        for (int x = 0; x < SUBDOMAIN_SIZE; ++x) {
+            int iy = (y - io + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
+            int ix = (x - io + SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
             for (int m = 0; m < v(ix,iy).size(); ++m) {
-                v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
+                int iyN = (iy+1) % SIZE_WITH_GHOST;
+                int ixN = (ix+1) % SIZE_WITH_GHOST;
+                
+                castIndex(V, ix, iy)[m] =
+                    0.2500 * ( castIndex(U, ix, iy)[m] + castIndex(U, ixN, iy)[m] +
+                               castIndex(U, ix, iyN)[m] + castIndex(U, ixN, iyN)[m] ) -
+                    0.0625 * ( castIndex(UX, ixN, iy)[m] - castIndex(UX, ix, iy)[m] +
+                               castIndex(UX, ixN, iyN)[m] - castIndex(UX, ix, iyN)[m] +
+                               castIndex(UY, ix, iyN)[m] - castIndex(UY, ix, iy)[m] +
+                               castIndex(UY, ixN, iyN)[m] - castIndex(UY, ixN, iy)[m] ) -
+                    dtcdx2 * ( castIndex(fluxX, ixN, iy)[m] - castIndex(fluxX, ix, iy)[m] +
+                               castIndex(fluxX, ixN, iyN)[m] - castIndex(fluxX, ix, iyN)[m] ) -
+                    dtcdy2 * ( castIndex(fluxY, ix, iyN)[m] - castIndex(fluxY, ix, iy)[m] +
+                               castIndex(fluxY, ixN, iyN)[m] - castIndex(fluxY, ixN, iy)[m] );
             }
         }
+    }
 
+    
+    // if broken, loop bounds were nghost to (nx/y + nghost)
     // Copy from v storage back to main grid
-    for (int j = nghost; j < ny+nghost; ++j){
-        for (int i = nghost; i < nx+nghost; ++i){
-            u(i,j) = v(i-io,j-io);
+    #pragma omp parallel for collapse(2)
+    #pragma simd
+    for (int iy = 0; iy < SUBDOMAIN_SIZE; ++iy){
+        for (int ix = 0; ix < SUBDOMAIN_SIZE; ++ix){
+            int y = (iy-io+SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
+            int x = (ix-io+SIZE_WITH_GHOST) % SIZE_WITH_GHOST;
+
+            (*U)[iy*SIZE_WITH_GHOST + ix] = (*V)[y*SIZE_WITH_GHOST + x];
         }
     }
 }
 
+int computeBlockOffset(int x, int y, int numBlocksX) {
+    return y*numBlocksX + x;
+}
 
 /**
  * ### Advance time
@@ -384,24 +492,218 @@ void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::run(real tfinal)
 {
+    using namespace std;
+    
+    // divide domain into blocks
+    const int NUM_BLOCKS_X = (nx / SUBDOMAIN_SIZE) + (nx % SUBDOMAIN_SIZE ? 1 : 0);
+    const int NUM_BLOCKS_Y = (ny / SUBDOMAIN_SIZE) + (ny % SUBDOMAIN_SIZE ? 1 : 0);
+    
+    // points at each subdomain block's start memory address
+    std::vector<vec>** subDomainPointers_u = (std::vector<vec>**) malloc(NUM_BLOCKS_X * NUM_BLOCKS_Y * sizeof(std::vector<vec>*));
+
+    // initialize each subdomain's vector space (including entries for ghost cells)
+    #pragma omp parallel for collapse(2)
+    for( int j=0; j < NUM_BLOCKS_Y; ++j ) {
+        for( int i=0; i < NUM_BLOCKS_X; ++i ) {
+            int yBlockOffset = j * SUBDOMAIN_SIZE;
+            // to read from original grid, offset to block start location
+            int xBlockOffset = i * SUBDOMAIN_SIZE;
+            
+            //printf("Block (%i,%i)\n",i,j);
+            
+            const int index =  j * NUM_BLOCKS_X + i;
+            subDomainPointers_u[index] = new std::vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            
+            // copy initial values at locations (0,0) to (SUBDOMAIN_SIZE, SUBDOMAIN_SIZE)
+            // ignore ghost cells because they are copied later in apply_periodic()
+            // ignore fluxes because they are computed each step
+            for( int y=0; y < SUBDOMAIN_SIZE; ++y ) {
+                for( int x=0; x < SUBDOMAIN_SIZE; ++x ) {
+                    int xCoord = xBlockOffset + x;
+                    int yCoord = yBlockOffset + y;
+                    
+                    // if outside domain, copy zero
+                    if(xCoord < nx && yCoord < ny) {
+                        (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x] = u(nghost+xCoord, nghost+yCoord);
+                        
+                    } else {
+                        // should never get in here
+                        (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][0] = 0;
+                        (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][1] = 0;
+                        (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][2] = 0;
+                    }
+                    //printf("Initial (%i,%i): %f, %f, %f\n", xCoord, yCoord, (*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][0],(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][1],(*subDomainPointers_u[index])[y * SIZE_WITH_GHOST + x][2]);
+                }
+            }
+        }
+    }
+    
     bool done = false;
     real t = 0;
     while (!done) {
         real dt;
-        for (int io = 0; io < 2; ++io) {
-            real cx, cy;
-            apply_periodic();
-            compute_fg_speeds(cx, cy);
-            limited_derivs();
-            if (io == 0) {
-                dt = cfl / std::max(cx/dx, cy/dy);
-                if (t + 2*dt >= tfinal) {
-                    dt = (tfinal-t)/2;
-                    done = true;
+        
+        real maxCx, maxCy;
+        
+        #pragma omp parallel num_threads(num_thread)
+        {
+            // thread start
+            int myID = omp_get_thread_num();
+            int totalThreads = omp_get_num_threads();
+            
+            // assign block as function of threadID (1 to 1)
+            int myXBlock = myID / NUM_BLOCKS_Y;
+            int myYBlock = myID % NUM_BLOCKS_Y;
+            //printf("Thread ID: %i\t(%i,%i)\n", myID, myXBlock, myYBlock);
+            std::vector<vec>* myU = subDomainPointers_u[computeBlockOffset(myXBlock, myYBlock, NUM_BLOCKS_X)];
+            
+            
+            // these are generated during the loop, no need to pre-allocate
+            std::vector<vec>* myFluxX = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myFluxY = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myUX = new vector<vec> (SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myUY = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myFX = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            std::vector<vec>* myGY = new vector<vec>(SIZE_WITH_GHOST * SIZE_WITH_GHOST);
+            
+            for (int io = 0; io < 2; ++io) {
+                real cx, cy;
+                maxCx = 1.0e-15;
+                maxCy = 1.0e-15;
+                
+                // grab adjacent block arrays, needed for ghost cell copying
+                int upBlock = (myYBlock - 1 + NUM_BLOCKS_Y) % NUM_BLOCKS_Y;
+                int leftBlock = (myXBlock - 1 + NUM_BLOCKS_X) % NUM_BLOCKS_X;
+                int rightBlock = (myXBlock + 1) % NUM_BLOCKS_X;
+                int downBlock = (myYBlock + 1) % NUM_BLOCKS_Y;
+                
+                std::vector<vec>* upperL_u = subDomainPointers_u[computeBlockOffset(leftBlock, upBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* upper_u = subDomainPointers_u[computeBlockOffset(myXBlock, upBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* upperR_u = subDomainPointers_u[computeBlockOffset(rightBlock, upBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* left_u = subDomainPointers_u[computeBlockOffset(leftBlock, myYBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* right_u = subDomainPointers_u[computeBlockOffset(rightBlock, myYBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* lowerL_u = subDomainPointers_u[computeBlockOffset(leftBlock, downBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* lower_u = subDomainPointers_u[computeBlockOffset(myXBlock, downBlock, NUM_BLOCKS_X)];
+                std::vector<vec>* lowerR_u = subDomainPointers_u[computeBlockOffset(rightBlock, downBlock, NUM_BLOCKS_X)];
+                
+                // TODO: handle case where nx % SUBDOMAIN_SIZE > 0
+                // this is difficult when copying ghost cells
+                apply_periodic(myU, upperL_u, upper_u, upperR_u, left_u,
+                               right_u, lowerL_u, lower_u, lowerR_u);
+                
+                
+                compute_fg_speeds(myU, myFluxX, myFluxY, cx, cy);
+                
+                #pragma omp barrier
+                
+                #pragma omp flush (maxCx, maxCy)
+                {
+                    #pragma omp critical
+                    {
+                        //cout << "thread " << myID << "\t(" << myXBlock << ", " << myYBlock << ")\n";
+                        //cout << "\t" << maxCx << ", " << maxCy << "\n";
+                        if(cx > maxCx) {
+                            maxCx = cx;
+                            //cout << "\t\tnew max x by: " << cx-maxCx << "\n";
+                        }
+                        if(cy > maxCy) {
+                            maxCy = cy;
+                            //cout << "\t\tnew max y by: " << cy-maxCy << "\n";
+                        }
+                        
+                        //cout << "\t" << cx << ", " << cy << "\n";
+                        //cout << "\t" << maxCx << ", " << maxCy << "\n";
+                    }
+                }
+                
+                #pragma omp barrier
+                /**#pragma omp critical
+                {
+                    // instead, use maxCx and maxCy for the rest of the iteration
+                    cx = maxCx;
+                    cy = maxCy;
+                    cout << "thread " << myID << "\t(" << myXBlock << ", " << myYBlock << ")\n\t" << cx << ", " << cy << "\n";
+                }**/
+                
+                limited_derivs(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY);
+                if (io == 0) {
+                    dt = cfl / std::max(maxCx/dx, maxCy/dy);
+                    if (t + 2*dt >= tfinal) {
+                        dt = (tfinal-t)/2;
+                        done = true;
+                    }
+                }
+                /**
+                // print values for debugging
+                #pragma omp critical
+                {
+                    cout << "thread " << myID << "\t(" << myXBlock << ", " << myYBlock << ")\n";
+                    for(int x=0; x<SIZE_WITH_GHOST; ++x) {
+                        //printf("\t");
+                        for(int y=0; y<SIZE_WITH_GHOST; ++y) {
+                            vec& v = castIndex(myU, y, x);
+                            //printf("%f, ", v[0]);
+                        }
+                        //printf("\n");
+                    }
+                    //printf("\n");
+                    
+                    
+                }**/
+                compute_step(myU, myFluxX, myFluxY, myUX, myUY, myFX, myGY, io, dt);
+                /**
+                #pragma omp barrier
+                #pragma omp critical
+                {
+                    cout << "thread " << myID << "\t(" << myXBlock << ", " << myYBlock << ") after\n";
+                    for(int x=0; x<SIZE_WITH_GHOST; ++x) {
+                        printf("\t");
+                        for(int y=0; y<SIZE_WITH_GHOST; ++y) {
+                            vec& v = castIndex(myUX, y, x);
+                            printf("%f, ", v[2]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
+                }
+                #pragma omp barrier**/
+                t += dt;
+            }
+            free(myFluxX);
+            free(myFluxY);
+            free(myUY);
+            free(myUX);
+            free(myFX);
+            free(myGY);
+        }
+    }
+    
+    // copy subdomains back into master array
+    #pragma omp parallel for collapse(2)
+    for( int j=0; j < NUM_BLOCKS_Y; ++j ) {
+        for( int i=0; i < NUM_BLOCKS_X; ++i ) {
+            int yBlockOffset = j * SUBDOMAIN_SIZE;
+            // to write to original grid, offset to block start location
+            int xBlockOffset = i * SUBDOMAIN_SIZE;
+            
+            // offset in our block
+            const int index =  j*NUM_BLOCKS_X + i;
+            std::vector<vec> myU = *subDomainPointers_u[index];
+            
+            for( int y=0; y < SUBDOMAIN_SIZE; ++y ) {
+                int yCoord = yBlockOffset + y;
+                
+                for( int x=0; x < SUBDOMAIN_SIZE; ++x ) {
+                    int xCoord = xBlockOffset + x;
+                    
+                    // ignore ghost cells
+                    if(xCoord < nx && yCoord < ny) {
+                        u(nghost+xCoord, nghost+yCoord) = myU[y * SIZE_WITH_GHOST + x];
+                    }
+                    
+                    //printf("Final (%i,%i): %f, %f, %f\n", x, y, u(xCoord, yCoord)[0],u(xCoord, yCoord)[1],u(xCoord, yCoord)[2]);
                 }
             }
-            compute_step(io, dt);
-            t += dt;
         }
     }
 }
@@ -425,6 +727,7 @@ void Central2D<Physics, Limiter>::solution_check()
     real h_sum = 0, hu_sum = 0, hv_sum = 0;
     real hmin = u(nghost,nghost)[0];
     real hmax = hmin;
+    #pragma omp parallel for collapse(2)
     for (int j = nghost; j < ny+nghost; ++j)
         for (int i = nghost; i < nx+nghost; ++i) {
             vec& uij = u(i,j);

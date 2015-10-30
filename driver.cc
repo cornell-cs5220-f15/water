@@ -2,6 +2,7 @@
 #include "shallow2d.h"
 #include "minmod.h"
 #include "meshio.h"
+#include <stdio.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -13,6 +14,8 @@
 #include <cstdlib>
 #include <unistd.h>
 
+#include <iostream>
+using namespace std;
 
 //ldoc on
 /**
@@ -89,39 +92,40 @@ void wave(Sim::vec& u, double x, double y)
 
 int main(int argc, char** argv)
 {
+    double ctime1 = omp_get_wtime();
     std::string fname = "waves.out";
     std::string ic = "dam_break";
     int    nx = 200;
     double width = 2.0;
     double ftime = 0.01;
     int    frames = 50;
-    
+
     int c;
     extern char* optarg;
     while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
         switch (c) {
-        case 'h':
-            fprintf(stderr,
-                    "%s\n"
-                    "\t-h: print this message\n"
-                    "\t-i: initial conditions (%s)\n"
-                    "\t-o: output file name (%s)\n"
-                    "\t-n: number of cells per side (%d)\n"
-                    "\t-w: domain width in cells (%g)\n"
-                    "\t-f: time between frames (%g)\n"
-                    "\t-F: number of frames (%d)\n",
-                    argv[0], ic.c_str(), fname.c_str(), 
-                    nx, width, ftime, frames);
-            return -1;
-        case 'i':  ic     = optarg;          break;
-        case 'o':  fname  = optarg;          break;
-        case 'n':  nx     = atoi(optarg);    break;
-        case 'w':  width  = atof(optarg);    break;
-        case 'f':  ftime  = atof(optarg);    break;
-        case 'F':  frames = atoi(optarg);    break;
-        default:
-            fprintf(stderr, "Unknown option (-%c)\n", c);
-            return -1;
+            case 'h':
+                fprintf(stderr,
+                        "%s\n"
+                        "\t-h: print this message\n"
+                        "\t-i: initial conditions (%s)\n"
+                        "\t-o: output file name (%s)\n"
+                        "\t-n: number of cells per side (%d)\n"
+                        "\t-w: domain width in cells (%g)\n"
+                        "\t-f: time between frames (%g)\n"
+                        "\t-F: number of frames (%d)\n",
+                        argv[0], ic.c_str(), fname.c_str(), 
+                        nx, width, ftime, frames);
+                return -1;
+            case 'i':  ic     = optarg;          break;
+            case 'o':  fname  = optarg;          break;
+            case 'n':  nx     = atoi(optarg);    break;
+            case 'w':  width  = atof(optarg);    break;
+            case 'f':  ftime  = atof(optarg);    break;
+            case 'F':  frames = atoi(optarg);    break;
+            default:
+                       fprintf(stderr, "Unknown option (-%c)\n", c);
+                       return -1;
         }
     }
 
@@ -137,7 +141,7 @@ int main(int argc, char** argv)
     } else {
         fprintf(stderr, "Unknown initial conditions\n");
     }
-    
+
     Sim sim(width,width, nx,nx);
     SimViz<Sim> viz(fname.c_str(), sim);
     sim.init(icfun);
@@ -155,4 +159,7 @@ int main(int argc, char** argv)
         sim.solution_check();
         viz.write_frame();
     }
+    double ctime2 = omp_get_wtime();
+    cout << "The total run time is " << ctime2 - ctime1 << endl;
+
 }
