@@ -57,17 +57,19 @@
  * will improve performance or accuracy.
  */
 
+#if defined _PARALLEL_DEVICE
+    #define TARGET_MIC __declspec(target(mic))
+#else
+    #define TARGET_MIC /* n/a */
+#endif
+
 template <class real>
 struct MinMod {
-    #if defined _PARALLEL_DEVICE
-    __declspec(target(mic))
-    #endif
+    TARGET_MIC
     static constexpr real theta = 2.0;
 
     // Branch-free computation of minmod of two numbers
-    #if defined _PARALLEL_DEVICE
-    __declspec(target(mic))
-    #endif
+    TARGET_MIC
     static inline real xmin2s(real s, real a, real b) {
         real sa = copysignf(s, a);
         real sb = copysignf(s, b);
@@ -78,10 +80,8 @@ struct MinMod {
     }
 
     // Limited combined slope estimate
-    #if defined _PARALLEL_DEVICE
-    __declspec(target(mic))
-    #endif
-    static real limdiff(real um, real u0, real up) {
+    TARGET_MIC
+    static inline real limdiff(real um, real u0, real up) {
         real du1 = u0-um;         // Difference to left
         real du2 = up-u0;         // Difference to right
         real duc = up-um; // Centered difference
