@@ -86,7 +86,7 @@ struct MinMod {
     static inline real limdiff(real um, real u0, real up) {
         real du1 = u0-um;         // Difference to left
         real du2 = up-u0;         // Difference to right
-        real duc = up-um; // Centered difference
+        real duc = up-um;         // Centered difference
         return xmin2s( 0.25f, xmin2s(theta, du1, du2), duc );
     }
 

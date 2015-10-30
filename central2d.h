@@ -194,7 +194,7 @@ private:
 
     // Apply limiter to all components in a vector
     #pragma omp declare simd
-    static void limdiff(real *du, const real *um, const real *u0, const real *up) {
+    static inline void limdiff(real *du, const real *um, const real *u0, const real *up) {
         USE_ALIGN(du, Physics::VEC_ALIGN);
         USE_ALIGN(um, Physics::VEC_ALIGN);
         USE_ALIGN(u0, Physics::VEC_ALIGN);
@@ -254,7 +254,7 @@ void Central2D<Physics, Limiter>::init(F f)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
 {
-     // Copy data between right and left boundaries
+    // Copy data between right and left boundaries
     for (int iy = 0; iy < ny_all; ++iy) {
         for (int ix = 0; ix < nghost; ++ix) {
             real *u_xy        = u(ix, iy).data();              USE_ALIGN(u_xy,        Physics::VEC_ALIGN);
@@ -366,7 +366,6 @@ void Central2D<Physics, Limiter>::limited_derivs()
             limdiff( fx_x0_y0, f_xM1_y0, f_x0_y0, f_xP1_y0 );
             limdiff( uy_x0_y0, u_x0_yM1, u_x0_y0, u_x0_yP1 );
             limdiff( gy_x0_y0, g_x0_yM1, g_x0_y0, g_x0_yP1 );
-
         }
 }
 
