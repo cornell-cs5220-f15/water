@@ -26,20 +26,33 @@ parallel section of the code and pass in the dimensions of the global
 grid and the blocks, as well as a pointer to the global grid
 itself. Inside the offloaded kernel, we still spawn off the specified
 number of threads normally, except that instead of using pre-allocated
-member \texttt{LocalState} objects, each thread creates its own \texttt{LocalState} object
-on the stack. The \texttt{copy\_to\_local()} and
+member \texttt{LocalState} objects, each thread creates its own
+\texttt{LocalState} object on the stack. The \texttt{copy\_to\_local()} and
 \texttt{copy\_from\_local()} functions were modified to copy the
 flattened elements of the global grid passed in by the host to the local
 grid vectors. Once the copy is complete, the other functions in the
-offloaded kernel can take a pointer to the per-thread \texttt{LocalState} object
-as an argument and access the vectors in this object similar to before.
-Because this naive implementation requires us to offload computation
-before every timestep, there is an unnecessarily high overhead of
-transferring data between the host and device memories.
+offloaded kernel can take a pointer to the per-thread \texttt{LocalState}
+object as an argument and access the vectors in this object similar to
+before.  Because this naive implementation requires us to offload
+computation before every timestep, there is an unnecessarily high
+overhead of transferring data between the host and device memories.
 
 We continued to optimize the parallel implementation for the accelerator
-by offloading the entire \texttt{run()} function of the simulator, but we believe
-that using efficient batching will help us alleviate this
-issue. Currently, the parallel implementation for the accelerator board
-runs roughly an order of magnitude slower than the implementation for the
-compute nodes with the same number of threads.
+by offloading the entire \texttt{run()} function of the simulator. In
+this approach, one main thread on the accelerator is responsible for
+running the \texttt{apply\_periodic()} and \texttt{compute\_wave\_speeds()}
+functions before parallelizing computation across multiple threads on the
+accelerator for the other functions mentioned above. The benefit of this
+approach is that we do not have to incur the overhead of copying data
+between the host and the accelerator memories for offloading the
+computation kernel for \emph{every} timestep. Instead, we only pay this
+overhead once per frame in order to keep data local to the accelerator
+for as long as possible. Note that here we only need to copy the global
+grid vectors (i.e., \texttt{u\_offload}) and the simulator parameters
+(e.g., \texttt{nx}, \texttt{nxblocks}, etc.) during the
+offload. Functions meant to be called from the accelerator are annotated
+with the \texttt{\_\_declspec(target(mic))} attribute and must
+essentially be pure functions. In order to make it easier to pass in
+simulator parameters to these functions that normally rely on the
+simulator's member variables, we encapsulate the parameters copied to the
+accelerator in a separate \texttt{Parameters} class.

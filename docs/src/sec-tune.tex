@@ -239,6 +239,57 @@ When it comes to writing custom kernels, we actually are very excited to do this
 
 Getting them working on the Phi's was as far as we got at this point, as discussed in section~\ref{sec-parallel-device}, so we hope to be able to play with this more and compare with the intel compiler's vectorization and \emph{maybe} even beat it!  If anything, we can just pull the same trickery we did in the corrector step described in the previous section.
 
+\subsection{Batching Multiple Timesteps}
+\label{sec-tune-batching}
+
+Another tuning optimization we implemented for the parallel
+implementations was batching multiple timesteps for each thread before
+having to synchronize. A single timestep of the computation (i.e., both
+even and odd sub-steps) requires 3 additional ghost cells in every
+dimension. This is because although each sub-step only requires 1
+additional ghost cell, the staggered sub-step always computes the vector
+for the cells with a (-1,-1) offset from the normal sub-step. Coupled
+with the fact that we lose the fidelity of the data on the boundaries one
+additional cell per sub-step, we actually need an extra ghost cell on top
+of the 2 ghost cells to calculate the ghost cell required by the
+staggered sub-step. However, for every \emph{additional} timestep we want
+to batch, we only need an extra 2 ghost cells on top of the initial 3
+ghost cells for the first timestep due to the fact that the last layer of
+ghost cells is still accurate after the first timestep completes. As
+such, we modified the parallel implementation to allow a configurable
+number of batchable timesteps and adjust the number of ghost cells
+required accordingly.
+
+The tradeoff here is that although we reduce the amount of
+synchronization required, we increase the amount of data each thread
+needs to hold in its local state. To a lesser extent, the latter also
+means that the amount of data we need to copy in
+\texttt{apply\_periodic()} also increases. Another challenge with batching
+is synchronizing the \texttt{dt} across all threads. Because this value
+is calculated from the maximum velocities (i.e., \texttt{cx},
+\texttt{cy}) across the \emph{entire} grid and because this needs to be
+computed again for every timestep, we have a few options:
+
+\begin{itemize}
+  \item Have each thread compute its local maxima and synchronize across
+    threads to find the global maxima (defeats the purpose of batching);
+  \item Have each thread compute its local maxima and run with different
+    \texttt{dt} values (affects correctness of results);
+  \item Calculate the \texttt{dt} once before each batch-step and use it
+    for all timesteps in the batch for all threads;
+\end{itemize}
+
+Although it is conservative, we choose the third option, which is the
+only reasonable option not requiring a highly optimized local maxima
+sharing synchronization. One consequence of using this option with
+batching is that if the remaining time to be simulated is less than the
+time that will be simulated per batch-step, we could end up unnecessarily
+running multiple timesteps with a very small \texttt{dt} to finish the
+simulation. In order to address this issue, we dynamically adjust the
+number of timesteps in a batch (instead of the \texttt{dt} when we
+encounter this situation so that we always run the minimum number of
+timesteps required to simulate the specified amount of time.
+
 % \subsection{Eliminating Redundant Computation}
 % \label{sec-tune-eliminating}
 
