@@ -16,7 +16,7 @@ import matplotlib.animation as manimation
 import sys
 
 
-def main(infile="waves.out", outfile="out.mp4", startpic="start.png"):
+def main(infile="waves.out", startpic="start", frame="0"):
     """Visualize shallow water simulation results.
 
     Args:
@@ -31,6 +31,7 @@ def main(infile="waves.out", outfile="out.mp4", startpic="start.png"):
     x = range(0,nx)
     y = range(0,ny)
     u = u[2:]
+    fn = int(frame)
     nframe = len(u) // (nx*ny)
     stride = nx // 20
     u = np.reshape(u, (nframe,nx,ny))
@@ -45,11 +46,12 @@ def main(infile="waves.out", outfile="out.mp4", startpic="start.png"):
         ax.plot_surface(X, Y, Z, rstride=stride, cstride=stride)
         return ax
 
-    if startpic:
-        ax = plot_frame(0)
-        plt.savefig(startpic)
+    for imgn in range(fn):
+        ax = plot_frame(int(imgn))
+        plt.savefig(startpic + str(imgn) + ".png")
         plt.delaxes(ax)
 
+    """
     metadata = dict(title='Wave animation', artist='Matplotlib')
     if outfile[-4:] == ".mp4":
         Writer = manimation.writers['ffmpeg']
@@ -60,12 +62,13 @@ def main(infile="waves.out", outfile="out.mp4", startpic="start.png"):
     elif outfile[-4:] == ".gif":
         Writer = manimation.writers['imagemagick']
         writer = Writer(fps=15, metadata=metadata)
-
+    
     with writer.saving(fig, outfile, nframe):
         for i in range(nframe):
             ax = plot_frame(i)
             writer.grab_frame()
             plt.delaxes(ax)
+    """
 
 
 if __name__ == "__main__":

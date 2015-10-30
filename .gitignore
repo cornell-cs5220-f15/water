@@ -1,0 +1,6 @@
+output
+shallow*.exe
+shallow.o*
+*.mp4
+*.png
+*.out
