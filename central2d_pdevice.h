@@ -212,7 +212,7 @@ private:
 
     // Initialize per-thread local state inside of offloaded kernel
     TARGET_MIC
-    void init_locals(Parameters &params, /*std::vector<LocalState*>*/std::vector<std::unique_ptr<LocalState<Physics>>> &locals);
+    void init_locals(Parameters &params, std::vector<LocalState<Physics>*> &locals);//std::vector<std::unique_ptr<LocalState<Physics>>> &locals);
 
     // Apply limiter to all components in a vector
     #pragma omp declare simd
@@ -259,13 +259,15 @@ template <class Physics, class Limiter>
 template <typename F>
 void Central2D<Physics, Limiter>::init(F f)
 {
-    for (int iy = 0; iy < ny; ++iy)
-        for (int ix = 0; ix < nx; ++ix)
+    for (int iy = 0; iy < ny; ++iy) {
+        for (int ix = 0; ix < nx; ++ix) {
             f(u(nghost+ix,nghost+iy), (ix+0.5f)*dx, (iy+0.5f)*dy);
+        }
+    }
 }
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::init_locals(Parameters &params, /*std::vector<LocalState*>*/std::vector<std::unique_ptr<LocalState<Physics>>> &locals)
+void Central2D<Physics, Limiter>::init_locals(Parameters &params, std::vector<LocalState<Physics>*> &locals)//std::vector<std::unique_ptr<LocalState<Physics>>> &locals)
 {
     // Dimensions of block assigned to each thread
     int nx_per_block = ceil(params.nx / (real)params.nxblocks);
@@ -293,10 +295,10 @@ void Central2D<Physics, Limiter>::init_locals(Parameters &params, /*std::vector<
         for (int i = 0; i < params.nxblocks; ++i) {
             int nx_local = (i == params.nxblocks - 1) ? nx_per_block_padded - nx_overhang
                          :                              nx_per_block_padded;
-            // locals.push_back(new LocalState(nx_local, ny_local));
-            locals.push_back(
-                       std::make_unique< LocalState<Physics> >(nx_local, ny_local) // waddup c++14
-                   );
+            locals.push_back(new LocalState<Physics>(nx_local, ny_local));
+            // locals.push_back(
+            //            std::make_unique< LocalState<Physics> >(nx_local, ny_local) // waddup c++14
+            //        );
         }
     }
 }
@@ -324,7 +326,7 @@ void Central2D<Physics, Limiter>::apply_periodic(Parameters &params, real* u)
     // USE_ALIGN(u, Physics::VEC_ALIGN);
     USE_ALIGN(u, Physics::BYTE_ALIGN);
     // Copy data between right and left boundaries
-    for (int iy = 0; iy < params.ny_all; ++iy)
+    for (int iy = 0; iy < params.ny_all; ++iy) {
         for (int ix = 0; ix < params.nghost; ++ix) {
             int iu      = offset(params, ix, iy) * Physics::vec_size;
             int iu_wrap = ioffset(params, ix, iy) * Physics::vec_size;
@@ -344,9 +346,10 @@ void Central2D<Physics, Limiter>::apply_periodic(Parameters &params, real* u)
             // u[iu+1] = u[iu_wrap+1];
             // u[iu+2] = u[iu_wrap+2];
         }
+    }
 
     // Copy data between top and bottom boundaries
-    for (int ix = 0; ix < params.nx_all; ++ix)
+    for (int ix = 0; ix < params.nx_all; ++ix) {
         for (int iy = 0; iy < params.nghost; ++iy) {
             int iu      = offset(params, ix, iy) * Physics::vec_size;
             int iu_wrap = ioffset(params, ix, iy) * Physics::vec_size;
@@ -368,6 +371,7 @@ void Central2D<Physics, Limiter>::apply_periodic(Parameters &params, real* u)
             // u[iu+1] = u[iu_wrap+1];
             // u[iu+2] = u[iu_wrap+2];
         }
+    }
 }
 
 
@@ -386,16 +390,17 @@ void Central2D<Physics, Limiter>::compute_wave_speeds(Parameters &params, real& 
 {
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < params.ny_all; ++iy)
+    for (int iy = 0; iy < params.ny_all; ++iy) {
         #pragma ivdep
         for (int ix = 0; ix < params.nx_all; ++ix) {
             real cell_cx, cell_cy;
             int iu = offset(params, ix, iy) * Physics::vec_size;
-            vec u_tmp = {u[iu+0], u[iu+1], u[iu+2], 0.0f}; USE_ALIGN(u_tmp, Physics::VEC_ALIGN);
+            /*vec u_tmp = {u[iu+0], u[iu+1], u[iu+2], 0.0f};*/ real *u_tmp = u+iu; USE_ALIGN(u_tmp, Physics::VEC_ALIGN);
             Physics::wave_speed(cell_cx, cell_cy, u_tmp);
             cx = std::max(cx, cell_cx);
             cy = std::max(cy, cell_cy);
         }
+    }
     cx_ = cx;
     cy_ = cy;
 }
@@ -553,37 +558,6 @@ void Central2D<Physics, Limiter>::compute_step(Parameters &params, LocalState<Ph
     // Corrector (finish the step)
     for (int iy = params.nghost-io; iy < ny_per_block-params.nghost-io; ++iy) {
         for (int ix = params.nghost-io; ix < nx_per_block-params.nghost-io; ++ix) {
-            // for (int m = 0; m < local->v(ix,iy).size(); ++m) {
-
-            //     real u_sum = local->u(ix,iy)[m]
-            //                + local->u(ix+1,iy)[m]
-            //                + local->u(ix,iy+1)[m]
-            //                + local->u(ix+1,iy+1)[m];
-
-            //     real uxy_sum = local->ux(ix+1,iy)[m]
-            //                  - local->ux(ix,iy)[m]
-            //                  + local->ux(ix+1,iy+1)[m]
-            //                  - local->ux(ix,iy+1)[m]
-            //                  + local->uy(ix,iy+1)[m]
-            //                  - local->uy(ix,iy)[m]
-            //                  + local->uy(ix+1,iy+1)[m]
-            //                  - local->uy(ix+1,iy)[m];
-
-            //     real f_sum = local->f(ix+1,iy)[m]
-            //                - local->f(ix,iy)[m]
-            //                + local->f(ix+1,iy+1)[m]
-            //                - local->f(ix,iy+1)[m];
-
-            //     real g_sum = local->g(ix,iy+1)[m]
-            //                - local->g(ix,iy)[m]
-            //                + local->g(ix+1,iy+1)[m]
-            //                - local->g(ix+1,iy)[m];
-
-            //     local->v(ix,iy)[m] = 0.2500 * u_sum
-            //                               - 0.0625 * uxy_sum
-            //                               - dtcdx2 * f_sum
-            //                               - dtcdy2 * g_sum;
-            // }
             /* Nomenclature:
              *     u_x0_y0 <- u(ix  , iy  )
              *     u_x1_y0 <- u(ix+1, iy  )
@@ -642,7 +616,7 @@ void Central2D<Physics, Limiter>::compute_step(Parameters &params, LocalState<Ph
 
     // Copy from v storage back to main grid
     for (int j = params.nghost; j < ny_per_block-params.nghost; ++j) {
-        for (int i = params.nghost; i < nx_per_block-params.nghost; ++i){
+        for (int i = params.nghost; i < nx_per_block-params.nghost; ++i) {
             // local->u(i,j) = local->v(i-io,j-io);
             real *u_ij    = local->u(i, j).data();       USE_ALIGN(u_ij,     Physics::VEC_ALIGN );
             real *v_ij_io = local->v(i-io, j-io).data(); USE_ALIGN(v_ij_io,  Physics::VEC_ALIGN );
@@ -679,7 +653,7 @@ void Central2D<Physics, Limiter>::copy_to_local(Parameters &params, LocalState<P
     int biy_off = biy * (ny_per_block - 2*params.nghost);
     int bix_off = bix * (nx_per_block - 2*params.nghost);
 
-    for (int iy = 0; iy < ny_per_block; ++iy)
+    for (int iy = 0; iy < ny_per_block; ++iy) {
         for (int ix = 0; ix < nx_per_block; ++ix) {
             int iu = ((biy_off+iy)*params.nx_all + bix_off+ix) * Physics::vec_size;
             // local->u(ix, iy)[0] = u[iu+0]; // h
@@ -692,6 +666,7 @@ void Central2D<Physics, Limiter>::copy_to_local(Parameters &params, LocalState<P
             #pragma unroll
             for(int m = 0; m < Physics::vec_size; ++m) local_u[m] = global_u[m];
         }
+    }
 }
 
 template <class Physics, class Limiter>
@@ -708,7 +683,7 @@ void Central2D<Physics, Limiter>::copy_from_local(Parameters &params, LocalState
     int biy_off = biy * (ny_per_block - 2*params.nghost);
     int bix_off = bix * (nx_per_block - 2*params.nghost);
 
-    for (int iy = params.nghost; iy < ny_per_block - params.nghost; ++iy)
+    for (int iy = params.nghost; iy < ny_per_block - params.nghost; ++iy) {
         for (int ix = params.nghost; ix < nx_per_block - params.nghost; ++ix) {
             int iu = ((biy_off+iy)*params.nx_all+bix_off+ix) * Physics::vec_size;
             // u[iu+0] = local->u(ix, iy)[0]; // h
@@ -721,6 +696,7 @@ void Central2D<Physics, Limiter>::copy_from_local(Parameters &params, LocalState
             #pragma unroll
             for(int m = 0; m < Physics::vec_size; ++m) global_u[m] = local_u[m];
         }
+    }
 }
 
 /**
@@ -742,7 +718,7 @@ void Central2D<Physics, Limiter>::run(real tfinal)
 {
     // Offload computation to MIC
 
-    real* u_offload      = reinterpret_cast<real*>(u_.data()); USE_ALIGN(u_offload, Physics::BYTE_ALIGN);
+    real *u_offload      = reinterpret_cast<real*>(u_.data()); USE_ALIGN(u_offload, Physics::BYTE_ALIGN);
     int   u_offload_size = u_.size() * Physics::vec_size;
 
     #pragma offload target(mic:0) in(nghost) in(nx) in(ny) in(nxblocks) in(nyblocks) \
@@ -767,8 +743,8 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     params.cfl      = cfl;
 
     // Initialize per-thread local buffers on the device
-    // std::vector<LocalState*> locals;
-    std::vector<std::unique_ptr<LocalState<Physics>>> locals;
+    std::vector<LocalState<Physics>*> locals;
+    // std::vector<std::unique_ptr<LocalState<Physics>>> locals;
     init_locals(params, locals);
 
     // Main computation loop
@@ -824,9 +800,9 @@ void Central2D<Physics, Limiter>::run(real tfinal)
     }
 
     // Clean up local state
-    // for (auto local : locals)
-    //   free( local );
+    for (auto local : locals) delete local;
     // }
+    } // end pragma offload
 }
 
 /**
