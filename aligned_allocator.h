@@ -2,6 +2,7 @@
 #ifndef aligned_allocator_h
 #define aligned_allocator_h
 
+#pragma offload_attribute(push,target(mic))
 #ifdef _WIN32
 #include <malloc.h>
 #endif
@@ -156,5 +157,7 @@ class aligned_allocator
     private:
         aligned_allocator& operator=(const aligned_allocator&);
 };
+
+#pragma offload_attribute(pop)
 
 #endif // aligned_allocator_h
