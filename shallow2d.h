@@ -76,11 +76,22 @@
     #define USE_ALIGN(var, align) ((void)0) /* __builtin_assume_align is unreliabale... */
 #endif
 
+// #if defined _PARALLEL_DEVICE
+//     #define TARGET_MIC __declspec(target(mic))
+// #else
+//     #define TARGET_MIC /* n/a */
+// #endif
+
 #if defined _PARALLEL_DEVICE
-    #define TARGET_MIC __declspec(target(mic))
+    #ifdef __INTEL_COMPILER
+        #define TARGET_MIC __declspec(target(mic))
+    #else
+        #define TARGET_MIC /* n/a */
+    #endif
 #else
     #define TARGET_MIC /* n/a */
 #endif
+
 struct Shallow2D {
 
     // global constants for alignment

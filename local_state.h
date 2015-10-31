@@ -2,11 +2,20 @@
 #ifndef LocalState_H
 #define LocalState_H
 
-#if defined _PARALLEL_DEVICE
-    #define TARGET_MIC __declspec(target(mic))
-#else
-    #define TARGET_MIC /* n/a */
-#endif
+// #if defined _PARALLEL_DEVICE
+//     #define TARGET_MIC __declspec(target(mic))
+// #else
+//     #define TARGET_MIC /* n/a */
+// #endif
+// #if defined _PARALLEL_DEVICE
+//     #ifdef __INTEL_COMPILER
+//         #define TARGET_MIC __declspec(target(mic))
+//     #else
+//         #define TARGET_MIC /* n/a */
+//     #endif
+// #else
+//     #define TARGET_MIC /* n/a */
+// #endif
 
 // Class for encapsulating per-thread local state
 template <class Physics>

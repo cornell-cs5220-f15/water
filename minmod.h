@@ -57,20 +57,32 @@
  * will improve performance or accuracy.
  */
 
-#if defined _PARALLEL_DEVICE
-    #define TARGET_MIC __declspec(target(mic))
-#else
-    #define TARGET_MIC /* n/a */
-#endif
+// #if defined _PARALLEL_DEVICE
+//     #define TARGET_MIC __declspec(target(mic))
+// #else
+//     #define TARGET_MIC /* n/a */
+// #endif
+
+// #if defined _PARALLEL_DEVICE
+//     #ifdef __INTEL_COMPILER
+//         #define TARGET_MIC __declspec(target(mic))
+//     #else
+//         #define TARGET_MIC /* n/a */
+//     #endif
+// #else
+//     #define TARGET_MIC /* n/a */
+// #endif
+
+#pragma offload_attribute(push,target(mic))
 
 template <class real>
 struct MinMod {
-    TARGET_MIC
+    // TARGET_MIC
     static constexpr real theta = 2.0f;
 
     // Branch-free computation of minmod of two numbers
+    // TARGET_MIC
     #pragma omp declare simd
-    TARGET_MIC
     static inline real xmin2s(real s, real a, real b) {
         real sa = copysignf(s, a);
         real sb = copysignf(s, b);
@@ -81,8 +93,8 @@ struct MinMod {
     }
 
     // Limited combined slope estimate
+    // TARGET_MIC
     #pragma omp declare simd
-    TARGET_MIC
     static inline real limdiff(real um, real u0, real up) {
         real du1 = u0-um;         // Difference to left
         real du2 = up-u0;         // Difference to right
@@ -93,5 +105,6 @@ struct MinMod {
 
 };
 
+#pragma offload_attribute(pop)
 //ldoc off
 #endif /* MINMOD_H */
