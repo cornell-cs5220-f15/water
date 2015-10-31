@@ -77,7 +77,11 @@ class aligned_allocator
 
         // for target(mic) compatibility:
         // thx: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=51626
-        void construct(T * const p) { return construct(p, value_type()); }
+        // void construct(T * const p) { return construct(p, value_type()); }
+        void construct(T * const ptr) {
+                void* p = ptr;
+                ::new(p) T();
+            }
  
         void destroy(T * const p) const
         {
