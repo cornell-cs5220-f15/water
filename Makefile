@@ -23,7 +23,7 @@ shallow-pnode: driver.cc aligned_allocator.h local_state.h central2d_pnode.h sha
 	$(CXX) $(CXXFLAGS) -D_PARALLEL_NODE -o $@ $<
 
 shallow-pdevice: driver.cc aligned_allocator.h local_state.h central2d_pdevice.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -D_PARALLEL_DEVICE -o $@ $<
+	$(CXX) $(CXXFLAGS) -axCORE-AVX2 -D_PARALLEL_DEVICE -o $@ $<
 
 .PHONY: run big
 run: dam_break.gif
