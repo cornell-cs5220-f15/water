@@ -2,20 +2,9 @@
 #ifndef LocalState_H
 #define LocalState_H
 
-// #if defined _PARALLEL_DEVICE
-//     #define TARGET_MIC __declspec(target(mic))
-// #else
-//     #define TARGET_MIC /* n/a */
-// #endif
-// #if defined _PARALLEL_DEVICE
-//     #ifdef __INTEL_COMPILER
-//         #define TARGET_MIC __declspec(target(mic))
-//     #else
-//         #define TARGET_MIC /* n/a */
-//     #endif
-// #else
-//     #define TARGET_MIC /* n/a */
-// #endif
+#ifdef _PARALLEL_DEVICE
+    #pragma offload_attribute(push,target(mic))
+#endif
 
 // Class for encapsulating per-thread local state
 template <class Physics>
@@ -56,14 +45,20 @@ private:
 
     const int nx, ny;
 
-    std::vector<vec> u_;  // Solution values
-    std::vector<vec> v_;  // Solution values at next step
-    std::vector<vec> f_;  // Fluxes in x
-    std::vector<vec> g_;  // Fluxes in y
-    std::vector<vec> ux_; // x differences of u
-    std::vector<vec> uy_; // y differences of u
-    std::vector<vec> fx_; // x differences of f
-    std::vector<vec> gy_; // y differences of g
+    typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+
+    /*std::vector<vec>*/ aligned_vector u_;  // Solution values
+    /*std::vector<vec>*/ aligned_vector v_;  // Solution values at next step
+    /*std::vector<vec>*/ aligned_vector f_;  // Fluxes in x
+    /*std::vector<vec>*/ aligned_vector g_;  // Fluxes in y
+    /*std::vector<vec>*/ aligned_vector ux_; // x differences of u
+    /*std::vector<vec>*/ aligned_vector uy_; // y differences of u
+    /*std::vector<vec>*/ aligned_vector fx_; // x differences of f
+    /*std::vector<vec>*/ aligned_vector gy_; // y differences of g
 };
+
+#ifdef _PARALLEL_DEVICE
+    #pragma offload_attribute(pop)
+#endif
 
 #endif // LocalState_H
