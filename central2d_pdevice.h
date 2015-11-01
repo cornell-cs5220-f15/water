@@ -12,6 +12,10 @@
 #include "local_state.h"
 #pragma offload_attribute(pop)
 
+#ifndef __MIC__
+    #include "aligned_allocator.h"
+#endif
+
 //ldoc on
 /**
  * # Jiang-Tadmor central difference scheme
