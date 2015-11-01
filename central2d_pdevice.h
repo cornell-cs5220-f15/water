@@ -192,12 +192,11 @@ private:
     const real cfl;               // Allowed CFL number
 
     // Global solution values
-    #ifndef __MIC__
-        // aligned_vector defined in shallow2d.h
-        typedef typename LocalState<Physics>::aligned_vector aligned_vector;
-        aligned_vector u_;
-    #else
+    #ifdef __MIC__
         std::vector<vec> u_;
+    #else
+        typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+        aligned_vector u_;
     #endif
 
     // Array accessor function
