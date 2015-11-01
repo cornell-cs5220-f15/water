@@ -11,6 +11,8 @@
 #endif
 #ifdef _PARALLEL_DEVICE
     #pragma offload_attribute(push,target(mic))
+#else
+    #include "aligned_allocator.h"
 #endif
 
 // Class for encapsulating per-thread local state
@@ -52,16 +54,20 @@ private:
 
     const int nx, ny;
 
-    // typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+    #ifdef _PARALLEL_DEVICE
+        typedef std::vector<vec> aligned_vector; // :'(
+    #else
+        typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+    #endif
 
-    std::vector<vec> /*aligned_vector*/ u_;  // Solution values
-    std::vector<vec> /*aligned_vector*/ v_;  // Solution values at next step
-    std::vector<vec> /*aligned_vector*/ f_;  // Fluxes in x
-    std::vector<vec> /*aligned_vector*/ g_;  // Fluxes in y
-    std::vector<vec> /*aligned_vector*/ ux_; // x differences of u
-    std::vector<vec> /*aligned_vector*/ uy_; // y differences of u
-    std::vector<vec> /*aligned_vector*/ fx_; // x differences of f
-    std::vector<vec> /*aligned_vector*/ gy_; // y differences of g
+    aligned_vector u_;  // Solution values
+    aligned_vector v_;  // Solution values at next step
+    aligned_vector f_;  // Fluxes in x
+    aligned_vector g_;  // Fluxes in y
+    aligned_vector ux_; // x differences of u
+    aligned_vector uy_; // y differences of u
+    aligned_vector fx_; // x differences of f
+    aligned_vector gy_; // y differences of g
 };
 
 #ifdef _PARALLEL_DEVICE

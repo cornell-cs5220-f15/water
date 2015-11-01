@@ -723,12 +723,12 @@ void Central2D<Physics, Limiter>::run(real tfinal, int iter, int num_iters)
 
     bool first_iter = iter == 0;
     bool last_iter  = iter == num_iters-1;
-    int copy_len = first_iter ? u_offload_size : 0;
+    int copy_len = (first_iter || last_iter) ? u_offload_size : 0;
     int init  = first_iter ? 1 : 0;
     int destroy = last_iter ? 1 : 0;
 
-    if(first_iter) printf("\n~~~~~~~~~~~~~~~~~~~~~~~\n ~~~ First Iteration ~~~\n~~~~~~~~~~~~~~~~~~~~~~~\n");
-    else if(last_iter)  printf("\n~~~~~~~~~~~~~~~~~~~~~~~\n ~~~ Final Iteration ~~~\n~~~~~~~~~~~~~~~~~~~~~~~\n");
+    if(first_iter) printf("\n~~~~~~~~~~~~~~~~~~~~~~~\n~~~ First Iteration ~~~\n~~~~~~~~~~~~~~~~~~~~~~~\n");
+    else if(last_iter)  printf("\n~~~~~~~~~~~~~~~~~~~~~~~\n~~~ Final Iteration ~~~\n~~~~~~~~~~~~~~~~~~~~~~~\n");
     else printf("\n~~~ !!! ~~~\n");
 
     #pragma offload target(mic:0) in(nghost) in(nx) in(ny) in(nxblocks) in(nyblocks) \
