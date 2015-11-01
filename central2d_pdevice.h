@@ -9,7 +9,6 @@
 #include <memory>
 #include <omp.h>
 
-#include "aligned_allocator.h"
 #include "local_state.h"
 #pragma offload_attribute(pop)
 
@@ -189,8 +188,10 @@ private:
     const real cfl;               // Allowed CFL number
 
     // Global solution values
+    #ifndef __MIC__
     typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
     aligned_vector u_;
+    #endif
 
     // Array accessor function
     TARGET_MIC
