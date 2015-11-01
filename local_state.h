@@ -52,16 +52,16 @@ private:
 
     const int nx, ny;
 
-    typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+    // typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
 
-    /*std::vector<vec>*/ aligned_vector u_;  // Solution values
-    /*std::vector<vec>*/ aligned_vector v_;  // Solution values at next step
-    /*std::vector<vec>*/ aligned_vector f_;  // Fluxes in x
-    /*std::vector<vec>*/ aligned_vector g_;  // Fluxes in y
-    /*std::vector<vec>*/ aligned_vector ux_; // x differences of u
-    /*std::vector<vec>*/ aligned_vector uy_; // y differences of u
-    /*std::vector<vec>*/ aligned_vector fx_; // x differences of f
-    /*std::vector<vec>*/ aligned_vector gy_; // y differences of g
+    std::vector<vec> /*aligned_vector*/ u_;  // Solution values
+    std::vector<vec> /*aligned_vector*/ v_;  // Solution values at next step
+    std::vector<vec> /*aligned_vector*/ f_;  // Fluxes in x
+    std::vector<vec> /*aligned_vector*/ g_;  // Fluxes in y
+    std::vector<vec> /*aligned_vector*/ ux_; // x differences of u
+    std::vector<vec> /*aligned_vector*/ uy_; // y differences of u
+    std::vector<vec> /*aligned_vector*/ fx_; // x differences of f
+    std::vector<vec> /*aligned_vector*/ gy_; // y differences of g
 };
 
 #ifdef _PARALLEL_DEVICE
