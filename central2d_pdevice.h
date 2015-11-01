@@ -208,8 +208,6 @@ private:
                        (iy+params.ny-params.nghost) % params.ny + params.nghost );
     }
 
-//    vec& uwrap(int ix, int iy) { return u_[ioffset(ix,iy)]; }
-
     // Initialize per-thread local state inside of offloaded kernel
     TARGET_MIC
     void init_locals(Parameters &params, std::vector<LocalState<Physics>*> &locals);
@@ -218,8 +216,6 @@ private:
     #pragma omp declare simd
     TARGET_MIC
     static void limdiff(real *du, const real *um, const real *u0, const real *up) {
-        // for (int m = 0; m < du.size(); ++m)
-        //     du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
         USE_ALIGN(du, Physics::VEC_ALIGN);
         USE_ALIGN(um, Physics::VEC_ALIGN);
         USE_ALIGN(u0, Physics::VEC_ALIGN);
@@ -267,7 +263,7 @@ void Central2D<Physics, Limiter>::init(F f)
 }
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::init_locals(Parameters &params, std::vector<LocalState<Physics>*> &locals)//std::vector<std::unique_ptr<LocalState<Physics>>> &locals)
+void Central2D<Physics, Limiter>::init_locals(Parameters &params, std::vector<LocalState<Physics>*> &locals)
 {
     // Dimensions of block assigned to each thread
     int nx_per_block = ceil(params.nx / (real)params.nxblocks);
@@ -723,7 +719,6 @@ void Central2D<Physics, Limiter>::run(real tfinal, int iter, int num_iters)
 
     bool first_iter = iter == 0;
     bool last_iter  = iter == num_iters-1;
-    int copy_len = (first_iter || last_iter) ? u_offload_size : 0;
     int init  = first_iter ? 1 : 0;
     int destroy = last_iter ? 1 : 0;
 
@@ -734,7 +729,7 @@ void Central2D<Physics, Limiter>::run(real tfinal, int iter, int num_iters)
     #pragma offload target(mic:0) in(nghost) in(nx) in(ny) in(nxblocks) in(nyblocks) \
                                   in(nbatch) in(nthreads) in(nx_all) in(ny_all) \
                                   in(dx) in(dy) in(cfl) in(tfinal) \
-                                  inout(u_offload : length(copy_len) alloc_if(init) free_if(destroy))
+                                  inout(u_offload : length(u_offload_size) alloc_if(init) free_if(destroy))
     {
 
     // Copy parameters from host to device
