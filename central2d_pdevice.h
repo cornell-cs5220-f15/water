@@ -194,7 +194,7 @@ private:
     // Global solution values
     #ifndef __MIC__
         // aligned_vector defined in shallow2d.h
-    typedef Physics::aligned_vector aligned_vector;
+    typedef typename Physics::aligned_vector aligned_vector;
         aligned_vector u_;
     #else
         std::vector<vec> u_;
