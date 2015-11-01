@@ -196,8 +196,8 @@ private:
         std::vector<vec> u_;
     #else
         // whatever
-        typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vec;
-        aligned_vec u_;
+        typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+        aligned_vector u_;
     #endif
 
     // Array accessor function
