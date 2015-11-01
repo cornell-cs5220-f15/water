@@ -169,7 +169,12 @@ int main(int argc, char** argv)
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        sim.run(ftime);
+
+        #ifdef _PARALLEL_DEVICE
+            sim.run(ftime, i, frames);
+        #else
+            sim.run(ftime);
+        #endif
         double t1 = omp_get_wtime();
         printf("Time: %e\n", t1-t0);
 #else

@@ -143,7 +143,7 @@ public:
         u_(nx_all * ny_all) {}
 
     // Advance from time 0 to time tfinal
-    void run(real tfinal);
+    void run(real tfinal, int iter, int num_iters);
 
     // Call f(Uxy, x, y) at each cell center to set initial conditions
     template <typename F>
@@ -212,7 +212,7 @@ private:
 
     // Initialize per-thread local state inside of offloaded kernel
     TARGET_MIC
-    void init_locals(Parameters &params, std::vector<LocalState<Physics>*> &locals);//std::vector<std::unique_ptr<LocalState<Physics>>> &locals);
+    void init_locals(Parameters &params, std::vector<LocalState<Physics>*> &locals);
 
     // Apply limiter to all components in a vector
     #pragma omp declare simd
@@ -714,17 +714,23 @@ void Central2D<Physics, Limiter>::copy_from_local(Parameters &params, LocalState
  */
 
 template <class Physics, class Limiter>
-void Central2D<Physics, Limiter>::run(real tfinal)
+void Central2D<Physics, Limiter>::run(real tfinal, int iter, int num_iters)
 {
     // Offload computation to MIC
 
     real *u_offload      = reinterpret_cast<real*>(u_.data()); USE_ALIGN(u_offload, Physics::BYTE_ALIGN);
     int   u_offload_size = u_.size() * Physics::vec_size;
 
+    bool first_iter = iter == 0;
+    bool last_iter  = iter == num_iters-1;
+    int copy_len = first_iter ? u_offload_size : 0;
+    int init  = first_iter ? 1 : 0;
+    int destroy = last_iter ? 1 : 0;
+
     #pragma offload target(mic:0) in(nghost) in(nx) in(ny) in(nxblocks) in(nyblocks) \
                                   in(nbatch) in(nthreads) in(nx_all) in(ny_all) \
                                   in(dx) in(dy) in(cfl) in(tfinal) \
-                                  inout(u_offload : length(u_offload_size))
+                                  inout(u_offload : length(copy_len) alloc_if(init) free_if(destroy))
     {
 
     // Copy parameters from host to device
