@@ -75,13 +75,11 @@ class aligned_allocator
             new (pv) T(t);
         }
 
+        #ifdef _PARALLEL_DEVICE
         // for target(mic) compatibility:
         // thx: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=51626
         void construct(T * const p) { return construct(p, value_type()); }
-        // void construct(T * const ptr) {
-        //     void* p = ptr;
-        //     ::new(p) T();
-        // }
+        #endif
  
         void destroy(T * const p) const
         {
