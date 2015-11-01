@@ -727,6 +727,9 @@ void Central2D<Physics, Limiter>::run(real tfinal, int iter, int num_iters)
     int init  = first_iter ? 1 : 0;
     int destroy = last_iter ? 1 : 0;
 
+    if(first_iter) printf("\n~~~~~~~~~~~~~~~~~~~~~~~\n ~~~ First Iteration ~~~\n~~~~~~~~~~~~~~~~~~~~~~~\n")
+    if(last_iter)  printf("\n~~~~~~~~~~~~~~~~~~~~~~~\n ~~~ Final Iteration ~~~\n~~~~~~~~~~~~~~~~~~~~~~~\n")
+
     #pragma offload target(mic:0) in(nghost) in(nx) in(ny) in(nxblocks) in(nyblocks) \
                                   in(nbatch) in(nthreads) in(nx_all) in(ny_all) \
                                   in(dx) in(dy) in(cfl) in(tfinal) \
