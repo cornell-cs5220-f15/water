@@ -193,8 +193,10 @@ private:
 
     // Global solution values
     #ifndef __MIC__
-    typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
-    aligned_vector u_;
+        typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+        aligned_vector u_;
+    #else
+        std::vector<vec> u_;
     #endif
 
     // Array accessor function
@@ -642,8 +644,6 @@ void Central2D<Physics, Limiter>::compute_step(Parameters &params, LocalState<Ph
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::copy_to_local(Parameters &params, LocalState<Physics> *local, int tid, real *u)
 {
-
-    // USE_ALIGN(u, Physics::VEC_ALIGN);
     USE_ALIGN(u, Physics::BYTE_ALIGN);
 
     int ny_per_block = local->get_ny();
@@ -657,10 +657,6 @@ void Central2D<Physics, Limiter>::copy_to_local(Parameters &params, LocalState<P
     for (int iy = 0; iy < ny_per_block; ++iy) {
         for (int ix = 0; ix < nx_per_block; ++ix) {
             int iu = ((biy_off+iy)*params.nx_all + bix_off+ix) * Physics::vec_size;
-            // local->u(ix, iy)[0] = u[iu+0]; // h
-            // local->u(ix, iy)[1] = u[iu+1]; // hu
-            // local->u(ix, iy)[2] = u[iu+2]; // hv
-
             real *local_u  = local->u(ix, iy).data(); USE_ALIGN(local_u,  Physics::VEC_ALIGN);
             real *global_u = u+iu;                    USE_ALIGN(global_u, Physics::VEC_ALIGN);
 
@@ -673,7 +669,6 @@ void Central2D<Physics, Limiter>::copy_to_local(Parameters &params, LocalState<P
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::copy_from_local(Parameters &params, LocalState<Physics> *local, int tid, real *u)
 {
-    // USE_ALIGN(u, Physics::VEC_ALIGN);
     USE_ALIGN(u, Physics::BYTE_ALIGN);
 
     int ny_per_block = local->get_ny();
@@ -687,10 +682,6 @@ void Central2D<Physics, Limiter>::copy_from_local(Parameters &params, LocalState
     for (int iy = params.nghost; iy < ny_per_block - params.nghost; ++iy) {
         for (int ix = params.nghost; ix < nx_per_block - params.nghost; ++ix) {
             int iu = ((biy_off+iy)*params.nx_all+bix_off+ix) * Physics::vec_size;
-            // u[iu+0] = local->u(ix, iy)[0]; // h
-            // u[iu+1] = local->u(ix, iy)[1]; // hu
-            // u[iu+2] = local->u(ix, iy)[2]; // hv
-
             real *local_u  = local->u(ix, iy).data(); USE_ALIGN(local_u,  Physics::VEC_ALIGN);
             real *global_u = u+iu;                    USE_ALIGN(global_u, Physics::VEC_ALIGN);
 
