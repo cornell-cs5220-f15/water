@@ -13,7 +13,7 @@
 #pragma offload_attribute(pop)
 
 #ifndef __MIC__
-    #include "aligned_allocator.h"
+    #include "aligned_allocator.h"// aligned allocator is invalid on the phi :/
 #endif
 
 //ldoc on
@@ -130,11 +130,11 @@ public:
     typedef typename Physics::real real;
     typedef typename Physics::vec  vec;
 
-    Central2D(real w, real h,     // Domain width / height
-              int nx, int ny,     // Number of cells in x/y (without ghosts)
-              int nxblocks = 1,   // Number of blocks in x for batching
-              int nyblocks = 1,   // Number of blocks in y for batching
-              int nbatch = 1,     // Number of timesteps to batch per block
+    Central2D(real w, real h,      // Domain width / height
+              int nx, int ny,      // Number of cells in x/y (without ghosts)
+              int nxblocks = 1,    // Number of blocks in x for batching
+              int nyblocks = 1,    // Number of blocks in y for batching
+              int nbatch = 1,      // Number of timesteps to batch per block
               real cfl = 0.45f) :  // Max allowed CFL number
         nx(nx), ny(ny), nxblocks(nxblocks), nyblocks(nyblocks),
         nbatch(nbatch), nghost(1+nbatch*2), // Number of ghost cells depend on batch size
@@ -193,9 +193,9 @@ private:
 
     // Global solution values
     #ifdef __MIC__
-        std::vector<vec> u_;
+        std::vector<vec> u_;// aligned allocator is invalid on the phi :/
     #else
-        // whatever
+        // compiler doesn't like this...but whatever
         typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
         aligned_vector u_;
     #endif
@@ -223,7 +223,7 @@ private:
     // Apply limiter to all components in a vector
     #pragma omp declare simd
     TARGET_MIC
-    static void limdiff(real *du, const real *um, const real *u0, const real *up) {
+    static inline void limdiff(real *du, const real *um, const real *u0, const real *up) {
         USE_ALIGN(du, Physics::VEC_ALIGN);
         USE_ALIGN(um, Physics::VEC_ALIGN);
         USE_ALIGN(u0, Physics::VEC_ALIGN);
@@ -300,9 +300,6 @@ void Central2D<Physics, Limiter>::init_locals(Parameters &params, std::vector<Lo
             int nx_local = (i == params.nxblocks - 1) ? nx_per_block_padded - nx_overhang
                          :                              nx_per_block_padded;
             locals.push_back(new LocalState<Physics>(nx_local, ny_local));
-            // locals.push_back(
-            //            std::make_unique< LocalState<Physics> >(nx_local, ny_local) // waddup c++14
-            //        );
         }
     }
 }
@@ -327,7 +324,6 @@ void Central2D<Physics, Limiter>::init_locals(Parameters &params, std::vector<Lo
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic(Parameters &params, real* u)
 {
-    // USE_ALIGN(u, Physics::VEC_ALIGN);
     USE_ALIGN(u, Physics::BYTE_ALIGN);
     // Copy data between right and left boundaries
     for (int iy = 0; iy < params.ny_all; ++iy) {
@@ -337,18 +333,12 @@ void Central2D<Physics, Limiter>::apply_periodic(Parameters &params, real* u)
             
             #pragma unroll
             for(int m = 0; m < Physics::vec_size; ++m) u[iu+m] = u[iu_wrap+m];
-            // u[iu+0] = u[iu_wrap+0];
-            // u[iu+1] = u[iu_wrap+1];
-            // u[iu+2] = u[iu_wrap+2];
 
             iu      = offset(params, params.nx+params.nghost+ix, iy) * Physics::vec_size;
             iu_wrap = ioffset(params, params.nx+params.nghost+ix, iy) * Physics::vec_size;
 
             #pragma unroll
             for(int m = 0; m < Physics::vec_size; ++m) u[iu+m] = u[iu_wrap+m];
-            // u[iu+0] = u[iu_wrap+0];
-            // u[iu+1] = u[iu_wrap+1];
-            // u[iu+2] = u[iu_wrap+2];
         }
     }
 
@@ -361,19 +351,11 @@ void Central2D<Physics, Limiter>::apply_periodic(Parameters &params, real* u)
             #pragma unroll
             for(int m = 0; m < Physics::vec_size; ++m) u[iu+m] = u[iu_wrap+m];
 
-            // u[iu+0] = u[iu_wrap+0];
-            // u[iu+1] = u[iu_wrap+1];
-            // u[iu+2] = u[iu_wrap+2];
-
             iu      = offset(params, ix, params.ny+params.nghost+iy) * Physics::vec_size;
             iu_wrap = ioffset(params, ix, params.ny+params.nghost+iy) * Physics::vec_size;
 
             #pragma unroll
             for(int m = 0; m < Physics::vec_size; ++m) u[iu+m] = u[iu_wrap+m];
-
-            // u[iu+0] = u[iu_wrap+0];
-            // u[iu+1] = u[iu_wrap+1];
-            // u[iu+2] = u[iu_wrap+2];
         }
     }
 }
@@ -399,7 +381,7 @@ void Central2D<Physics, Limiter>::compute_wave_speeds(Parameters &params, real& 
         for (int ix = 0; ix < params.nx_all; ++ix) {
             real cell_cx, cell_cy;
             int iu = offset(params, ix, iy) * Physics::vec_size;
-            /*vec u_tmp = {u[iu+0], u[iu+1], u[iu+2], 0.0f};*/ real *u_tmp = u+iu; USE_ALIGN(u_tmp, Physics::VEC_ALIGN);
+            real *u_tmp = u+iu; USE_ALIGN(u_tmp, Physics::VEC_ALIGN);
             Physics::wave_speed(cell_cx, cell_cy, u_tmp);
             cx = std::max(cx, cell_cx);
             cy = std::max(cy, cell_cy);
@@ -423,11 +405,6 @@ void Central2D<Physics, Limiter>::compute_flux(Parameters &params, LocalState<Ph
             real *u_xy = local->u(ix,iy).data(); USE_ALIGN(u_xy, Physics::VEC_ALIGN);
 
             Physics::flux(f_xy, g_xy, u_xy);
-
-
-            // Physics::flux(local->f(ix,iy),
-            //               local->g(ix,iy),
-            //               local->u(ix,iy));
         }
     }
 }
@@ -447,9 +424,7 @@ void Central2D<Physics, Limiter>::limited_derivs(Parameters &params, LocalState<
     int nx_per_block = local->get_nx();
 
     for (int iy = 1; iy < ny_per_block-1; ++iy) {
-        // #pragma ivdep
         for (int ix = 1; ix < nx_per_block-1; ++ix) {
-
             //
             // x derivs
             //
@@ -479,18 +454,6 @@ void Central2D<Physics, Limiter>::limited_derivs(Parameters &params, LocalState<
             limdiff( fx_x0_y0, f_xM1_y0, f_x0_y0, f_xP1_y0 );
             limdiff( uy_x0_y0, u_x0_yM1, u_x0_y0, u_x0_yP1 );
             limdiff( gy_x0_y0, g_x0_yM1, g_x0_y0, g_x0_yP1 );
-
-            // // x derivs
-            // limdiff( local->ux(ix,iy), local->u(ix-1,iy),
-            //          local->u(ix,iy),  local->u(ix+1,iy) );
-            // limdiff( local->fx(ix,iy), local->f(ix-1,iy),
-            //          local->f(ix,iy),  local->f(ix+1,iy) );
-
-            // // y derivs
-            // limdiff( local->uy(ix,iy), local->u(ix,iy-1),
-            //          local->u(ix,iy),  local->u(ix,iy+1) );
-            // limdiff( local->gy(ix,iy), local->g(ix,iy-1),
-            //          local->g(ix,iy),  local->g(ix,iy+1) );
         }
     }
 }
@@ -533,12 +496,6 @@ void Central2D<Physics, Limiter>::compute_step(Parameters &params, LocalState<Ph
     for (int iy = 1; iy < ny_per_block-1; ++iy) {
         #pragma simd
         for (int ix = 1; ix < nx_per_block-1; ++ix) {
-            // vec uh = local->u(ix,iy);
-            // for (int m = 0; m < uh.size(); ++m) {
-            //     uh[m] -= dtcdx2 * local->fx(ix,iy)[m];
-            //     uh[m] -= dtcdy2 * local->gy(ix,iy)[m];
-            // }
-            // Physics::flux(local->f(ix,iy), local->g(ix,iy), uh);
             // gather the necessary information
             real *uh    = local->u(ix,iy).data();   USE_ALIGN(uh,    Physics::VEC_ALIGN);
             real *fx_xy = local->fx(ix, iy).data(); USE_ALIGN(fx_xy, Physics::VEC_ALIGN);
@@ -621,7 +578,6 @@ void Central2D<Physics, Limiter>::compute_step(Parameters &params, LocalState<Ph
     // Copy from v storage back to main grid
     for (int j = params.nghost; j < ny_per_block-params.nghost; ++j) {
         for (int i = params.nghost; i < nx_per_block-params.nghost; ++i) {
-            // local->u(i,j) = local->v(i-io,j-io);
             real *u_ij    = local->u(i, j).data();       USE_ALIGN(u_ij,     Physics::VEC_ALIGN );
             real *v_ij_io = local->v(i-io, j-io).data(); USE_ALIGN(v_ij_io,  Physics::VEC_ALIGN );
 
@@ -719,91 +675,85 @@ void Central2D<Physics, Limiter>::run(real tfinal, int iter, int num_iters)
     int init  = first_iter ? 1 : 0;
     int destroy = last_iter ? 1 : 0;
 
-    if(first_iter) printf("\n~~~~~~~~~~~~~~~~~~~~~~~\n~~~ First Iteration ~~~\n~~~~~~~~~~~~~~~~~~~~~~~\n");
-    else if(last_iter)  printf("\n~~~~~~~~~~~~~~~~~~~~~~~\n~~~ Final Iteration ~~~\n~~~~~~~~~~~~~~~~~~~~~~~\n");
-    else printf("\n~~~ !!! ~~~\n");
-
     #pragma offload target(mic:0) in(nghost) in(nx) in(ny) in(nxblocks) in(nyblocks) \
                                   in(nbatch) in(nthreads) in(nx_all) in(ny_all) \
                                   in(dx) in(dy) in(cfl) in(tfinal) \
                                   inout(u_offload : length(u_offload_size) alloc_if(init) free_if(destroy))
     {
 
-    // Copy parameters from host to device
-    Parameters params;
-    params.nghost   = nghost;
-    params.nx       = nx;
-    params.ny       = ny;
-    params.nxblocks = nxblocks;
-    params.nyblocks = nyblocks;
-    params.nbatch   = nbatch;
-    params.nthreads = nthreads;
-    params.nx_all   = nx_all;
-    params.ny_all   = ny_all;
-    params.dx       = dx;
-    params.dy       = dy;
-    params.cfl      = cfl;
+        // Copy parameters from host to device
+        Parameters params;
+        params.nghost   = nghost;
+        params.nx       = nx;
+        params.ny       = ny;
+        params.nxblocks = nxblocks;
+        params.nyblocks = nyblocks;
+        params.nbatch   = nbatch;
+        params.nthreads = nthreads;
+        params.nx_all   = nx_all;
+        params.ny_all   = ny_all;
+        params.dx       = dx;
+        params.dy       = dy;
+        params.cfl      = cfl;
 
-    // Initialize per-thread local buffers on the device
-    std::vector<LocalState<Physics>*> locals;
-    // std::vector<std::unique_ptr<LocalState<Physics>>> locals;
-    init_locals(params, locals);
+        // Initialize per-thread local buffers on the device
+        std::vector<LocalState<Physics>*> locals;
+        init_locals(params, locals);
 
-    // Main computation loop
-    bool done = false;
-    real t = 0;
-    while (!done) {
+        // Main computation loop
+        bool done = false;
+        real t = 0;
+        while (!done) {
 
-        // We only need to update the ghost cells after all threads have
-        // exhausted valid data in the ghost cells in order to calculate
-        // the number of steps in the batch.
-        apply_periodic(params, u_offload);
+            // We only need to update the ghost cells after all threads have
+            // exhausted valid data in the ghost cells in order to calculate
+            // the number of steps in the batch.
+            apply_periodic(params, u_offload);
 
-        // We only need to calculate the wave speeds at the beginning of
-        // each super-step to determine the dt for both the even/odd
-        // sub-steps.
-        real cx, cy;
-        compute_wave_speeds(params, cx, cy, u_offload);
+            // We only need to calculate the wave speeds at the beginning of
+            // each super-step to determine the dt for both the even/odd
+            // sub-steps.
+            real cx, cy;
+            compute_wave_speeds(params, cx, cy, u_offload);
 
-        // Break out of the loop after this super-step if we have
-        // simulated at least tfinal seconds.
-        real dt = params.cfl / std::max(cx/params.dx, cy/params.dy);
-        int  modified_nbatch = params.nbatch;
-        if (t + 2*params.nbatch*dt >= tfinal) {
-            modified_nbatch = ceil((tfinal-t)/(2*dt));
-            done = true;
-        }
-
-        // Parallelize computation across partitioned blocks
-        #pragma omp parallel num_threads(params.nthreads)
-        {
-            int tid = omp_get_thread_num();
-
-            // Copy global data to local buffers
-            copy_to_local(params, locals[tid], tid, u_offload);
-
-            // Batch multiple timesteps
-            for (int bi = 0; bi < modified_nbatch; ++bi) {
-
-                // Execute the even and odd sub-steps for each super-step
-                for (int io = 0; io < 2; ++io) {
-                    compute_flux(params, locals[tid]);
-                    limited_derivs(params, locals[tid]);
-                    compute_step(params, locals[tid], io, dt);
-                }
+            // Break out of the loop after this super-step if we have
+            // simulated at least tfinal seconds.
+            real dt = params.cfl / std::max(cx/params.dx, cy/params.dy);
+            int  modified_nbatch = params.nbatch;
+            if (t + 2*params.nbatch*dt >= tfinal) {
+                modified_nbatch = ceil((tfinal-t)/(2*dt));
+                done = true;
             }
 
-            // Copy local data to global buffer
-            copy_from_local(params, locals[tid], tid, u_offload);
+            // Parallelize computation across partitioned blocks
+            #pragma omp parallel num_threads(params.nthreads)
+            {
+                int tid = omp_get_thread_num();
+
+                // Copy global data to local buffers
+                copy_to_local(params, locals[tid], tid, u_offload);
+
+                // Batch multiple timesteps
+                for (int bi = 0; bi < modified_nbatch; ++bi) {
+
+                    // Execute the even and odd sub-steps for each super-step
+                    for (int io = 0; io < 2; ++io) {
+                        compute_flux(params, locals[tid]);
+                        limited_derivs(params, locals[tid]);
+                        compute_step(params, locals[tid], io, dt);
+                    }
+                }
+
+                // Copy local data to global buffer
+                copy_from_local(params, locals[tid], tid, u_offload);
+            }
+
+            // Update simulated time
+            t += 2*modified_nbatch*dt;
         }
 
-        // Update simulated time
-        t += 2*modified_nbatch*dt;
-    }
-
-    // Clean up local state
-    for (auto local : locals) delete local;
-    // }
+        // Clean up local state
+        for (auto local : locals) delete local;
     } // end pragma offload
 }
 

@@ -335,7 +335,7 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
-    for (int iy = 1; iy < ny_all-1; ++iy)
+    for (int iy = 1; iy < ny_all-1; ++iy) {
         for (int ix = 1; ix < nx_all-1; ++ix) {
             //
             // x derivs
@@ -367,6 +367,7 @@ void Central2D<Physics, Limiter>::limited_derivs()
             limdiff( uy_x0_y0, u_x0_yM1, u_x0_y0, u_x0_yP1 );
             limdiff( gy_x0_y0, g_x0_yM1, g_x0_y0, g_x0_yP1 );
         }
+    }
 }
 
 
