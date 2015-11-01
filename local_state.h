@@ -2,6 +2,13 @@
 #ifndef LocalState_H
 #define LocalState_H
 
+#ifdef __INTEL_COMPILER
+    #define DEF_ALIGN(x) __declspec(align((x)))
+    #define USE_ALIGN(var, align) __assume_aligned((var), (align));
+#else // GCC
+    #define DEF_ALIGN(x) __attribute__ ((aligned((x))))
+    #define USE_ALIGN(var, align) ((void)0) /* __builtin_assume_align is unreliabale... */
+#endif
 #ifdef _PARALLEL_DEVICE
     #pragma offload_attribute(push,target(mic))
 #endif
