@@ -2,12 +2,12 @@
 #define SHALLOW2D_H
 
 #if defined _PARALLEL_DEVICE
-#pragma offload_attribute(push,target(mic))
+    #pragma offload_attribute(push,target(mic))
 #endif
 #include <cmath>
 #include <array>
 #if defined _PARALLEL_DEVICE
-#pragma offload_attribute(pop)
+    #pragma offload_attribute(pop)
 #endif
 
 //ldoc on
@@ -75,12 +75,6 @@
     #define DEF_ALIGN(x) __attribute__ ((aligned((x))))
     #define USE_ALIGN(var, align) ((void)0) /* __builtin_assume_align is unreliabale... */
 #endif
-
-// #if defined _PARALLEL_DEVICE
-//     #define TARGET_MIC __declspec(target(mic))
-// #else
-//     #define TARGET_MIC /* n/a */
-// #endif
 
 #if defined _PARALLEL_DEVICE
     #ifdef __INTEL_COMPILER

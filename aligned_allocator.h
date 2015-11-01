@@ -2,9 +2,6 @@
 #ifndef aligned_allocator_h
 #define aligned_allocator_h
 
-#ifdef _PARALLEL_DEVICE
-    #pragma offload_attribute(push,target(mic))
-#endif
 #ifdef _WIN32
 #include <malloc.h>
 #endif
@@ -77,11 +74,11 @@ class aligned_allocator
             new (pv) T(t);
         }
 
-        #ifdef _PARALLEL_DEVICE
-        // for target(mic) compatibility:
-        // thx: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=51626
-        void construct(T * const p) { return construct(p, value_type()); }
-        #endif
+        // #ifdef _PARALLEL_DEVICE ////////////////////////////////////////// FALSE. wishing intel would catch up by now...
+        // // for target(mic) compatibility:
+        // // thx: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=51626
+        // void construct(T * const p) { return construct(p, value_type()); }
+        // #endif
  
         void destroy(T * const p) const
         {
@@ -165,9 +162,5 @@ class aligned_allocator
     private:
         aligned_allocator& operator=(const aligned_allocator&);
 };
-
-#ifdef _PARALLEL_DEVICE
-    #pragma offload_attribute(pop)
-#endif
 
 #endif // aligned_allocator_h
