@@ -193,7 +193,7 @@ private:
 
     // Global solution values
     #ifndef __MIC__
-        typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+        // aligned_vector defined in shallow2d.h
         aligned_vector u_;
     #else
         std::vector<vec> u_;
