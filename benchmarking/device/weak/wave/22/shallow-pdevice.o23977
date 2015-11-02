@@ -1,0 +1,260 @@
+-
+  Volume: 4
+  Momentum: (4, 0)
+  Range: [0.8, 1.2]
+Time: 4.596555e+00
+-
+  Volume: 3.99967
+  Momentum: (4.01879, 1.20412e-05)
+  Range: [0.8, 1.2]
+Time: 4.846533e+00
+-
+  Volume: 4.00113
+  Momentum: (4.03758, 2.72903e-05)
+  Range: [0.8, 1.2]
+Time: 5.023744e+00
+-
+  Volume: 4.00219
+  Momentum: (4.05967, 4.35035e-05)
+  Range: [0.8, 1.2]
+Time: 5.046459e+00
+-
+  Volume: 4.00215
+  Momentum: (4.07761, 6.08531e-05)
+  Range: [0.8, 1.2]
+Time: 5.240280e+00
+-
+  Volume: 4.00125
+  Momentum: (4.10812, 7.87738e-05)
+  Range: [0.8, 1.2]
+Time: 5.230269e+00
+-
+  Volume: 4.00005
+  Momentum: (4.14214, 9.62392e-05)
+  Range: [0.8, 1.2]
+Time: 5.226180e+00
+-
+  Volume: 3.99709
+  Momentum: (4.17198, 0.000114068)
+  Range: [0.8, 1.2]
+Time: 5.215177e+00
+-
+  Volume: 3.99891
+  Momentum: (4.20077, 0.000131585)
+  Range: [0.8, 1.2]
+Time: 5.394318e+00
+-
+  Volume: 4.00367
+  Momentum: (4.23665, 0.000149233)
+  Range: [0.8, 1.2]
+Time: 5.412257e+00
+-
+  Volume: 4.00247
+  Momentum: (4.26886, 0.000166134)
+  Range: [0.8, 1.2]
+Time: 5.418706e+00
+-
+  Volume: 3.99525
+  Momentum: (4.30644, 0.000182663)
+  Range: [0.8, 1.2]
+Time: 5.396622e+00
+-
+  Volume: 3.99516
+  Momentum: (4.34227, 0.000198456)
+  Range: [0.8, 1.2]
+Time: 5.402162e+00
+-
+  Volume: 3.99544
+  Momentum: (4.37523, 0.000213295)
+  Range: [0.8, 1.2]
+Time: 5.423754e+00
+-
+  Volume: 3.99394
+  Momentum: (4.40771, 0.000229704)
+  Range: [0.8, 1.2]
+Time: 5.590241e+00
+-
+  Volume: 3.98917
+  Momentum: (4.44528, 0.000243651)
+  Range: [0.8, 1.2]
+Time: 5.564898e+00
+-
+  Volume: 3.98641
+  Momentum: (4.47836, 0.000254062)
+  Range: [0.8, 1.2]
+Time: 5.589122e+00
+-
+  Volume: 3.98211
+  Momentum: (4.50832, 0.000274474)
+  Range: [0.8, 1.2]
+Time: 5.557769e+00
+-
+  Volume: 3.97766
+  Momentum: (4.53631, 0.000298359)
+  Range: [0.8, 1.2]
+Time: 5.547244e+00
+-
+  Volume: 3.97067
+  Momentum: (4.55876, 0.000322484)
+  Range: [0.8, 1.2]
+Time: 5.546739e+00
+-
+  Volume: 3.96455
+  Momentum: (4.58056, 0.000351267)
+  Range: [0.8, 1.2]
+Time: 5.536746e+00
+-
+  Volume: 3.9548
+  Momentum: (4.60135, 0.000375332)
+  Range: [0.8, 1.2]
+Time: 5.516035e+00
+-
+  Volume: 3.9453
+  Momentum: (4.61627, 0.000405771)
+  Range: [0.8, 1.2]
+Time: 5.517189e+00
+-
+  Volume: 3.93252
+  Momentum: (4.62655, 0.000442193)
+  Range: [0.8, 1.2]
+Time: 5.520785e+00
+-
+  Volume: 3.92372
+  Momentum: (4.63225, 0.000475134)
+  Range: [0.8, 1.2]
+Time: 5.553945e+00
+-
+  Volume: 3.91509
+  Momentum: (4.63688, 0.000531807)
+  Range: [0.8, 1.2]
+Time: 5.542444e+00
+-
+  Volume: 3.90677
+  Momentum: (4.63706, 0.000575086)
+  Range: [0.8, 1.2]
+Time: 5.512379e+00
+-
+  Volume: 3.89719
+  Momentum: (4.63773, 0.000631859)
+  Range: [0.8, 1.2]
+Time: 5.511307e+00
+-
+  Volume: 3.88683
+  Momentum: (4.6364, 0.000689055)
+  Range: [0.8, 1.2]
+Time: 5.499278e+00
+-
+  Volume: 3.87689
+  Momentum: (4.63421, 0.000746781)
+  Range: [0.8, 1.2]
+Time: 5.505778e+00
+-
+  Volume: 3.86755
+  Momentum: (4.62961, 0.000815156)
+  Range: [0.8, 1.2]
+Time: 5.486254e+00
+-
+  Volume: 3.85884
+  Momentum: (4.6262, 0.000872322)
+  Range: [0.8, 1.2]
+Time: 5.466540e+00
+-
+  Volume: 3.85073
+  Momentum: (4.62429, 0.000922948)
+  Range: [0.8, 1.2]
+Time: 5.485437e+00
+-
+  Volume: 3.84389
+  Momentum: (4.62332, 0.000995863)
+  Range: [0.8, 1.2]
+Time: 5.484205e+00
+-
+  Volume: 3.83777
+  Momentum: (4.62059, 0.00107116)
+  Range: [0.8, 1.2]
+Time: 5.552083e+00
+-
+  Volume: 3.8325
+  Momentum: (4.62063, 0.00114461)
+  Range: [0.8, 1.2]
+Time: 5.548431e+00
+-
+  Volume: 3.82835
+  Momentum: (4.6228, 0.00121359)
+  Range: [0.8, 1.2]
+Time: 5.578419e+00
+-
+  Volume: 3.82555
+  Momentum: (4.62679, 0.00128549)
+  Range: [0.8, 1.2]
+Time: 5.577057e+00
+-
+  Volume: 3.82403
+  Momentum: (4.62956, 0.00136079)
+  Range: [0.8, 1.2]
+Time: 4.956751e+00
+-
+  Volume: 3.82365
+  Momentum: (4.63616, 0.00143708)
+  Range: [0.8, 1.2]
+Time: 4.905123e+00
+-
+  Volume: 3.8224
+  Momentum: (4.64391, 0.00151387)
+  Range: [0.8, 1.2]
+Time: 5.172656e+00
+-
+  Volume: 3.82122
+  Momentum: (4.6515, 0.00158867)
+  Range: [0.8, 1.2]
+Time: 5.599167e+00
+-
+  Volume: 3.82045
+  Momentum: (4.66166, 0.00166265)
+  Range: [0.8, 1.2]
+Time: 5.594479e+00
+-
+  Volume: 3.82065
+  Momentum: (4.67376, 0.00172597)
+  Range: [0.8, 1.2]
+Time: 5.589222e+00
+-
+  Volume: 3.82076
+  Momentum: (4.68587, 0.00178255)
+  Range: [0.8, 1.2]
+Time: 5.555141e+00
+-
+  Volume: 3.82136
+  Momentum: (4.69683, 0.00187639)
+  Range: [0.8, 1.2]
+Time: 5.552349e+00
+-
+  Volume: 3.82231
+  Momentum: (4.7058, 0.00192615)
+  Range: [0.8, 1.2]
+Time: 5.607546e+00
+-
+  Volume: 3.82418
+  Momentum: (4.71425, 0.00198975)
+  Range: [0.8, 1.2]
+Time: 5.562903e+00
+-
+  Volume: 3.82447
+  Momentum: (4.72276, 0.0020515)
+  Range: [0.8, 1.2]
+Time: 5.532788e+00
+-
+  Volume: 3.82612
+  Momentum: (4.73135, 0.0021056)
+  Range: [0.8, 1.2]
+Time: 5.516485e+00
+-
+  Volume: 3.82793
+  Momentum: (4.73883, 0.00216358)
+  Range: [0.8, 1.2]
+#
+# [Device]: Thread X [11] * Thread Y [4] = 44 Threads
+# Sim Type:   wave
+# Size:       950
+# Total Time: 272.5954849720001 seconds
+#
