@@ -22,6 +22,9 @@ X_THREADS=${THREAD_X:-2}
 # thread y, default 2
 Y_THREADS=${THREAD_Y:-2}
 
+# num blocks to dispatch
+NUM_BLOCKS=${BLOCKS:-1}
+
 module load cs5220
 cd $PBS_O_WORKDIR
-./shallow-pdevice -x $X_THREADS -y $Y_THREADS -b 1 -i $DISPATCH_TYPE -o $DISPATCH_TYPE".out" -n $DISPATCH_SIZE
+./shallow-pdevice -x $X_THREADS -y $Y_THREADS -b $NUM_BLOCKS -i $DISPATCH_TYPE -o $DISPATCH_TYPE".out" -n $DISPATCH_SIZE
