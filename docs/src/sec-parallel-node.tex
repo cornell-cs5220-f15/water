@@ -126,20 +126,18 @@ parallel implementations of the shallow water equation solver running the
 compute nodes is shown in Figure~\ref{fig-parallel-node-results}.
 
 For the strong scaling study, we sweep the number of threads used for the
-parallel implementation using the same 200x200 grid size and normalize
-the execution time results against the serial implementation. In general,
-we see a pseudo-linear speedup with the number of threads until 6
-threads, then the performance tapers off with any additional increase in
-parallelization. This is to be expected, especially with a smaller
+parallel implementation using the same 800x800 grid size and normalize
+the execution time results against the serial implementation. In prior results the general
+theme was a pseudo-linear speedup with the number of threads until 6
+threads, then the performance tapered off with any additional increase in
+parallelization, and was using a 200x200 grid. This is to be expected, especially with a smaller
 dataset, since the synchronization overhead begins to dominate the amount
-of work per thread with more threads. There is an interesting phenomenon
-for the performance of the 6 and 12 threads configurations in which the
-performance stops monotonically increasing and is inconsistent across
-different initial conditions. We believe the reason for this is
+of work per thread with more threads.
+
+In comparing with the tuned code, however, we do not see the kinds of speedup
+we would like for the parallel implementation.  We believe the reason for this is
 two-fold. First, there is suboptimal load balancing for block dimensions
-that do not evenly divide the grid dimensions. Specifically, for a
-200x200 grid, splitting the grid into 3 blocks in any dimension (e.g.,
-3x2 for 6 threads, 4x3 for 12 threads) will assign less work to the
+that do not evenly divide the grid dimensions -- less work will be assigned to the
 boundary blocks. Second, there might be an increase in cache conflicts
 for certain block dimensions. This effect would be most noticeable during
 the copying of data to and from the per-thread local state, which occurs
@@ -147,6 +145,10 @@ after every timestep. The interplay between this effect and the fact that
 smaller blocks are more likely to fit in each thread's (i.e., core's)
 private L1 cache, could be a possible cause of the inconsistency we see
 for the performance of certain block dimensions.
+
+Furthermore, the rate at which our \texttt{LocalState<Physics>} class requires new data
+to be initialized at each execution of the \texttt{Sim::run} method provides for a sizeable
+overhead.  A better choice would have been to re-use as much memory as possible.
 
 For the weak scaling study, we increase the grid size with the same
 factor as the increase in the number of threads. For example, the 4
