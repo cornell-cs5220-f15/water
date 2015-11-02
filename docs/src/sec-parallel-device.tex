@@ -75,7 +75,9 @@ approach to avoiding allocation on the Phi when offloading within a loop was lea
 tutorial here\\\\\centerline{https://software.intel.com/en-us/videos/part-2-efficient-parallel-programming-of-intel-xeon-processors-and-intel-xeon-phi}\\\\ 
 is to \texttt{alloc\_if( < first iteration > )} \emph{only}, and \texttt{free\_if( < last iteration > )} \emph{only}.
 Apparently, if you don't also change the \texttt{length(...)} specifier to be 0 you will still transfer things.
-The point being that data re-use is fundamentally important, and we could not get it functioning.
+The point being that data re-use is fundamentally important.  Our current device implementation runs the initialization of all \texttt{LocalState}
+structs on the Phi, which requires the allocation of much new memory.  We see a slowdown when compared to the node implementation because
+of the significant memory overhead of creating new initial contiditions for each loop of \texttt{Sim::run}.
 This is largely because we are severely limited by C++ in the sense that classes and structs with things
 such as dynamically allocated arrays like \texttt{std::vector} are very difficult to serialize.  There is a
 branch on the repository called \emph{may\_as\_well} that attempts this, but it segfaults.  The most useful
@@ -134,5 +136,28 @@ meaning direct transfer to the Phi is not possible.  Furthermore, after playing 
 but significant impact on the way custom allocators must be written.  We were unable to make our custom allocator
 backwards compatible.
 
-\input{fig-parallel-device-batching-results}
+In short, the pitfall of our current implementation is that the most ideal solution would enable re-use of memory on the
+Phi's since it should not actually be necessary to keep transferring all of the \texttt{LocalState} objects over, nor
+have to create them on the Phi each time.  The overhead associated with achieving this, though, is no small task and
+we were unable to do it correctly.  That is, the act of explicitly allocating the \texttt{LocalState} on the Phi each
+execution of \texttt{Sim::run} is why we have such a slowdown, since allocation of memory on the Phi is so slow.
 
+\subsection{Alternatives for Parallelizing for the Accelerator Board}
+\label{sec-parallel-device-alternatives}
+
+Another idea that we tried to implement, but did not have time to take very seriously, is the idea of only offloading
+specific parts of the domain to a given Phi.  We currently only offload things to one Phi, and in the presence of two
+Phi's we have great potential for more speedup.  The general idea would be to split the domain into two roughly equal
+parts, say the top half of the grid and the bottom half of the grid.  From there you can sub-block out using a similar
+strategy to our currrent \texttt{LocalState} to improve throughput (making sure to reuse memory!), and the piece that would have to tie things together
+(that would not exactly be easy) is the boundary conditions.  If you consider the boundary between the top and the bottom
+halves of the computation, all of the elements in the upper half of the grid need to access data sent to the lower half.
+Inter-Phi communication would not actually be necessary (were it even possible), if you recognize that for sufficiently large
+enough grid sizes in conjunction with a relatively small and finite number of boundary conditions to communicate, you
+can have the node fill in the gaps.
+
+Specifically, when you consider the top half on \texttt{mic0}, you have it start in the center of its computational boundary
+and work in a sort of spiral pattern outward.  The left and right edges are already in its local memory in terms of the wrap
+around, so the only thing that we are concerned about are the upper and lower edges of the computation.  Since these boundaries
+are relatively small, you can have the host node compute the boundaries locally and send it to both Phi's.  Yes, there would
+be redundant computation, but if done correctly we believe this would have produced some very interesting results.
