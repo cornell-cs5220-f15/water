@@ -1,5 +1,5 @@
 #=========================================================================
-# fig-parallel-node-results.py
+# fig-parallel-node-weak-results.py
 #=========================================================================
 
 import matplotlib.pyplot as plt
@@ -59,6 +59,10 @@ configs = [
   '8',
   '12',
   '16',
+  '18',
+  '20',
+  '22',
+  '24'
 ]
 
 num_configs = len( configs )
@@ -70,44 +74,64 @@ perf_data = [
   # serial
 
   [
-    4.43e-2, 2.91e-2, 3.60e-2, 4.40e-2,
+    2.38884836, 1.5691983583747178, 1.9412763196388259, 2.3726710573363428
   ],
 
   # parallel (2 threads)
 
   [
-    2.94e-2, 2.34e-2, 2.93e-2, 3.54e-2,
+    1.039272716, 0.812679238, 1.010275428, 1.06634112
   ],
 
   # parallel (4 threads)
 
   [
-    1.32e-2, 8.67e-3, 1.10e-2, 1.31e-2,
+    1.33841274, 0.90213639, 1.26406384, 1.45834966
   ],
 
   # parallel (6 threads)
 
   [
-    1.03e-2, 8.33e-3, 1.06e-2, 1.04e-2,
+    1.75516122, 1.4378316, 1.88823812, 1.86157394
   ],
 
   # parallel (8 threads)
 
   [
-    8.21e-3, 6.44e-3, 8.15e-3, 9.70e-3,
+    2.44486316, 1.93989904, 2.1975697, 2.5734287
   ],
 
   # parallel (12 threads)
 
   [
-    1.06e-2, 4.97e-3, 1.07e-2, 7.33e-3,
+    2.9366917, 2.1073047, 3.11047534, 3.2220355
   ],
 
   # parallel (16 threads)
 
   [
-    7.22e-3, 5.66e-3, 6.98e-3, 8.52e-3,
+    3.97717158, 2.63578644, 3.62236416, 3.75828054
   ],
+
+  # parallel (18 threads)
+  [
+    3.63710954, 2.98071324, 3.9291705, 4.2174697
+  ],
+
+  # parallel (20 threads)
+  [
+    4.3657963, 3.4366359, 4.28346454, 4.68814156
+  ],
+
+  # parallel (22 threads)
+  [
+    4.47775996, 3.71927952, 4.72613524, 5.41615902
+  ],
+
+  # parallel (24 threads)
+  [
+    5.36563264, 4.1626919, 5.19320286, 5.8770184
+  ]
 
 ]
 
@@ -172,7 +196,7 @@ ax.grid(True)
 
 # Set axis limits
 
-plt.axis( xmax=num_bmarks-1+(num_configs+2)*width, ymax=6.5 )
+plt.axis( xmax=num_bmarks-1+(num_configs+2)*width )
 
 # Add bars for each configuration
 
@@ -192,8 +216,8 @@ plt.axhline( y=1, color='k', linewidth=1.5 )
 
 # Legend
 
-ax.legend( rects, configs, loc=8, bbox_to_anchor=(0.01,1.02,0.98,0.1),
-           ncol=4, borderaxespad=0, prop={'size':12}, frameon=False )
+ax.legend( rects, configs, loc=8, bbox_to_anchor=(0.01,1.02,0.98,0.1), ncol=4,
+           borderaxespad=0, prop={'size':12}, frameon=False )
 
 # Pretty layout
 
@@ -214,3 +238,4 @@ ax.yaxis.set_ticks_position('left')
 input_basename = os.path.splitext( os.path.basename(sys.argv[0]) )[0]
 output_filename = input_basename + '.py.pdf'
 plt.savefig( output_filename, bbox_inches='tight' )
+

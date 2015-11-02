@@ -55,10 +55,13 @@ configs = [
   '1',
   '2',
   '4',
-  '6',
   '8',
-  '12',
   '16',
+  '32',
+  '64',
+  '128',
+  '184',
+  '240'
 ]
 
 num_configs = len( configs )
@@ -67,47 +70,62 @@ num_configs = len( configs )
 
 perf_data = [
 
+  # Dam      Pond     River    Wave
+
   # serial
 
   [
-    4.43e-2, 2.91e-2, 3.60e-2, 4.40e-2,
+    2.38884836, 1.5691983583747178, 1.9412763196388259, 2.3726710573363428
   ],
 
   # parallel (2 threads)
 
   [
-    2.94e-2, 2.34e-2, 2.93e-2, 3.54e-2,
+    34.5379286, 24.5436058, 34.9225502, 35.8127068
   ],
 
   # parallel (4 threads)
 
   [
-    1.32e-2, 8.67e-3, 1.10e-2, 1.31e-2,
-  ],
-
-  # parallel (6 threads)
-
-  [
-    1.03e-2, 8.33e-3, 1.06e-2, 1.04e-2,
+    18.5273786, 13.5999622, 17.258649, 18.5635592
   ],
 
   # parallel (8 threads)
 
   [
-    8.21e-3, 6.44e-3, 8.15e-3, 9.70e-3,
-  ],
-
-  # parallel (12 threads)
-
-  [
-    1.06e-2, 4.97e-3, 1.07e-2, 7.33e-3,
+    10.15613192, 6.8257408, 10.05364588, 10.6868559
   ],
 
   # parallel (16 threads)
 
   [
-    7.22e-3, 5.66e-3, 6.98e-3, 8.52e-3,
+    5.74358982, 4.665768, 5.68093148, 6.07347788
   ],
+
+  # parallel (32 threads)
+  [
+    3.56105844, 2.5752076, 3.50935656, 3.69269082
+  ],
+
+  # parallel (64 threads)
+  [
+    2.7336424, 2.02076894, 2.6166105, 2.90960018
+  ],
+
+  # parallel (128 threads)
+  [
+    2.24632228, 1.70600736, 2.15526584, 2.31526262
+  ],
+
+  # parallel (184 threads)
+  [
+    2.19851622, 1.6692168, 2.19500794, 2.3542583
+  ],
+
+  # parallel (240 threads)
+  [
+    2.01429036, 1.52722492, 2.01413388, 2.22289382
+  ]
 
 ]
 
@@ -172,7 +190,7 @@ ax.grid(True)
 
 # Set axis limits
 
-plt.axis( xmax=num_bmarks-1+(num_configs+2)*width, ymax=6.5 )
+plt.axis( xmax=num_bmarks-1+(num_configs+2)*width, ymax=1.5 )
 
 # Add bars for each configuration
 
@@ -214,3 +232,4 @@ ax.yaxis.set_ticks_position('left')
 input_basename = os.path.splitext( os.path.basename(sys.argv[0]) )[0]
 output_filename = input_basename + '.py.pdf'
 plt.savefig( output_filename, bbox_inches='tight' )
+

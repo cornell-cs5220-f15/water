@@ -30,14 +30,13 @@
       Shallow Water Equation Solver Running on Compute Nodes --}
     Performance of the parallel implementation of the shallow water
     equation solver running on the Totient compute nodes compared against
-    the tuned serial implementation for all initial conditions. All
+    the provided serial implementation for all initial conditions. All
     speedups are the execution time normalized to the serial
-    implementation. For the strong scaling experiment, we use an 800x800
-    grid.  For the weak scaling study, we start the baseline at 200x200
-    and increase the problem size at the same factor as the increasing number
-    of threads (e.g., 200x200 grid for 1 thread, 400x400 grid for 4 threads, etc.). }
+    implementation. For the strong scaling experiment, we use the default
+    200x200 grid.  For the weak scaling study, we increase the problem
+    size at the same factor as the increasing number of threads (e.g.,
+    200x200 grid for 1 thread, 400x400 grid for 4 threads, etc.). }
 
   \label{fig-parallel-node-results}
 
 \end{figure}
-

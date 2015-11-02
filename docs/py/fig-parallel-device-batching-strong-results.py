@@ -41,10 +41,8 @@ plt.rcParams['figure.figsize']     = fig_size
 # Benchmarks
 
 bmarks = [
-  'dam_break',
-  'pond',
-  'river',
-  'wave',
+  'no batching',
+  'batching=4',
 ]
 
 num_bmarks = len( bmarks )
@@ -53,12 +51,11 @@ num_bmarks = len( bmarks )
 
 configs = [
   '1',
-  '2',
-  '4',
-  '6',
-  '8',
-  '12',
-  '16',
+  '32',
+  '64',
+  '128',
+  '184',
+  '240'
 ]
 
 num_configs = len( configs )
@@ -67,47 +64,38 @@ num_configs = len( configs )
 
 perf_data = [
 
-  # serial
+  # no batching        batching=4
+
+  # serial (same number...)
 
   [
-    4.43e-2, 2.91e-2, 3.60e-2, 4.40e-2,
+    15.2405448, 15.2405448
   ],
 
-  # parallel (2 threads)
-
+  # parallel (32 threads)
   [
-    2.94e-2, 2.34e-2, 2.93e-2, 3.54e-2,
+    27.943439, 23.7645574
   ],
 
-  # parallel (4 threads)
-
+  # parallel (64 threads)
   [
-    1.32e-2, 8.67e-3, 1.10e-2, 1.31e-2,
+    19.5540236, 15.0496634
   ],
 
-  # parallel (6 threads)
-
+  # parallel (128 threads)
   [
-    1.03e-2, 8.33e-3, 1.06e-2, 1.04e-2,
+    17.0522372, 12.1285318
   ],
 
-  # parallel (8 threads)
-
+  # parallel (184 threads)
   [
-    8.21e-3, 6.44e-3, 8.15e-3, 9.70e-3,
+    16.2729178, 11.6513688
   ],
 
-  # parallel (12 threads)
-
+  # parallel (240 threads)
   [
-    1.06e-2, 4.97e-3, 1.07e-2, 7.33e-3,
-  ],
-
-  # parallel (16 threads)
-
-  [
-    7.22e-3, 5.66e-3, 6.98e-3, 8.52e-3,
-  ],
+    15.046495, 11.7514422
+  ]
 
 ]
 
@@ -172,7 +160,7 @@ ax.grid(True)
 
 # Set axis limits
 
-plt.axis( xmax=num_bmarks-1+(num_configs+2)*width, ymax=6.5 )
+plt.axis( xmax=num_bmarks-1+(num_configs+2)*width, ymax=1.5)#6.5 )
 
 # Add bars for each configuration
 
@@ -214,3 +202,4 @@ ax.yaxis.set_ticks_position('left')
 input_basename = os.path.splitext( os.path.basename(sys.argv[0]) )[0]
 output_filename = input_basename + '.py.pdf'
 plt.savefig( output_filename, bbox_inches='tight' )
+
