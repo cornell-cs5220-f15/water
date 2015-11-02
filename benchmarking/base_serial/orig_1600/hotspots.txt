@@ -1,0 +1,34 @@
+Function                                                                                                           Module        CPU Time  Spin Time  Overhead Time
+-----------------------------------------------------------------------------------------------------------------  ------------  --------  ---------  -------------
+Central2D<Shallow2D, MinMod<float>>::limited_derivs                                                                shallow       536.092s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_step                                                                  shallow       292.110s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_fg_speeds                                                             shallow        90.926s         0s             0s
+[Outside any known module]                                                                                         [Unknown]       2.484s         0s             0s
+_IO_file_xsputn                                                                                                    libc-2.12.so    0.821s         0s             0s
+_IO_fwrite                                                                                                         libc-2.12.so    0.816s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::run                                                                           shallow         0.442s         0s             0s
+SimViz<Central2D<Shallow2D, MinMod<float>>>::write_frame                                                           shallow         0.398s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::solution_check                                                                shallow         0.219s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.071s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::offset                                                                        shallow         0.045s         0s             0s
+std::array<float, (unsigned long)3>::operator[]                                                                    shallow         0.039s         0s             0s
+std::array<float, (unsigned long)3>::operator[]                                                                    shallow         0.030s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.030s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::Central2D                                                                     shallow         0.022s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::init<void (*)(std::array<float, (unsigned long)3>&, double, double)>          shallow         0.008s         0s             0s
+dam_break                                                                                                          shallow         0.007s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::solution_check                                                                shallow         0.006s         0s             0s
+SimViz<Central2D<Shallow2D, MinMod<float>>>::write_frame                                                           shallow         0.005s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::g                                                                             shallow         0.004s         0s             0s
+std::array<float, (unsigned long)3>::operator[]                                                                    shallow         0.002s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.002s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.002s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.002s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::offset                                                                        shallow         0.001s         0s             0s
+_IO_default_xsputn                                                                                                 libc-2.12.so    0.001s         0s             0s
+_IO_do_write                                                                                                       libc-2.12.so    0.001s         0s             0s
+_IO_file_write                                                                                                     libc-2.12.so    0.001s         0s             0s
+do_lookup_x                                                                                                        ld-2.12.so      0.001s         0s             0s
+std::array<float, (unsigned long)3>::operator[]                                                                    shallow         0.001s         0s             0s
+std::array<float, (unsigned long)3>::operator[]                                                                    shallow         0.001s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.001s         0s             0s

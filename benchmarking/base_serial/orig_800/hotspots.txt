@@ -1,0 +1,25 @@
+Function                                                                                                           Module        CPU Time  Spin Time  Overhead Time
+-----------------------------------------------------------------------------------------------------------------  ------------  --------  ---------  -------------
+Central2D<Shallow2D, MinMod<float>>::limited_derivs                                                                shallow        68.873s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_step                                                                  shallow        38.027s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::compute_fg_speeds                                                             shallow        11.541s         0s             0s
+[Outside any known module]                                                                                         [Unknown]       0.403s         0s             0s
+_IO_file_xsputn                                                                                                    libc-2.12.so    0.233s         0s             0s
+_IO_fwrite                                                                                                         libc-2.12.so    0.196s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::run                                                                           shallow         0.090s         0s             0s
+SimViz<Central2D<Shallow2D, MinMod<float>>>::write_frame                                                           shallow         0.077s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::solution_check                                                                shallow         0.049s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.015s         0s             0s
+std::array<float, (unsigned long)3>::operator[]                                                                    shallow         0.014s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::offset                                                                        shallow         0.012s         0s             0s
+std::array<float, (unsigned long)3>::operator[]                                                                    shallow         0.009s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::Central2D                                                                     shallow         0.003s         0s             0s
+SimViz<Central2D<Shallow2D, MinMod<float>>>::write_frame                                                           shallow         0.003s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::solution_check                                                                shallow         0.002s         0s             0s
+dam_break                                                                                                          shallow         0.002s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.002s         0s             0s
+std::vector<std::array<float, (unsigned long)3>, std::allocator<std::array<float, (unsigned long)3>>>::operator[]  shallow         0.002s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::init<void (*)(std::array<float, (unsigned long)3>&, double, double)>          shallow         0.001s         0s             0s
+Central2D<Shallow2D, MinMod<float>>::xsize                                                                         shallow         0.001s         0s             0s
+std::array<float, (unsigned long)3>::operator[]                                                                    shallow         0.001s         0s             0s
+strcmp                                                                                                             ld-2.12.so      0.001s         0s             0s
