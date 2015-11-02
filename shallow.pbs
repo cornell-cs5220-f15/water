@@ -5,6 +5,12 @@
 #PBS -N shallow
 #PBS -j oe
 
+# if not called with SIZE=???, set to 200
+DISPATCH_SIZE=${SIZE:-200}
+
+# type can be dam_break, pond, river, or wave
+DISPATCH_TYPE=${TYPE:-"dam_break"}
+
 module load cs5220
 cd $PBS_O_WORKDIR
-./shallow -i dam_break -o dam_break.out
+./shallow -n $DISPATCH_SIZE -i $DISPATCH_TYPE -o $DISPATCH_TYPE".out"

@@ -6,6 +6,8 @@
 #include <cassert>
 #include <vector>
 
+#include "aligned_allocator.h"
+
 //ldoc on
 /**
  * # Jiang-Tadmor central difference scheme
@@ -92,15 +94,26 @@
  * of the domain has index (0,0).
  */
 
+/* The following allows for minimal SIMD vectorization using GCC,
+ * but at the very least allows local compilation before sending
+ * to the cluster.
+ */
+#ifdef __INTEL_COMPILER
+    #define DEF_ALIGN(x) __declspec(align((x)))
+    #define USE_ALIGN(var, align) __assume_aligned((var), (align));
+#else // GCC
+    #define DEF_ALIGN(x) __attribute__ ((aligned((x))))
+    #define USE_ALIGN(var, align) ((void)0) /* __builtin_assume_align is unreliabale... */
+#endif
 template <class Physics, class Limiter>
 class Central2D {
 public:
     typedef typename Physics::real real;
     typedef typename Physics::vec  vec;
 
-    Central2D(real w, real h,     // Domain width / height
-              int nx, int ny,     // Number of cells in x/y (without ghosts)
-              real cfl = 0.45) :  // Max allowed CFL number
+    Central2D(real w, real h,      // Domain width / height
+              int nx, int ny,      // Number of cells in x/y (without ghosts)
+              real cfl = 0.45f) :  // Max allowed CFL number
         nx(nx), ny(ny),
         nx_all(nx + 2*nghost),
         ny_all(ny + 2*nghost),
@@ -130,11 +143,11 @@ public:
     int ysize() const { return ny; }
     
     // Read / write elements of simulation state
-    vec&       operator()(int i, int j) {
+    inline vec&       operator()(int i, int j) {
         return u_[offset(i+nghost,j+nghost)];
     }
     
-    const vec& operator()(int i, int j) const {
+    inline const vec& operator()(int i, int j) const {
         return u_[offset(i+nghost,j+nghost)];
     }
     
@@ -146,40 +159,49 @@ private:
     const real dx, dy;         // Cell size in x/y
     const real cfl;            // Allowed CFL number
 
-    std::vector<vec> u_;            // Solution values
-    std::vector<vec> f_;            // Fluxes in x
-    std::vector<vec> g_;            // Fluxes in y
-    std::vector<vec> ux_;           // x differences of u
-    std::vector<vec> uy_;           // y differences of u
-    std::vector<vec> fx_;           // x differences of f
-    std::vector<vec> gy_;           // y differences of g
-    std::vector<vec> v_;            // Solution values at next step
+    typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+
+    aligned_vector u_;            // Solution values
+    aligned_vector f_;            // Fluxes in x
+    aligned_vector g_;            // Fluxes in y
+    aligned_vector ux_;           // x differences of u
+    aligned_vector uy_;           // y differences of u
+    aligned_vector fx_;           // x differences of f
+    aligned_vector gy_;           // y differences of g
+    aligned_vector v_;            // Solution values at next step
 
     // Array accessor functions
 
-    int offset(int ix, int iy) const { return iy*nx_all+ix; }
+    inline int offset(int ix, int iy) const { return iy*nx_all+ix; }
 
-    vec& u(int ix, int iy)    { return u_[offset(ix,iy)]; }
-    vec& v(int ix, int iy)    { return v_[offset(ix,iy)]; }
-    vec& f(int ix, int iy)    { return f_[offset(ix,iy)]; }
-    vec& g(int ix, int iy)    { return g_[offset(ix,iy)]; }
+    inline vec& u(int ix, int iy)    { return u_[offset(ix,iy)];  }
+    inline vec& v(int ix, int iy)    { return v_[offset(ix,iy)];  }
+    inline vec& f(int ix, int iy)    { return f_[offset(ix,iy)];  }
+    inline vec& g(int ix, int iy)    { return g_[offset(ix,iy)];  }
 
-    vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
-    vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
-    vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
-    vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
+    inline vec& ux(int ix, int iy)   { return ux_[offset(ix,iy)]; }
+    inline vec& uy(int ix, int iy)   { return uy_[offset(ix,iy)]; }
+    inline vec& fx(int ix, int iy)   { return fx_[offset(ix,iy)]; }
+    inline vec& gy(int ix, int iy)   { return gy_[offset(ix,iy)]; }
 
     // Wrapped accessor (periodic BC)
-    int ioffset(int ix, int iy) {
+    inline int ioffset(int ix, int iy) {
         return offset( (ix+nx-nghost) % nx + nghost,
                        (iy+ny-nghost) % ny + nghost );
     }
 
-    vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
+    inline vec& uwrap(int ix, int iy)  { return u_[ioffset(ix,iy)]; }
 
     // Apply limiter to all components in a vector
-    static void limdiff(vec& du, const vec& um, const vec& u0, const vec& up) {
-        for (int m = 0; m < du.size(); ++m)
+    #pragma omp declare simd
+    static inline void limdiff(real *du, const real *um, const real *u0, const real *up) {
+        USE_ALIGN(du, Physics::VEC_ALIGN);
+        USE_ALIGN(um, Physics::VEC_ALIGN);
+        USE_ALIGN(u0, Physics::VEC_ALIGN);
+        USE_ALIGN(up, Physics::VEC_ALIGN);
+
+        #pragma ivdep
+        for (int m = 0; m < Physics::vec_size; ++m)
             du[m] = Limiter::limdiff(um[m], u0[m], up[m]);
     }
 
@@ -209,7 +231,7 @@ void Central2D<Physics, Limiter>::init(F f)
 {
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
-            f(u(nghost+ix,nghost+iy), (ix+0.5)*dx, (iy+0.5)*dy);
+            f(u(nghost+ix,nghost+iy), (ix+0.5f)*dx, (iy+0.5f)*dy);
 }
 
 /**
@@ -233,18 +255,36 @@ template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::apply_periodic()
 {
     // Copy data between right and left boundaries
-    for (int iy = 0; iy < ny_all; ++iy)
+    for (int iy = 0; iy < ny_all; ++iy) {
         for (int ix = 0; ix < nghost; ++ix) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(nx+nghost+ix,iy) = uwrap(nx+nghost+ix,iy);
+            real *u_xy        = u(ix, iy).data();              USE_ALIGN(u_xy,        Physics::VEC_ALIGN);
+            real *uwrap_xy    = uwrap(ix, iy).data();          USE_ALIGN(uwrap_xy,    Physics::VEC_ALIGN);
+            real *u_ghost     = u(nx+nghost+ix,iy).data();     USE_ALIGN(u_ghost,     Physics::VEC_ALIGN);
+            real *uwrap_ghost = uwrap(nx+nghost+ix,iy).data(); USE_ALIGN(uwrap_ghost, Physics::VEC_ALIGN);
+
+            #pragma unroll
+            for(int m = 0; m < Physics::vec_size; ++m) {
+                u_xy[m]    = uwrap_xy[m];
+                u_ghost[m] = uwrap_ghost[m];
+            }
         }
+    }
 
     // Copy data between top and bottom boundaries
-    for (int ix = 0; ix < nx_all; ++ix)
+    for (int ix = 0; ix < nx_all; ++ix) {
         for (int iy = 0; iy < nghost; ++iy) {
-            u(ix,          iy) = uwrap(ix,          iy);
-            u(ix,ny+nghost+iy) = uwrap(ix,ny+nghost+iy);
+            real *u_xy        = u(ix, iy).data();              USE_ALIGN(u_xy,        Physics::VEC_ALIGN);
+            real *uwrap_xy    = uwrap(ix, iy).data();          USE_ALIGN(uwrap_xy,    Physics::VEC_ALIGN);
+            real *u_ghost     = u(ix,ny+nghost+iy).data();     USE_ALIGN(u_ghost,     Physics::VEC_ALIGN);
+            real *uwrap_ghost = uwrap(ix,ny+nghost+iy).data(); USE_ALIGN(uwrap_ghost, Physics::VEC_ALIGN);
+
+            #pragma unroll
+            for(int m = 0; m < Physics::vec_size; ++m) {
+                u_xy[m]    = uwrap_xy[m];
+                u_ghost[m] = uwrap_ghost[m];
+            }
         }
+    }
 }
 
 
@@ -264,14 +304,22 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
     using namespace std;
     real cx = 1.0e-15;
     real cy = 1.0e-15;
-    for (int iy = 0; iy < ny_all; ++iy)
+    for (int iy = 0; iy < ny_all; ++iy) {
+        #pragma ivdep
         for (int ix = 0; ix < nx_all; ++ix) {
             real cell_cx, cell_cy;
-            Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));
-            Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));
+
+            // gather necessary data
+            real *f_xy = f(ix, iy).data(); USE_ALIGN(f_xy, Physics::VEC_ALIGN);
+            real *g_xy = g(ix, iy).data(); USE_ALIGN(g_xy, Physics::VEC_ALIGN);
+            real *u_xy = u(ix, iy).data(); USE_ALIGN(u_xy, Physics::VEC_ALIGN);
+
+            Physics::flux(f_xy, g_xy, u_xy);
+            Physics::wave_speed(cell_cx, cell_cy, u_xy);
             cx = max(cx, cell_cx);
             cy = max(cy, cell_cy);
         }
+    }
     cx_ = cx;
     cy_ = cy;
 }
@@ -287,17 +335,39 @@ void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::limited_derivs()
 {
-    for (int iy = 1; iy < ny_all-1; ++iy)
+    for (int iy = 1; iy < ny_all-1; ++iy) {
         for (int ix = 1; ix < nx_all-1; ++ix) {
-
+            //
             // x derivs
-            limdiff( ux(ix,iy), u(ix-1,iy), u(ix,iy), u(ix+1,iy) );
-            limdiff( fx(ix,iy), f(ix-1,iy), f(ix,iy), f(ix+1,iy) );
+            //
+            real *ux_x0_y0 = ux(ix, iy).data();  USE_ALIGN(ux_x0_y0, Physics::VEC_ALIGN);
+            real *u_xM1_y0 = u(ix-1, iy).data(); USE_ALIGN(u_xM1_y0, Physics::VEC_ALIGN);
+            real *u_x0_y0  = u(ix, iy).data();   USE_ALIGN(u_x0_y0,  Physics::VEC_ALIGN);
+            real *u_xP1_y0 = u(ix+1, iy).data(); USE_ALIGN(u_xP1_y0, Physics::VEC_ALIGN);
 
+            real *fx_x0_y0 = fx(ix, iy).data();  USE_ALIGN(fx_x0_y0, Physics::VEC_ALIGN);
+            real *f_xM1_y0 = f(ix-1, iy).data(); USE_ALIGN(f_xM1_y0, Physics::VEC_ALIGN);
+            real *f_x0_y0  = f(ix, iy).data();   USE_ALIGN(f_x0_y0,  Physics::VEC_ALIGN);
+            real *f_xP1_y0 = f(ix+1, iy).data(); USE_ALIGN(f_xP1_y0, Physics::VEC_ALIGN);
+
+            //
             // y derivs
-            limdiff( uy(ix,iy), u(ix,iy-1), u(ix,iy), u(ix,iy+1) );
-            limdiff( gy(ix,iy), g(ix,iy-1), g(ix,iy), g(ix,iy+1) );
+            //
+            real *uy_x0_y0 = uy(ix, iy).data();  USE_ALIGN(uy_x0_y0, Physics::VEC_ALIGN);
+            real *u_x0_yM1 = u(ix, iy-1).data(); USE_ALIGN(u_x0_yM1, Physics::VEC_ALIGN);
+            real *u_x0_yP1 = u(ix, iy+1).data(); USE_ALIGN(u_x0_yP1, Physics::VEC_ALIGN);
+
+            real *gy_x0_y0 = gy(ix, iy).data();  USE_ALIGN(gy_x0_y0, Physics::VEC_ALIGN);
+            real *g_x0_yM1 = g(ix, iy-1).data(); USE_ALIGN(g_x0_yM1, Physics::VEC_ALIGN);
+            real *g_x0_y0  = g(ix, iy).data();   USE_ALIGN(g_x0_y0,  Physics::VEC_ALIGN);
+            real *g_x0_yP1 = g(ix, iy+1).data(); USE_ALIGN(g_x0_yP1, Physics::VEC_ALIGN);
+
+            limdiff( ux_x0_y0, u_xM1_y0, u_x0_y0, u_xP1_y0 );
+            limdiff( fx_x0_y0, f_xM1_y0, f_x0_y0, f_xP1_y0 );
+            limdiff( uy_x0_y0, u_x0_yM1, u_x0_y0, u_x0_yP1 );
+            limdiff( gy_x0_y0, g_x0_yM1, g_x0_y0, g_x0_yP1 );
         }
+    }
 }
 
 
@@ -326,42 +396,102 @@ void Central2D<Physics, Limiter>::limited_derivs()
 template <class Physics, class Limiter>
 void Central2D<Physics, Limiter>::compute_step(int io, real dt)
 {
-    real dtcdx2 = 0.5 * dt / dx;
-    real dtcdy2 = 0.5 * dt / dy;
+    real dtcdx2 = 0.5f * dt / dx;
+    real dtcdy2 = 0.5f * dt / dy;
+
+    real uh_copy[] = {0.0f, 0.0f, 0.0f, 0.0f};
 
     // Predictor (flux values of f and g at half step)
-    for (int iy = 1; iy < ny_all-1; ++iy)
+    for (int iy = 1; iy < ny_all-1; ++iy) {
+        #pragma simd
         for (int ix = 1; ix < nx_all-1; ++ix) {
-            vec uh = u(ix,iy);
-            for (int m = 0; m < uh.size(); ++m) {
-                uh[m] -= dtcdx2 * fx(ix,iy)[m];
-                uh[m] -= dtcdy2 * gy(ix,iy)[m];
+            // gather the necessary information
+            real *uh    = u(ix,iy).data();   USE_ALIGN(uh,    Physics::VEC_ALIGN);
+            real *fx_xy = fx(ix, iy).data(); USE_ALIGN(fx_xy, Physics::VEC_ALIGN);
+            real *gy_xy = gy(ix, iy).data(); USE_ALIGN(gy_xy, Physics::VEC_ALIGN);
+            real *f_xy  = f(ix, iy).data();  USE_ALIGN(f_xy,  Physics::VEC_ALIGN);
+            real *g_xy  = g(ix, iy).data();  USE_ALIGN(g_xy,  Physics::VEC_ALIGN);
+
+            // be careful not to modify u!!!            
+            #pragma unroll
+            for(int m = 0; m < Physics::vec_size; ++m) uh_copy[m] = uh[m];
+            
+            #pragma unroll
+            for (int m = 0; m < Physics::vec_size; ++m) {
+                uh_copy[m] -= dtcdx2 * fx_xy[m];
+                uh_copy[m] -= dtcdy2 * gy_xy[m];
             }
-            Physics::flux(f(ix,iy), g(ix,iy), uh);
+            Physics::flux(f_xy, g_xy, uh_copy);
         }
+    }
 
     // Corrector (finish the step)
-    for (int iy = nghost-io; iy < ny+nghost-io; ++iy)
+    for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
         for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
-            for (int m = 0; m < v(ix,iy).size(); ++m) {
-                v(ix,iy)[m] =
-                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
-                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
-                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
-                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
-                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
-                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
-                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
-                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
-                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
-                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
+            /* Nomenclature:
+             *     u_x0_y0 <- u(ix  , iy  )
+             *     u_x1_y0 <- u(ix+1, iy  )
+             *     u_x0_y1 <- u(ix  , iy+1)
+             *     u_x1_y1 <- u(ix+1, iy+1)
+             */
+            // The final result
+            real *v_ix_iy = v(ix, iy).data();       USE_ALIGN(v_ix_iy,  Physics::VEC_ALIGN );
+
+            // grab u
+            real *u_x1_y0 = u(ix+1, iy  ).data();   USE_ALIGN(u_x1_y0,  Physics::VEC_ALIGN );
+            real *u_x0_y0 = u(ix  , iy  ).data();   USE_ALIGN(u_x0_y0,  Physics::VEC_ALIGN );
+            real *u_x0_y1 = u(ix  , iy+1).data();   USE_ALIGN(u_x0_y1,  Physics::VEC_ALIGN );
+            real *u_x1_y1 = u(ix+1, iy+1).data();   USE_ALIGN(u_x1_y1,  Physics::VEC_ALIGN );
+
+            // grab ux
+            real *ux_x0_y0 = ux(ix  , iy  ).data(); USE_ALIGN(ux_x0_y0, Physics::VEC_ALIGN );
+            real *ux_x1_y0 = ux(ix+1, iy  ).data(); USE_ALIGN(ux_x1_y0, Physics::VEC_ALIGN );
+            real *ux_x0_y1 = ux(ix  , iy+1).data(); USE_ALIGN(ux_x0_y1, Physics::VEC_ALIGN );
+            real *ux_x1_y1 = ux(ix+1, iy+1).data(); USE_ALIGN(ux_x1_y1, Physics::VEC_ALIGN );
+
+            // grab uy
+            real *uy_x0_y0 = uy(ix  , iy  ).data(); USE_ALIGN(uy_x0_y0, Physics::VEC_ALIGN );
+            real *uy_x1_y0 = uy(ix+1, iy  ).data(); USE_ALIGN(uy_x1_y0, Physics::VEC_ALIGN );
+            real *uy_x0_y1 = uy(ix  , iy+1).data(); USE_ALIGN(uy_x0_y1, Physics::VEC_ALIGN );
+            real *uy_x1_y1 = uy(ix+1, iy+1).data(); USE_ALIGN(uy_x1_y1, Physics::VEC_ALIGN );
+
+            // grab f
+            real *f_x0_y0 = f(ix  , iy  ).data();   USE_ALIGN(f_x0_y0,  Physics::VEC_ALIGN );
+            real *f_x1_y0 = f(ix+1, iy  ).data();   USE_ALIGN(f_x1_y0,  Physics::VEC_ALIGN );
+            real *f_x0_y1 = f(ix  , iy+1).data();   USE_ALIGN(f_x0_y1,  Physics::VEC_ALIGN );
+            real *f_x1_y1 = f(ix+1, iy+1).data();   USE_ALIGN(f_x1_y1,  Physics::VEC_ALIGN );
+
+            // grab g
+            real *g_x0_y0 = g(ix  , iy  ).data();   USE_ALIGN(g_x0_y0,  Physics::VEC_ALIGN );
+            real *g_x1_y0 = g(ix+1, iy  ).data();   USE_ALIGN(g_x1_y0,  Physics::VEC_ALIGN );
+            real *g_x0_y1 = g(ix  , iy+1).data();   USE_ALIGN(g_x0_y1,  Physics::VEC_ALIGN );
+            real *g_x1_y1 = g(ix+1, iy+1).data();   USE_ALIGN(g_x1_y1,  Physics::VEC_ALIGN );
+
+            #pragma simd
+            for(int m = 0; m < Physics::vec_size; ++m) {
+                v_ix_iy[m] =
+                    0.2500f * ( u_x0_y0[m]  + u_x1_y0[m]    +
+                                u_x0_y1[m]  + u_x1_y1[m]  ) -
+                    0.0625f * ( ux_x1_y0[m] - ux_x0_y0[m]   +
+                                ux_x1_y1[m] - ux_x0_y1[m]   +
+                                uy_x0_y1[m] - uy_x0_y0[m]   +
+                                uy_x1_y1[m] - uy_x1_y0[m] ) -
+                    dtcdx2  * ( f_x1_y0[m]  - f_x0_y0[m]    +
+                                f_x1_y1[m]  - f_x0_y1[m]  ) -
+                    dtcdy2  * ( g_x0_y1[m]  - g_x0_y0[m]    +
+                                g_x1_y1[m]  - g_x1_y0[m]  );                    
             }
         }
+    }
 
     // Copy from v storage back to main grid
     for (int j = nghost; j < ny+nghost; ++j){
         for (int i = nghost; i < nx+nghost; ++i){
-            u(i,j) = v(i-io,j-io);
+            real *u_ij = u(i, j).data();
+            real *v_ij_io = v(i-io, j-io).data();
+
+            #pragma unroll
+            for(int m = 0; m < Physics::vec_size; ++m) u_ij[m] = v_ij_io[m];
         }
     }
 }

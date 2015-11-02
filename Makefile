@@ -16,8 +16,14 @@ include Makefile.in.$(PLATFORM)
 # ===
 # Main driver and sample run
 
-shallow: driver.cc central2d.h shallow2d.h minmod.h meshio.h
-	$(CXX) $(CXXFLAGS) -o $@ $<
+shallow: driver.cc aligned_allocator.h local_state.h central2d.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -D_SERIAL -o $@ $<
+
+shallow-pnode: driver.cc aligned_allocator.h local_state.h central2d_pnode.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -D_PARALLEL_NODE -o $@ $<
+
+shallow-pdevice: driver.cc aligned_allocator.h local_state.h central2d_pdevice.h shallow2d.h minmod.h meshio.h
+	$(CXX) $(CXXFLAGS) -axMIC-AVX512 -D_PARALLEL_DEVICE -o $@ $<
 
 .PHONY: run big
 run: dam_break.gif
@@ -78,6 +84,7 @@ shallow.md: shallow2d.h minmod.h central2d.h meshio.h driver.cc
 .PHONY: clean
 clean:
 	rm -f shallow
+	rm -f shallow-omp
 	rm -f dam_break.* wave.*
 	rm -f shallow.md shallow.pdf
 

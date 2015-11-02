@@ -1,0 +1,47 @@
+%=========================================================================
+% fig-parallel-node-results.tex
+%=========================================================================
+
+\begin{figure}[h]
+
+  \begin{minipage}[t]{0.48\tw}
+    \begin{subfigure}{\tw}
+
+    \centering
+    \includegraphics[width=1.0\tw]{fig-parallel-device-strong-results.py.pdf}
+    \caption{\textbf{Strong Scaling Study}}
+    \label{fig-parallel-device-strong-results}
+
+    \end{subfigure}
+  \end{minipage}%
+  \hfill%
+  \begin{minipage}[t]{0.48\tw}
+  \begin{subfigure}{\tw}
+
+  \centering
+  \includegraphics[width=1.0\tw]{fig-parallel-device-weak-results.py.pdf}
+  \caption{\textbf{Weak Scaling Study}}
+  \label{fig-parallel-device-weak-results}
+
+  \end{subfigure}
+  \end{minipage}%
+
+  \caption{\textbf{Performance Results of Parallel Implementation of
+      Shallow Water Equation Solver Running on the Phi Coprocessors --}
+    Performance of the parallel implementation of the shallow water
+    equation solver running on the Totient compute nodes compared against
+    the base serial implementation for all initial conditions. All
+    speedups are the execution time normalized to the serial
+    implementation. For the strong scaling experiment, we use an 800x800
+    grid.  For the weak scaling study, we start the baseline at 200x200
+    and increase the problem size at the same factor as the increasing number
+    of threads as done with the compute node study, with the caveat that
+    we multiplied the thread count by two to account for the roughly half
+    clock speed of the Phi (e.g., 200x200 grid for 1 thread, 400x400 grid for
+    8 threads, etc.). This was done because running so few threads on the Phi
+    is really not worth investigating at all.}
+
+  \label{fig-parallel-device-results}
+
+\end{figure}
+

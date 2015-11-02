@@ -1,0 +1,330 @@
+%=========================================================================
+% sec-tune
+%=========================================================================
+
+\section{Tuning the Shallow Water Simulation}
+\label{sec-tune}
+
+
+\subsection{Vectorizing with AVX Extensions}
+\label{sec-tune-vectorizing}
+
+\noindent Vectorizing with AVX Extensions can fall under two general categories:
+
+\begin{enumerate}[1.]
+    \item Having the compiler auto-vectorize your code for you, and
+    \item Writing your own vectorized kernels for use as subroutines.
+\end{enumerate}
+
+Both approaches have benefits and detriments.  For example, when using the compiler to vectorize your code you save yourself the pain of having to reason about which register has what data, what SSE/AVX function callbacks wrap the appropriate instruction level code, etc.  This provides great convenience, but does come at a cost.  The compiler is only as smart as you let it be, and if you arrange your code improperly, you may not only slow down your program but you may very well yield the wrong result by accident.  Writing your own vectorized code, on the other hand, can be quite difficult to get right.  Often times it may be best to take a mixed approach, where you examine the instructions the compiler generated for a given code segment and determine whether or not you can refine this approach further.
+
+\subsubsection{Auto-vectorization Using ICC}
+\label{sec-tune-vectorizing-auto-vectorizing}
+
+As discussed previously, you can use the \texttt{amplxe} tool to help with profiling, as well as use the intel compiler to generate an \texttt{optrpt} file describing what was / was not vectorized, how effective it was if vectorization occurred, and why vectorization did not occur if that were the case.  On the note of when vectorization does not occur, we would like to mention a couple of things:
+
+\begin{enumerate}[1.]
+    \item Not all loops are created equal
+
+    That is not every loop can be vectorized, either because its length cannot be known at compile-time, or because the data elements being accessed cannot be made to execute in parallel.
+
+    \item Understanding the codes in the \texttt{.optrpt} file can help you rearrange your code so that it is vectorized (recalling from 1 that not all of this is possible).
+
+    We found the following presentation extremely useful in rearranging loop statements:\\\\ \centerline{https://engineering.purdue.edu/~milind/ece573/2011spring/lecture-14.pdf}
+
+    \item Introducing compile-time constants / \texttt{constexpr} members of a class can go a long way in assisting the compiler understand what can / cannot be vectorized.
+
+    \item Taking great care to enforce memory alignment as well as declare said alignment to the compiler will also enable it to vectorize even more.
+\end{enumerate}
+
+We leave items 1 and 2 as an exercise for the reader ;)  For item 3, we must first acknowledge that the purpose of the data type \texttt{std::array} is largely just for compilation hints, and we can wield this to our advantage.  In the original implementation of \texttt{Shallow2d.h}, we had that
+
+{\tiny
+\begin{lstlisting}
+    // Type parameters for solver
+    typedef float real;
+    typedef std::array<real,3> vec;
+\end{lstlisting}
+}
+
+were the primary solver types used throughout the program.  The issue, though, is that regardless of us declaring with \texttt{<real,3>}, with high probability (given the architectures we are compiling on) this will get padded to 16 bytes regardless.  The issue with this padding though, is that it is not guaranteed to be a \texttt{float} and treating it as such can potentially give problems (since there are locations in our code that explicitly cast \texttt{vec} to a \texttt{real*}).  As a minor digression, so that following code is understandable, we must introduce some preprocessor directives:
+
+{\tiny
+\begin{lstlisting}
+#ifdef __INTEL_COMPILER
+    #define DEF_ALIGN(x) __declspec(align((x)))
+    #define USE_ALIGN(var, align) __assume_aligned((var), (align));
+#else // GCC
+    #define DEF_ALIGN(x) __attribute__ ((aligned((x))))
+    #define USE_ALIGN(var, align) ((void)0) /* __builtin_assume_align is unreliabale... */
+#endif
+#if defined _PARALLEL_DEVICE
+    #ifdef __INTEL_COMPILER
+        #define TARGET_MIC __declspec(target(mic))
+    #else
+        #define TARGET_MIC /* n/a */
+    #endif
+#else
+    #define TARGET_MIC /* n/a */
+#endif
+\end{lstlisting}
+}
+
+These will enable us to compile on our local machines, but also allow the same code to be fully optimized with respect to both offloading and giving the compiler the hints it likes about byte alignment.  Now that we have this ability, we can declare some useful constants in \texttt{shallow2d.h}:
+
+{\tiny
+\begin{lstlisting}
+// global constants for alignment
+TARGET_MIC
+static constexpr int vec_size  = 4;
+TARGET_MIC
+static constexpr int VEC_ALIGN = 16;
+#if defined _PARALLEL_DEVICE
+    TARGET_MIC
+    static constexpr int BYTE_ALIGN = 64;
+#else
+    static constexpr int BYTE_ALIGN = 32;
+#endif
+\end{lstlisting}
+}
+
+All of this guarantees us two very important things:
+
+\begin{enumerate}[1.]
+    \item We will have all \texttt{vec}'s be aligned top 16 bytes, helping cache alignment to page boundaries, and
+    \item We can inform the compiler what these alignments are, noting that 16 evenly divides both 32 and 64.
+\end{enumerate}
+
+Lastly, the change in byte alignment for the parallel device code is to ensure that AVX512 can be used effectively.  Technically speaking we broke a major rule of alignment declarations in that the following had to happen for the Phi code to not segfault:
+
+{\tiny
+\begin{lstlisting}
+// Global solution values
+#ifdef __MIC__
+    std::vector<vec> u_;// aligned allocator is invalid on the phi :/
+#else
+    // compiler doesn't like this...but whatever
+    typedef DEF_ALIGN(Physics::BYTE_ALIGN) std::vector<vec, aligned_allocator<vec, Physics::BYTE_ALIGN>> aligned_vector;
+    aligned_vector u_;
+#endif
+\end{lstlisting}
+}
+
+The way things are compiled for offload code is that it is actually compiled twice, once for native and once for device code.  When the device code is being compiled the compiler defines \texttt{\_\_MIC\_\_} to allow the programmer to recognize this.  As discussed previously, the limitations of the Phi compiler prevented usage of our aligned allocator:
+
+{\tiny
+\begin{lstlisting}
+/usr/linux-k1om-4.7/linux-k1om/../x86_64-k1om-linux/include/c++/4.7.0/bits/stl_uninitialized.h(576): error #165: *MIC* too few arguments in function call
+        __alloc.construct(std::__addressof(*__cur));   
+\end{lstlisting}
+}
+
+Post c++ 4.7.3 standards dictate the construct method takes two parameters, not one.  Although there are proposed solutions on the interweb, we could not get any of them to work.  All of this means the following: we \emph{declare} a specific byte alignment, but do not \emph{enforce} it e.g. through an aligned allocator in the initialization of the memory.  Fortunately, it doesn't matter in this instance because the \texttt{vec} instantiations will actually give us this anyway.  But it's worth mentioning it's bad practice ;)
+
+What all of this nonsense does is ensure that we will have 4 floats per type vec, and depending on the compiler you are using also declares the alignment of this type.  These compile-time declarations give us a lot of power to enable the compiler to vectorize, so long as we are willing to be overly verbose.  For example, the original computation of the corrector step in \texttt{Central2d.h} was:
+{\tiny
+\begin{lstlisting}
+    // Corrector (finish the step)
+    for (int iy = nghost-io; iy < ny+nghost-io; ++iy) {
+        for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {
+            for (int m = 0; m < v(ix,iy).size(); ++m) {
+                v(ix,iy)[m] =
+                    0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +
+                               u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -
+                    0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +
+                               ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +
+                               uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +
+                               uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -
+                    dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +
+                               f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -
+                    dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +
+                               g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );
+            }
+        }
+    }
+\end{lstlisting}
+}
+
+\noindent We can now use these new additions to write a new loop:
+
+{\tiny
+\begin{lstlisting}
+    // Corrector (finish the step)
+    for (int iy = params.nghost-io; iy < ny_per_block-params.nghost-io; ++iy) {
+        for (int ix = params.nghost-io; ix < nx_per_block-params.nghost-io; ++ix) {
+            /* Nomenclature:
+             *     u_x0_y0 <- u(ix  , iy  )
+             *     u_x1_y0 <- u(ix+1, iy  )
+             *     u_x0_y1 <- u(ix  , iy+1)
+             *     u_x1_y1 <- u(ix+1, iy+1)
+             */
+            // The final result
+            real *v_ix_iy = local->v(ix, iy).data();       USE_ALIGN(v_ix_iy,  Physics::VEC_ALIGN );
+
+            // grab u
+            real *u_x1_y0 = local->u(ix+1, iy  ).data();   USE_ALIGN(u_x1_y0,  Physics::VEC_ALIGN );
+            real *u_x0_y0 = local->u(ix  , iy  ).data();   USE_ALIGN(u_x0_y0,  Physics::VEC_ALIGN );
+            real *u_x0_y1 = local->u(ix  , iy+1).data();   USE_ALIGN(u_x0_y1,  Physics::VEC_ALIGN );
+            real *u_x1_y1 = local->u(ix+1, iy+1).data();   USE_ALIGN(u_x1_y1,  Physics::VEC_ALIGN );
+
+            // grab ux
+            real *ux_x0_y0 = local->ux(ix  , iy  ).data(); USE_ALIGN(ux_x0_y0, Physics::VEC_ALIGN );
+            real *ux_x1_y0 = local->ux(ix+1, iy  ).data(); USE_ALIGN(ux_x1_y0, Physics::VEC_ALIGN );
+            real *ux_x0_y1 = local->ux(ix  , iy+1).data(); USE_ALIGN(ux_x0_y1, Physics::VEC_ALIGN );
+            real *ux_x1_y1 = local->ux(ix+1, iy+1).data(); USE_ALIGN(ux_x1_y1, Physics::VEC_ALIGN );
+
+            // grab uy
+            real *uy_x0_y0 = local->uy(ix  , iy  ).data(); USE_ALIGN(uy_x0_y0, Physics::VEC_ALIGN );
+            real *uy_x1_y0 = local->uy(ix+1, iy  ).data(); USE_ALIGN(uy_x1_y0, Physics::VEC_ALIGN );
+            real *uy_x0_y1 = local->uy(ix  , iy+1).data(); USE_ALIGN(uy_x0_y1, Physics::VEC_ALIGN );
+            real *uy_x1_y1 = local->uy(ix+1, iy+1).data(); USE_ALIGN(uy_x1_y1, Physics::VEC_ALIGN );
+
+            // grab f
+            real *f_x0_y0 = local->f(ix  , iy  ).data();   USE_ALIGN(f_x0_y0,  Physics::VEC_ALIGN );
+            real *f_x1_y0 = local->f(ix+1, iy  ).data();   USE_ALIGN(f_x1_y0,  Physics::VEC_ALIGN );
+            real *f_x0_y1 = local->f(ix  , iy+1).data();   USE_ALIGN(f_x0_y1,  Physics::VEC_ALIGN );
+            real *f_x1_y1 = local->f(ix+1, iy+1).data();   USE_ALIGN(f_x1_y1,  Physics::VEC_ALIGN );
+
+            // grab g
+            real *g_x0_y0 = local->g(ix  , iy  ).data();   USE_ALIGN(g_x0_y0,  Physics::VEC_ALIGN );
+            real *g_x1_y0 = local->g(ix+1, iy  ).data();   USE_ALIGN(g_x1_y0,  Physics::VEC_ALIGN );
+            real *g_x0_y1 = local->g(ix  , iy+1).data();   USE_ALIGN(g_x0_y1,  Physics::VEC_ALIGN );
+            real *g_x1_y1 = local->g(ix+1, iy+1).data();   USE_ALIGN(g_x1_y1,  Physics::VEC_ALIGN );
+
+            #pragma simd
+            for(int m = 0; m < Physics::vec_size; ++m) {
+                v_ix_iy[m] =
+                    0.2500f * ( u_x0_y0[m]  + u_x1_y0[m]    +
+                                u_x0_y1[m]  + u_x1_y1[m]  ) -
+                    0.0625f * ( ux_x1_y0[m] - ux_x0_y0[m]   +
+                                ux_x1_y1[m] - ux_x0_y1[m]   +
+                                uy_x0_y1[m] - uy_x0_y0[m]   +
+                                uy_x1_y1[m] - uy_x1_y0[m] ) -
+                    dtcdx2  * ( f_x1_y0[m]  - f_x0_y0[m]    +
+                                f_x1_y1[m]  - f_x0_y1[m]  ) -
+                    dtcdy2  * ( g_x0_y1[m]  - g_x0_y0[m]    +
+                                g_x1_y1[m]  - g_x1_y0[m]  );                    
+            }
+        }
+    }
+\end{lstlisting}
+}
+
+The reasoning is that these traits now enable the intel compiler to do what it does best: vectorize like there ain't no tomorrow:
+
+{\tiny
+\begin{lstlisting}
+LOOP BEGIN at central2d.h(429,5)
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at central2d.h(430,9)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at central2d.h(471,13)
+         remark #15388: vectorization support: reference v_ix_iy has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference u_x0_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference u_x1_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference u_x0_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference u_x1_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference ux_x1_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference ux_x0_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference ux_x1_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference ux_x0_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference uy_x0_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference uy_x0_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference uy_x1_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference uy_x1_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference f_x1_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference f_x0_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference f_x1_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference f_x0_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference g_x0_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference g_x0_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference g_x1_y1 has aligned access   [ central2d.h(472,17) ]
+         remark #15388: vectorization support: reference g_x1_y0 has aligned access   [ central2d.h(472,17) ]
+         remark #15427: loop was completely unrolled
+         remark #15301: SIMD LOOP WAS VECTORIZED
+         remark #15448: unmasked aligned unit stride loads: 20 
+         remark #15449: unmasked aligned unit stride stores: 1 
+         remark #15475: --- begin vector loop cost summary ---
+         remark #15476: scalar loop cost: 91 
+         remark #15477: vector loop cost: 12.250 
+         remark #15478: estimated potential speedup: 7.130 
+         remark #15479: lightweight vector operations: 49 
+         remark #15488: --- end vector loop cost summary ---
+      LOOP END
+   LOOP END
+LOOP END
+\end{lstlisting}
+}
+
+\noindent At this time it is worth mentioning that the \texttt{.optrpt} proclaimed speedups need to be carefully verified.  This is a static analysis tool, and can only be so accurate.  After careful examination, explicit inlining of functions, using \texttt{\#pragma omp declare simd} on function declarations, a mixture of \texttt{\#pragma ivdep}, \texttt{\#pragma simd} (sparingly as it is dangerous), and explicit alignment declarations we were able to tune the base implementation to get a reasonable speedup plotted in figure 5.
+
+\input{fig-base-vectorized-results}
+
+\noindent Of course, if we we had even just the ability to give the compiler a \texttt{restrict} hint, we are certain this would drastically improve.  C++ is just not really an HPC language...
+
+\subsubsection{Manual Vectorization}
+\label{sec-tune-vectorizing-manual-vectorization}
+
+We elected to stay with compilier auto-vectorization, mostly because of time limitations.  After achieving a satisfactory level of vectorization
+using the compiler, we would have liked to write our own kernels and compare the results of the two and iteratively develop better and better
+manually vectorized code.
+
+\subsection{Batching Multiple Timesteps}
+\label{sec-tune-batching}
+
+Another tuning optimization we implemented for the parallel
+implementations was batching multiple timesteps for each thread before
+having to synchronize. A single timestep of the computation (i.e., both
+even and odd sub-steps) requires 3 additional ghost cells in every
+dimension. This is because although each sub-step only requires 1
+additional ghost cell, the staggered sub-step always computes the vector
+for the cells with a (-1,-1) offset from the normal sub-step. Coupled
+with the fact that we lose the fidelity of the data on the boundaries one
+additional cell per sub-step, we actually need an extra ghost cell on top
+of the 2 ghost cells to calculate the ghost cell required by the
+staggered sub-step. However, for every \emph{additional} timestep we want
+to batch, we only need an extra 2 ghost cells on top of the initial 3
+ghost cells for the first timestep due to the fact that the last layer of
+ghost cells is still accurate after the first timestep completes. As
+such, we modified the parallel implementation to allow a configurable
+number of batchable timesteps and adjust the number of ghost cells
+required accordingly.
+
+The tradeoff here is that although we reduce the amount of
+synchronization required, we increase the amount of data each thread
+needs to hold in its local state. To a lesser extent, the latter also
+means that the amount of data we need to copy in
+\texttt{apply\_periodic()} also increases. Another challenge with batching
+is synchronizing the \texttt{dt} across all threads. Because this value
+is calculated from the maximum velocities (i.e., \texttt{cx},
+\texttt{cy}) across the \emph{entire} grid and because this needs to be
+computed again for every timestep, we have a few options:
+
+\begin{itemize}
+  \item Have each thread compute its local maxima and synchronize across
+    threads to find the global maxima (defeats the purpose of batching);
+  \item Have each thread compute its local maxima and run with different
+    \texttt{dt} values (affects correctness of results);
+  \item Calculate the \texttt{dt} once before each batch-step and use it
+    for all timesteps in the batch for all threads;
+\end{itemize}
+
+Although it is conservative, we choose the third option, which is the
+only reasonable option not requiring a highly optimized local maxima
+sharing synchronization. One consequence of using this option with
+batching is that if the remaining time to be simulated is less than the
+time that will be simulated per batch-step, we could end up unnecessarily
+running multiple timesteps with a very small \texttt{dt} to finish the
+simulation. In order to address this issue, we dynamically adjust the
+number of timesteps in a batch (instead of the \texttt{dt} when we
+encounter this situation so that we always run the minimum number of
+timesteps required to simulate the specified amount of time.
+
+\input{fig-parallel-device-batching-results}
+
+The results of this have been plotted for the Phi here, noting that achieving
+the speedup we see there \emph{considering} the aforementioned memory transfer
+hinderances of our current implementation, indicate that this batching strategy
+is rather effective!

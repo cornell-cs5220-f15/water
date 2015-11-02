@@ -1,0 +1,32 @@
+#=========================================================================
+# Python Module Makefile Fragment
+#=========================================================================
+# This makefile fragment will automatically generate python plot PDF
+# files by first running the corresponding python script. To use this
+# module you need matlab installed as well as pdfcrop for cropping and
+# ps2pdfwr for font embedding. A user should simply add
+# \includegraphics{plot-foo.py.pdf} and the build system will know that
+# it should run the plot-foo.py script in the mat directory to create the
+# corresponding PDF. Please read the documenation in 'albs-uguide.txt'
+# for more details on how the Automatic LaTeX Build System works.
+
+PYTHON   = @python@
+PDFCROP  = @pdfcrop@
+PS2PDFWR = @ps2pdfwr@
+
+py_enabled     = @py_enabled@
+py_figs        = $(filter %.py.pdf, $(figs))
+py_prebuild    = $(py_figs)
+py_dir         = $(top_dir)/py
+
+$(py_figs) : %.py.pdf : %.py
+	$(PYTHON) $<
+	$(PDFCROP) $*.py.pdf $*-crop.py.pdf
+	$(PS2PDFWR) -dPDFSETTINGS=/prepress $*-crop.py.pdf $*-crop-embed.py.pdf
+	mv $*-crop-embed.py.pdf $*.py.pdf
+
+junk += \
+  $(py_figs) \
+  $(patsubst %.py.pdf, %-crop.py.pdf, $(py_figs)) \
+  $(patsubst %.py.pdf, %-crop-embed.py.pdf, $(py_figs))
+

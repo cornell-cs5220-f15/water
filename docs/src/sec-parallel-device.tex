@@ -1,0 +1,163 @@
+%=========================================================================
+% sec-parallel-device
+%=========================================================================
+
+\subsection{Parallelizing for the Accelerator Board}
+\label{sec-parallel-device}
+
+There are several ways we can leverage the Intel Xeon Phi accelerator
+boards to further increase the speedups we see with the parallelized
+implementation for the compute nodes. One approach is to execute the code
+natively on the accelerator itself with no fine-grain
+offloading. Although this approach makes it easier to tailor the code for
+the accelerator and reduces overheads of copying data between the host
+and the device memories, we are forced to run all the computation from
+start to end on the accelerator. Another approach is to only offload
+certain sections of the computation to the accelerator. With this
+approach, there is a greater burden on the programmer to identify and
+parallelize the most compute-intensive section of the code, but allows
+him or her more flexibility in choosing which sections to accelerate.
+
+As a starting point, we chose the second approach of offloading specific
+sections of the computation to the accelerator and build off of the
+parallel implementation for the compute nodes discussed in
+Section~\ref{sec-parallel-node}. In this naive first-pass, we offload the
+parallel section of the code and pass in the dimensions of the global
+grid and the blocks, as well as a pointer to the global grid
+itself. Inside the offloaded kernel, we still spawn off the specified
+number of threads normally, except that instead of using pre-allocated
+member \texttt{LocalState} objects, each thread creates its own
+\texttt{LocalState} object on the stack. The \texttt{copy\_to\_local()} and
+\texttt{copy\_from\_local()} functions were modified to copy the
+flattened elements of the global grid passed in by the host to the local
+grid vectors. Once the copy is complete, the other functions in the
+offloaded kernel can take a pointer to the per-thread \texttt{LocalState}
+object as an argument and access the vectors in this object similar to
+before.  Because this naive implementation requires us to offload
+computation before every timestep, there is an unnecessarily high
+overhead of transferring data between the host and device memories.
+
+We continued to optimize the parallel implementation for the accelerator
+by offloading the entire \texttt{run()} function of the simulator. In
+this approach, one main thread on the accelerator is responsible for
+running the \texttt{apply\_periodic()} and \texttt{compute\_wave\_speeds()}
+functions before parallelizing computation across multiple threads on the
+accelerator for the other functions mentioned above. The benefit of this
+approach is that we do not have to incur the overhead of copying data
+between the host and the accelerator memories for offloading the
+computation kernel for \emph{every} timestep. Instead, we only pay this
+overhead once per frame in order to keep data local to the accelerator
+for as long as possible. Note that here we only need to copy the global
+grid vectors (i.e., \texttt{u\_offload}) and the simulator parameters
+(e.g., \texttt{nx}, \texttt{nxblocks}, etc.) during the
+offload. Functions meant to be called from the accelerator are annotated
+with the \texttt{\_\_declspec(target(mic))} attribute and must
+essentially be pure functions. In order to make it easier to pass in
+simulator parameters to these functions that normally rely on the
+simulator's member variables, we encapsulate the parameters copied to the
+accelerator in a separate \texttt{Parameters} class.
+
+\input{fig-parallel-device-results}
+
+As the results show in Figure 4, although we were successful in running the algorithm
+correctly on the Phi's, we hit a large bottleneck with respect to transferring memory.
+The entire global \texttt{u} solution values must be copied over and back in each
+frame (back so that the output can be written to disk).  Two very important components
+of the Phi programming model are
+
+\begin{enumerate}[1.]
+	\item Transfer as little memory as possible,
+	\item Attempt to do all allocations on the Phi at one time, and as infrequently as possible.
+\end{enumerate}
+
+So while transferring the global \texttt{u} values back and forth is not avoidable, an elegant
+approach to avoiding allocation on the Phi when offloading within a loop was learned from the
+tutorial here\\\\\centerline{https://software.intel.com/en-us/videos/part-2-efficient-parallel-programming-of-intel-xeon-processors-and-intel-xeon-phi}\\\\ 
+is to \texttt{alloc\_if( < first iteration > )} \emph{only}, and \texttt{free\_if( < last iteration > )} \emph{only}.
+Apparently, if you don't also change the \texttt{length(...)} specifier to be 0 you will still transfer things.
+The point being that data re-use is fundamentally important.  Our current device implementation runs the initialization of all \texttt{LocalState}
+structs on the Phi, which requires the allocation of much new memory.  We see a slowdown when compared to the node implementation because
+of the significant memory overhead of creating new initial contiditions for each loop of \texttt{Sim::run}.
+This is largely because we are severely limited by C++ in the sense that classes and structs with things
+such as dynamically allocated arrays like \texttt{std::vector} are very difficult to serialize.  There is a
+branch on the repository called \emph{may\_as\_well} that attempts this, but it segfaults.  The most useful
+lesson from that branch is that if you have a bunch of different \texttt{std::vector}'s, you can combine
+them into one.
+
+\noindent For example, instead of the current \texttt{local\_state.h} you can redefine internal fields and leave all the indexing functions the same
+by doing
+{\tiny
+\begin{lstlisting}
+    LocalState(int nx, int ny)
+        : nx(nx), ny(ny),
+          size(nx*ny),
+          serial(
+              (size) +// u_ // 0
+              (size) +// v_ // 1
+              ...
+              (size) +// fx_// 6
+              (size)  // gy_// 7
+          ){
+        vec *start = serial.data();
+        u_         = start + (0*size);
+        v_         = start + (1*size);
+        ...
+        fx_        = start + (6*size);
+        gy_        = start + (7*size);
+    }
+
+    // Array accessor functions
+    inline vec& u(int ix, int iy)  { return *(u_+offset(ix,iy));  }
+    inline vec& v(int ix, int iy)  { return *(v_+offset(ix,iy));  }
+    ...
+    inline vec& fx(int ix, int iy) { return *(fx_+offset(ix,iy)); }
+    inline vec& gy(int ix, int iy) { return *(gy_+offset(ix,iy)); }
+
+    ...
+    // danger: don't touch these if you don't know what you are doing...
+    int nx, ny, size;
+    aligned_vector serial;
+
+    // Helper to calculate 1D offset from 2D coordinates
+    inline int offset(int ix, int iy) const { return iy*nx+ix; }
+
+    vec *u_;  // Solution values
+    vec *v_;  // Solution values at next step
+    ...
+    vec *fx_; // x differences of f
+    vec *gy_; // y differences of g
+\end{lstlisting}
+}
+
+This makes serialization much more feasible.  Alas, the real solution here is to avoid working with C++ for Phi code
+altogether if possible, which is rather frustrating.  They are not bitwise serializable (or at least not trivially so)
+meaning direct transfer to the Phi is not possible.  Furthermore, after playing around with aligned allocators for the
+\texttt{std::vector}, we discovered that the Phi compiler is rather outdated -- it is using g++ 4.7.0, which has a subtle
+but significant impact on the way custom allocators must be written.  We were unable to make our custom allocator
+backwards compatible.
+
+In short, the pitfall of our current implementation is that the most ideal solution would enable re-use of memory on the
+Phi's since it should not actually be necessary to keep transferring all of the \texttt{LocalState} objects over, nor
+have to create them on the Phi each time.  The overhead associated with achieving this, though, is no small task and
+we were unable to do it correctly.  That is, the act of explicitly allocating the \texttt{LocalState} on the Phi each
+execution of \texttt{Sim::run} is why we have such a slowdown, since allocation of memory on the Phi is so slow.
+
+\subsection{Alternatives for Parallelizing for the Accelerator Board}
+\label{sec-parallel-device-alternatives}
+
+Another idea that we tried to implement, but did not have time to take very seriously, is the idea of only offloading
+specific parts of the domain to a given Phi.  We currently only offload things to one Phi, and in the presence of two
+Phi's we have great potential for more speedup.  The general idea would be to split the domain into two roughly equal
+parts, say the top half of the grid and the bottom half of the grid.  From there you can sub-block out using a similar
+strategy to our currrent \texttt{LocalState} to improve throughput (making sure to reuse memory!), and the piece that would have to tie things together
+(that would not exactly be easy) is the boundary conditions.  If you consider the boundary between the top and the bottom
+halves of the computation, all of the elements in the upper half of the grid need to access data sent to the lower half.
+Inter-Phi communication would not actually be necessary (were it even possible), if you recognize that for sufficiently large
+enough grid sizes in conjunction with a relatively small and finite number of boundary conditions to communicate, you
+can have the node fill in the gaps.
+
+Specifically, when you consider the top half on \texttt{mic0}, you have it start in the center of its computational boundary
+and work in a sort of spiral pattern outward.  The left and right edges are already in its local memory in terms of the wrap
+around, so the only thing that we are concerned about are the upper and lower edges of the computation.  Since these boundaries
+are relatively small, you can have the host node compute the boundaries locally and send it to both Phi's.  Yes, there would
+be redundant computation, but if done correctly we believe this would have produced some very interesting results.

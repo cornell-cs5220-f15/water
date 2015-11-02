@@ -1,0 +1,27 @@
+#!/bin/sh -l
+
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=0:30:00
+#PBS -N shallow-pnode
+#PBS -j oe
+
+#
+# A complete call of this would look something like
+#     qsub -v SIZE=800,TYPE=pond,THREAD_X=4,THREAD_Y=4 shallow-pnode.pbs
+#
+
+# if not called with SIZE=???, set to 200
+DISPATCH_SIZE=${SIZE:-200}
+
+# type can be dam_break, pond, river, or wave
+DISPATCH_TYPE=${TYPE:-"dam_break"}
+
+# thread x, default 2
+X_THREADS=${THREAD_X:-2}
+
+# thread y, default 2
+Y_THREADS=${THREAD_Y:-2}
+
+module load cs5220
+cd $PBS_O_WORKDIR
+./shallow-pnode -x $X_THREADS -y $Y_THREADS -b 1 -i $DISPATCH_TYPE -o $DISPATCH_TYPE".out" -n $DISPATCH_SIZE

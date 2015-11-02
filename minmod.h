@@ -1,6 +1,10 @@
 #ifndef MINMOD_H
 #define MINMOD_H
 
+#ifdef _PARALLEL_DEVICE
+    #pragma offload_attribute(push,target(mic))
+#endif
+
 #include <cmath>
 
 //ldoc on
@@ -59,24 +63,33 @@
 
 template <class real>
 struct MinMod {
-    static constexpr real theta = 2.0;
+    static constexpr real theta = 2.0f;
 
     // Branch-free computation of minmod of two numbers
-    static real xmin(real a, real b) {
-        using namespace std;
-        return ((copysign((real) 0.5, a) +
-                 copysign((real) 0.5, b)) *
-                min( abs(a), abs(b) ));
+    #pragma omp declare simd
+    static inline real xmin2s(real s, real a, real b) {
+        real sa = copysignf(s, a);
+        real sb = copysignf(s, b);
+        real abs_a = fabsf(a);
+        real abs_b = fabsf(b);
+        real min_abs = (abs_a < abs_b ? abs_a : abs_b);
+        return (sa+sb) * min_abs;
     }
 
     // Limited combined slope estimate
-    static real limdiff(real um, real u0, real up) {
+    #pragma omp declare simd
+    static inline real limdiff(real um, real u0, real up) {
         real du1 = u0-um;         // Difference to left
         real du2 = up-u0;         // Difference to right
-        real duc = 0.5*(du1+du2); // Centered difference
-        return xmin( theta*xmin(du1, du2), duc );
+        real duc = up-um;         // Centered difference
+        return xmin2s( 0.25f, xmin2s(theta, du1, du2), duc );
     }
+
+
 };
 
+#ifdef _PARALLEL_DEVICE
+    #pragma offload_attribute(pop)
+#endif
 //ldoc off
 #endif /* MINMOD_H */

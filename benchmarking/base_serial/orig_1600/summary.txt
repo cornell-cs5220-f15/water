@@ -1,0 +1,35 @@
+
+Collection and Platform Info
+----------------------------
+Parameter                 r000ah                                                                          
+------------------------  --------------------------------------------------------------------------------
+Application Command Line  ./shallow "-i" "dam_break" "-o" "dam_break.out" "-n" "1600"                     
+User Name                 sjm324                                                                          
+Operating System          2.6.32-573.3.1.el6.x86_64 Red Hat Enterprise Linux Server release 6.7 (Santiago)
+Computer Name             en-cs-totient-04.coecis.cornell.edu                                             
+Result Size               1101121864                                                                      
+Collection start time     23:22:15 25/10/2015 UTC                                                         
+Collection stop time      23:37:44 25/10/2015 UTC                                                         
+
+CPU
+---
+Parameter          r000ah                             
+-----------------  -----------------------------------
+Name               Intel(R) Xeon(R) E5/E7 v3 processor
+Frequency          2399999400                         
+Logical CPU Count  24                                 
+
+Summary
+-------
+Elapsed Time:       929.226
+CPU Time:           924.591
+Average CPU Usage:  1.000  
+CPI Rate:           0.570  
+
+Event summary
+-------------
+Hardware Event Type       Hardware Event Count:Self  Hardware Event Sample Count:Self  Events Per Sample
+------------------------  -------------------------  --------------------------------  -----------------
+CPU_CLK_UNHALTED.THREAD               2958156000000                           1232565  2400000          
+CPU_CLK_UNHALTED.REF_TSC              2219018400000                            924591  2400000          
+INST_RETIRED.ANY                      5187780000000                           2161575  2400000          

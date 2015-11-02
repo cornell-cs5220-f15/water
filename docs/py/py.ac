@@ -1,0 +1,23 @@
+#=========================================================================
+# Python Module Autoconf Fragment
+#=========================================================================
+# We check to see if python and pdfcrop are in the path and if so, we set
+# the @python@ and @pdfcrop@ make variables appropriately. The
+# configuration does not fail if these programs are unavailable and
+# instead the make variables will be set to "no". This allows situations
+# where there are no python figures or where the generated pdfs have been
+# prebuilt. Please read the documenation in 'albs-uguide.txt' for more
+# details on how the Automatic LaTeX Build System works.
+
+AC_CHECK_PROGS([python],[python],[no])
+AC_CHECK_PROGS([pdfcrop],[pdfcrop],[no])
+AC_CHECK_PROGS([ps2pdfwr],[ps2pdfwr],[no])
+AS_IF([test "$python" = "no" || test "$pdfcrop" = "no" || test "$ps2pdfwr" = "no"],
+[
+  AC_MSG_WARN([Could not find python, pdfcrop, and/or ps2pdfwr])
+  AC_MSG_WARN([You will be unable to generate python figures])
+  py_enabled=no
+],[
+  py_enabled=yes
+])
+

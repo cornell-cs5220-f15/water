@@ -1,0 +1,30 @@
+#!/bin/sh -l
+
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=0:30:00
+#PBS -N shallow-pdevice
+#PBS -j oe
+
+#
+# A complete call of this would look something like
+#     qsub -v SIZE=800,TYPE=pond,THREAD_X=4,THREAD_Y=4 shallow-pdevice.pbs
+#
+
+# if not called with SIZE=???, set to 200
+DISPATCH_SIZE=${SIZE:-200}
+
+# type can be dam_break, pond, river, or wave
+DISPATCH_TYPE=${TYPE:-"dam_break"}
+
+# thread x, default 2
+X_THREADS=${THREAD_X:-2}
+
+# thread y, default 2
+Y_THREADS=${THREAD_Y:-2}
+
+# num blocks to dispatch
+NUM_BLOCKS=${BLOCKS:-1}
+
+module load cs5220
+cd $PBS_O_WORKDIR
+./shallow-pdevice -x $X_THREADS -y $Y_THREADS -b $NUM_BLOCKS -i $DISPATCH_TYPE -o $DISPATCH_TYPE".out" -n $DISPATCH_SIZE

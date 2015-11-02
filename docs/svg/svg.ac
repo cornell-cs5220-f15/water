@@ -1,0 +1,21 @@
+#=========================================================================
+# SVG Module Autoconf Fragment
+#=========================================================================
+# We check to see if inkscape is in the path and if so we set the
+# @inkscape@ make variables appropriately. The configuration does not
+# fail if this program is unavailable and instead the make variables will
+# be set to "no". This allows situations where there are no svg figures
+# or where the generated pdfs have been prebuilt. Please read the
+# documenation in 'albs-uguide.txt' for more details on how the Automatic
+# LaTeX Build System works.
+
+AC_CHECK_PROGS([inkscape],[inkscape],[no])
+AS_IF([test "$inkscape" = "no"],
+[
+  AC_MSG_WARN([Could not find inkscape])
+  AC_MSG_WARN([You will be unable to convert SVG to PDF])
+  svg_enabled=no
+],[
+  svg_enabled=yes
+])
+
