@@ -1,7 +1,7 @@
-#include "central2d.h"
-#include "shallow2d.h"
-#include "minmod.h"
+#include "BlockedSimulation.h"
 #include "meshio.h"
+#include "minmod.h"
+#include "shallow2d.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -89,70 +89,70 @@ void wave(Sim::vec& u, double x, double y)
 
 int main(int argc, char** argv)
 {
-    std::string fname = "waves.out";
-    std::string ic = "dam_break";
-    int    nx = 200;
-    double width = 2.0;
-    double ftime = 0.01;
-    int    frames = 50;
+  std::string fname = "waves.out";
+  std::string ic = "dam_break";
+  int    nx = 200;
+  double width = 2.0;
+  double ftime = 0.01;
+  int    frames = 50;
 
-    int c;
-    extern char* optarg;
-    while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
-        switch (c) {
-        case 'h':
-            fprintf(stderr,
-                    "%s\n"
-                    "\t-h: print this message\n"
-                    "\t-i: initial conditions (%s)\n"
-                    "\t-o: output file name (%s)\n"
-                    "\t-n: number of cells per side (%d)\n"
-                    "\t-w: domain width in cells (%g)\n"
-                    "\t-f: time between frames (%g)\n"
-                    "\t-F: number of frames (%d)\n",
-                    argv[0], ic.c_str(), fname.c_str(),
-                    nx, width, ftime, frames);
-            return -1;
-        case 'i':  ic     = optarg;          break;
-        case 'o':  fname  = optarg;          break;
-        case 'n':  nx     = atoi(optarg);    break;
-        case 'w':  width  = atof(optarg);    break;
-        case 'f':  ftime  = atof(optarg);    break;
-        case 'F':  frames = atoi(optarg);    break;
-        default:
-            fprintf(stderr, "Unknown option (-%c)\n", c);
-            return -1;
-        }
-    }
+  int c;
+  extern char* optarg;
+  while ((c = getopt(argc, argv, "hi:o:n:w:F:f:")) != -1) {
+      switch (c) {
+      case 'h':
+          fprintf(stderr,
+                  "%s\n"
+                  "\t-h: print this message\n"
+                  "\t-i: initial conditions (%s)\n"
+                  "\t-o: output file name (%s)\n"
+                  "\t-n: number of cells per side (%d)\n"
+                  "\t-w: domain width in cells (%g)\n"
+                  "\t-f: time between frames (%g)\n"
+                  "\t-F: number of frames (%d)\n",
+                  argv[0], ic.c_str(), fname.c_str(),
+                  nx, width, ftime, frames);
+          return -1;
+      case 'i':  ic     = optarg;          break;
+      case 'o':  fname  = optarg;          break;
+      case 'n':  nx     = atoi(optarg);    break;
+      case 'w':  width  = atof(optarg);    break;
+      case 'f':  ftime  = atof(optarg);    break;
+      case 'F':  frames = atoi(optarg);    break;
+      default:
+        fprintf(stderr, "Unknown option (-%c)\n", c);
+        return -1;
+      }
+  }
 
-    void (*icfun)(Sim::vec& u, double x, double y) = dam_break;
-    if (ic == "dam_break") {
-        icfun = dam_break;
-    } else if (ic == "pond") {
-        icfun = pond;
-    } else if (ic == "river") {
-        icfun = river;
-    } else if (ic == "wave") {
-        icfun = wave;
-    } else {
-        fprintf(stderr, "Unknown initial conditions\n");
-    }
+  void (*icfun) (Sim::vec& u, double x, double y) = dam_break;
+  if (ic == "dam_break") {
+    icfun = dam_break;
+  } else if (ic == "pond") {
+    icfun = pond;
+  } else if (ic == "river") {
+    icfun = river;
+  } else if (ic == "wave") {
+    icfun = wave;
+  } else {
+    fprintf(stderr, "Unknown initial conditions\n");
+  }
 
-    Sim sim(width,width, nx,nx);
-    SimViz<Sim> viz(fname.c_str(), sim);
-    sim.init(icfun);
+  BlockedSimulation sim(width, width, nx, nx);
+  SimViz<BlockedSimulation> viz(fname.c_str(), sim);
+  sim.init(icfun);
+  sim.solution_check();
+  viz.write_frame();
+
+  for (int i = 0; i < frames; ++i) {
+    double t0 = omp_get_wtime();
+    sim.run(ftime);
+    double t1 = omp_get_wtime();
+
+    // Print wall-clock time
+    printf("%e\n", t1 - t0);
+
     sim.solution_check();
     viz.write_frame();
-    for (int i = 0; i < frames; ++i) {
-#ifdef _OPENMP
-        double t0 = omp_get_wtime();
-        sim.run(ftime);
-        double t1 = omp_get_wtime();
-        printf("\tTime: %e\n", t1-t0);
-#else
-        sim.run(ftime);
-#endif
-        sim.solution_check();
-        viz.write_frame();
-    }
+  }
 }

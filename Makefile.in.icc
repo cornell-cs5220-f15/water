@@ -1,9 +1,7 @@
 CXX=icpc
-CXXFLAGS=-std=c++14 -g -openmp
+CXXFLAGS=-std=c++14 -pedantic -Wall -Werror -g
+ANALYSIS=-qopt-report=5 -qopt-report-phase=vec -parallel-source-info=2
+OPTFLAGS=-O3 -no-prec-div -opt-prefetch -xHost -ansi-alias -openmp -ipo -restrict
 
-# If you're using icc, these are good flags to try
-OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo \
-	-qopt-report=5 -qopt-report-phase=vec
-
-CXXFLAGS+=$(OPTFLAGS)
+CXXFLAGS+=$(OPTFLAGS) $(ANALYSIS)
 PYTHON=python
