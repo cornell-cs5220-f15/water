@@ -1,0 +1,67 @@
+Source Line  Source                                                                           CPU Time  Spin Time  Overhead Time
+-----------  -------------------------------------------------------------------------------  --------  ---------  -------------
+304          /**                                                                                                                
+305           * ### Advancing a time step                                                                                       
+306           *                                                                                                                 
+307           * Take one step of the numerical scheme.  This consists of two pieces:                                            
+308           * a first-order corrector computed at a half time step, which is used                                             
+309           * to obtain new $F$ and $G$ values; and a corrector step that computes                                            
+310           * the solution at the full step.  For full details, we refer to the                                               
+311           * [Jiang and Tadmor paper][jt].                                                                                   
+312           *                                                                                                                 
+313           * The `compute_step` function takes two arguments: the `io` flag                                                  
+314           * which is the time step modulo 2 (0 if even, 1 if odd); and the `dt`                                             
+315           * flag, which actually determines the time step length.  We need                                                  
+316           * to know the even-vs-odd distinction because the Jiang-Tadmor                                                    
+317           * scheme alternates between a primary grid (on even steps) and a                                                  
+318           * staggered grid (on odd steps).  This means that the data at $(i,j)$                                             
+319           * in an even step and the data at $(i,j)$ in an odd step represent                                                
+320           * values at different locations in space, offset by half a space step                                             
+321           * in each direction.  Every other step, we shift things back by one                                               
+322           * mesh cell in each direction, essentially resetting to the primary                                               
+323           * indexing scheme.                                                                                                
+324           */                                                                                                                
+325                                                                                                                             
+326          template <class Physics, class Limiter>                                                                            
+327          void Central2D<Physics, Limiter>::compute_step(int io, real dt)                                                    
+328          {                                                                                                                  
+329              real dtcdx2 = 0.5 * dt / dx;                                                                                   
+330              real dtcdy2 = 0.5 * dt / dy;                                                                                   
+331                                                                                                                             
+332              // Predictor (flux values of f and g at half step)                                                             
+333              for (int iy = 1; iy < ny_all-1; ++iy)                                                                          
+334                  for (int ix = 1; ix < nx_all-1; ++ix) {                                                                    
+335                      vec uh = u(ix,iy);                                                     0.009s         0s             0s
+336                      for (int m = 0; m < uh.size(); ++m) {                                                                  
+337                          uh[m] -= dtcdx2 * fx(ix,iy)[m];                                                                    
+338                          uh[m] -= dtcdy2 * gy(ix,iy)[m];                                    0.035s         0s             0s
+339                      }                                                                                                      
+340                      Physics::flux(f(ix,iy), g(ix,iy), uh);                                                                 
+341                  }                                                                                                          
+342                                                                                                                             
+343              // Corrector (finish the step)                                                                                 
+344              for (int iy = nghost-io; iy < ny+nghost-io; ++iy)                                                              
+345                  for (int ix = nghost-io; ix < nx+nghost-io; ++ix) {                        0.009s         0s             0s
+346                      for (int m = 0; m < v(ix,iy).size(); ++m) {                                                            
+347                          v(ix,iy)[m] =                                                      0.104s         0s             0s
+348                              0.2500 * ( u(ix,  iy)[m] + u(ix+1,iy  )[m] +                   0.004s         0s             0s
+349                                         u(ix,iy+1)[m] + u(ix+1,iy+1)[m] ) -                 0.027s         0s             0s
+350                              0.0625 * ( ux(ix+1,iy  )[m] - ux(ix,iy  )[m] +                                                 
+351                                         ux(ix+1,iy+1)[m] - ux(ix,iy+1)[m] +                                                 
+352                                         uy(ix,  iy+1)[m] - uy(ix,  iy)[m] +                                                 
+353                                         uy(ix+1,iy+1)[m] - uy(ix+1,iy)[m] ) -               0.005s         0s             0s
+354                              dtcdx2 * ( f(ix+1,iy  )[m] - f(ix,iy  )[m] +                                                   
+355                                         f(ix+1,iy+1)[m] - f(ix,iy+1)[m] ) -                 0.037s         0s             0s
+356                              dtcdy2 * ( g(ix,  iy+1)[m] - g(ix,  iy)[m] +                   0.005s         0s             0s
+357                                         g(ix+1,iy+1)[m] - g(ix+1,iy)[m] );                  0.039s         0s             0s
+358                      }                                                                                                      
+359                  }                                                                                                          
+360                                                                                                                             
+361              // Copy from v storage back to main grid                                                                       
+362              for (int j = nghost; j < ny+nghost; ++j){                                                                      
+363                  for (int i = nghost; i < nx+nghost; ++i){                                  0.011s         0s             0s
+364                      u(i,j) = v(i-io,j-io);                                                 0.019s         0s             0s
+365                  }                                                                                                          
+366              }                                                                                                              
+367          }                                                                                                                  
+368                                                                                                                             

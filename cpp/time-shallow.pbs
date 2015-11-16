@@ -1,0 +1,15 @@
+#!/bin/sh -l
+
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=0:30:00
+#PBS -N time-shallow
+#PBS -j oe
+
+module load cs5220
+cd $PBS_O_WORKDIR
+mkdir timing
+for nval in {100..1000..100}; do
+	echo "Running simulation with n = $nval"
+	./shallow -i dam_break -o dam_break.out -n $nval > timing/run$nval.out
+done
+

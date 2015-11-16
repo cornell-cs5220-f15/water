@@ -1,0 +1,21 @@
+Source Line  Source                                                                     CPU Time  Spin Time  Overhead Time
+-----------  -------------------------------------------------------------------------  --------  ---------  -------------
+260                                                                                                                       
+261          template <class Physics, class Limiter>                                                                      
+262          void Central2D<Physics, Limiter>::compute_fg_speeds(real& cx_, real& cy_)                                    
+263          {                                                                                                            
+264              using namespace std;                                                                                     
+265              real cx = 1.0e-15;                                                                                       
+266              real cy = 1.0e-15;                                                                                       
+267              for (int iy = 0; iy < ny_all; ++iy)                                                                      
+268                  for (int ix = 0; ix < nx_all; ++ix) {                                0.013s         0s             0s
+269                      real cell_cx, cell_cy;                                                                           
+270                      Physics::flux(f(ix,iy), g(ix,iy), u(ix,iy));                                                     
+271                      Physics::wave_speed(cell_cx, cell_cy, u(ix,iy));                                                 
+272                      cx = max(cx, cell_cx);                                           0.025s         0s             0s
+273                      cy = max(cy, cell_cy);                                           0.004s         0s             0s
+274                  }                                                                                                    
+275              cx_ = cx;                                                                                                
+276              cy_ = cy;                                                                                                
+277          }                                                                                                            
+278                                                                                                                       

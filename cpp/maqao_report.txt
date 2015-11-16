@@ -1,0 +1,183 @@
+Section 1: Function: Central2D<Shallow2D, MinMod<float> >::compute_step(int, float)
+===================================================================================
+
+These loops are supposed to be defined in: /home/ejt64/water/central2d.h
+
+Section 1.1: Source loop ending at line 338
+===========================================
+
+Composition and unrolling
+-------------------------
+It is composed of the loop 26
+and is not unrolled or unrolled with no peel/tail code (including vectorization).
+The analysis will be displayed for the first found loop: 26
+
+Type of elements and instruction set
+------------------------------------
+15 SSE or AVX instructions are processing arithmetic or math operations on single precision FP elements in scalar mode (one at a time).
+4 SSE or AVX instructions are processing arithmetic or math operations on double precision FP elements in scalar mode (one at a time).
+
+Vectorization
+-------------
+Your loop is not vectorized (all SSE/AVX instructions are used in scalar mode).
+Only 14% of vector length is used.
+
+Matching between your loop (in the source code) and the binary loop
+-------------------------------------------------------------------
+The binary loop is composed of 22 FP arithmetical operations:
+ - 5: addition or subtraction
+ - 10: multiply
+ - 3: fused multiply-add
+ - 1: divide
+The binary loop is loading 72 bytes (18 single precision FP elements).
+The binary loop is storing 24 bytes (6 single precision FP elements).
+
+Arithmetic intensity is 0.23 FP operations per loaded or stored byte.
+
+Cycles and resources usage
+--------------------------
+Assuming all data fit into the L1 cache, each iteration of the binary loop takes 13.25 cycles. At this rate:
+ - 5% of peak computational performance is reached (1.66 out of 32.00 FLOP per cycle (GFLOPS @ 1GHz))
+ - 8% of peak load performance is reached (5.43 out of 64.00 bytes loaded per cycle (GB/s @ 1GHz))
+ - 5% of peak store performance is reached (1.81 out of 32.00 bytes stored per cycle (GB/s @ 1GHz))
+
+Pathological cases
+------------------
+Your loop is processing FP elements but is NOT OR PARTIALLY VECTORIZED and could benefit from full vectorization.
+Since your execution units are vector units, only a fully vectorized loop can use their full power.
+By fully vectorizing your loop, you can lower the cost of an iteration from 13.25 to 3.18 cycles (4.17x speedup).
+Two propositions:
+ - Try another compiler or update/tune your current one:
+  * Intel: use the vec-report option to understand why your loop was not vectorized. If "existence of vector dependences", try the IVDEP directive. If, using IVDEP, "vectorization possible but seems inefficient", try the VECTOR ALWAYS directive.
+ - Remove inter-iterations dependences from your loop and make it unit-stride.
+
+Detected EXPENSIVE INSTRUCTIONS, generating more than one micro-operation.
+Only one of these instructions can be decoded during a cycle and the extra micro-operations increase pressure on execution units.
+VCVTSD2SS: 2 occurrences
+VCVTSS2SD: 3 occurrences
+ - Pass to your compiler a micro-architecture specialization option:
+  * Intel: use axHost or xHost.
+
+Fix as many pathological cases as you can before reading the following sections.
+
+Bottlenecks
+-----------
+The ROB-read stage is a bottleneck.
+By removing all these bottlenecks, you can lower the cost of an iteration from 13.25 to 12.00 cycles (1.10x speedup).
+
+Section 1.2: Source loop ending at line 357
+===========================================
+
+Composition and unrolling
+-------------------------
+It is composed of the loop 24
+and is not unrolled or unrolled with no peel/tail code (including vectorization).
+The analysis will be displayed for the first found loop: 24
+
+Type of elements and instruction set
+------------------------------------
+54 SSE or AVX instructions are processing arithmetic or math operations on single precision FP elements in scalar mode (one at a time).
+9 SSE or AVX instructions are processing arithmetic or math operations on double precision FP elements in scalar mode (one at a time).
+
+Vectorization
+-------------
+Your loop is not vectorized (all SSE/AVX instructions are used in scalar mode).
+Only 13% of vector length is used.
+
+Matching between your loop (in the source code) and the binary loop
+-------------------------------------------------------------------
+The binary loop is composed of 69 FP arithmetical operations:
+ - 51: addition or subtraction
+ - 6: multiply
+ - 6: fused multiply-add
+The binary loop is loading 240 bytes (60 single precision FP elements).
+The binary loop is storing 12 bytes (3 single precision FP elements).
+
+Arithmetic intensity is 0.27 FP operations per loaded or stored byte.
+
+Cycles and resources usage
+--------------------------
+Assuming all data fit into the L1 cache, each iteration of the binary loop takes 54.00 cycles. At this rate:
+ - 3% of peak computational performance is reached (1.28 out of 32.00 FLOP per cycle (GFLOPS @ 1GHz))
+ - 6% of peak load performance is reached (4.44 out of 64.00 bytes loaded per cycle (GB/s @ 1GHz))
+ - 0% of peak store performance is reached (0.22 out of 32.00 bytes stored per cycle (GB/s @ 1GHz))
+
+Pathological cases
+------------------
+Your loop is processing FP elements but is NOT OR PARTIALLY VECTORIZED and could benefit from full vectorization.
+Since your execution units are vector units, only a fully vectorized loop can use their full power.
+By fully vectorizing your loop, you can lower the cost of an iteration from 54.00 to 7.50 cycles (7.20x speedup).
+Two propositions:
+ - Try another compiler or update/tune your current one:
+  * Intel: use the vec-report option to understand why your loop was not vectorized. If "existence of vector dependences", try the IVDEP directive. If, using IVDEP, "vectorization possible but seems inefficient", try the VECTOR ALWAYS directive.
+ - Remove inter-iterations dependences from your loop and make it unit-stride.
+
+Detected EXPENSIVE INSTRUCTIONS, generating more than one micro-operation.
+Only one of these instructions can be decoded during a cycle and the extra micro-operations increase pressure on execution units.
+VCVTSD2SS: 3 occurrences
+VCVTSS2SD: 12 occurrences
+ - Pass to your compiler a micro-architecture specialization option:
+  * Intel: use axHost or xHost.
+
+Fix as many pathological cases as you can before reading the following sections.
+
+Bottlenecks
+-----------
+The FP add unit is a bottleneck.
+Try to reduce the number of FP add instructions.
+
+By removing all these bottlenecks, you can lower the cost of an iteration from 54.00 to 40.50 cycles (1.33x speedup).
+
+Section 1.3: Source loop ending at line 364
+===========================================
+
+Composition and unrolling
+-------------------------
+It is composed of the loop 22
+and is not unrolled or unrolled with no peel/tail code (including vectorization).
+The analysis will be displayed for the first found loop: 22
+
+Type of elements and instruction set
+------------------------------------
+
+Vectorization
+-------------
+Your loop is not vectorized (all SSE/AVX instructions are used in scalar mode).
+Only 12% of vector length is used.
+
+Matching between your loop (in the source code) and the binary loop
+-------------------------------------------------------------------
+The binary loop does not contain any FP arithmetical operations.
+The binary loop is loading 12 bytes.
+The binary loop is storing 12 bytes.
+
+
+Cycles and resources usage
+--------------------------
+Assuming all data fit into the L1 cache, each iteration of the binary loop takes 3.00 cycles. At this rate:
+ - 6% of peak load performance is reached (4.00 out of 64.00 bytes loaded per cycle (GB/s @ 1GHz))
+ - 12% of peak store performance is reached (4.00 out of 32.00 bytes stored per cycle (GB/s @ 1GHz))
+
+Pathological cases
+------------------
+Your loop is processing FP elements but is NOT OR PARTIALLY VECTORIZED and could benefit from full vectorization.
+Since your execution units are vector units, only a fully vectorized loop can use their full power.
+By fully vectorizing your loop, you can lower the cost of an iteration from 3.00 to 0.75 cycles (4.00x speedup).
+Two propositions:
+ - Try another compiler or update/tune your current one:
+  * Intel: use the vec-report option to understand why your loop was not vectorized. If "existence of vector dependences", try the IVDEP directive. If, using IVDEP, "vectorization possible but seems inefficient", try the VECTOR ALWAYS directive.
+ - Remove inter-iterations dependences from your loop and make it unit-stride.
+
+Fix as many pathological cases as you can before reading the following sections.
+
+Bottlenecks
+-----------
+The store unit is a bottleneck.
+Try to reduce the number of stores.
+For example, provide more information to your compiler:
+ - hardcode the bounds of the corresponding 'for' loop,
+
+By removing all these bottlenecks, you can lower the cost of an iteration from 3.00 to 2.25 cycles (1.33x speedup).
+
+
+All innermost loops were analyzed.

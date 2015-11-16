@@ -79,6 +79,18 @@ struct Shallow2D {
         GU[1] = hu*hv/h;
         GU[2] = hv*hv/h + (0.5*g)*h*h;
     }
+  
+    static void flux(float &f0, float &f1, float& f2, float &g0, float &g1, float &g2, const float &u0, const float &u1, const float &u2) {
+        float h = u0, hu = u1, hv = u2; 
+      
+        f0 = hu;
+        f1 = hu*hu/h + (0.5*g)*h*h;
+        f2 = hu*hv/h;
+
+        g0 = hv;
+        g1 = hu*hv/h;
+        g2 = hv*hv/h + (0.5*g)*h*h;
+    }
 
     // Compute shallow water wave speed
     static void wave_speed(real& cx, real& cy, const vec& U) {
@@ -88,7 +100,14 @@ struct Shallow2D {
         cx = abs(hu/h) + root_gh;
         cy = abs(hv/h) + root_gh;
     }
-};
 
+    static void wave_speed(real& cx, real& cy, const float &u0, const float &u1, const float &u2) {
+        using namespace std;
+        real h = u0, hu = u1, hv = u2;
+        real root_gh = sqrt(g * h);  // NB: Don't let h go negative!
+        cx = abs(hu/h) + root_gh;
+        cy = abs(hv/h) + root_gh;
+    }
+};
 //ldoc off
 #endif /* SHALLOW2D_H */
